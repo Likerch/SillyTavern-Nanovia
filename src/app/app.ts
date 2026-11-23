@@ -6,7 +6,7 @@ import type { AccountStore } from '../core/account';
 import { createBus } from '../core/bus';
 import { createConnectionsService } from '../core/connections';
 import type { ConnectionsService } from '../core/connections';
-import { createEmptyCatalogStore } from '../core/catalog';
+import { createBrowserCatalogStore } from '../core/catalog-store';
 import type { Feature, FeatureContext } from '../core/context';
 import { createI18n, hostLocale } from '../core/i18n';
 import { ConsoleLogger, createLogger } from '../core/logger';
@@ -93,7 +93,7 @@ export async function startNanovia(options: StartOptions = {}): Promise<Runtime>
         log: log.scope('connections'),
     });
 
-    const catalog = createEmptyCatalogStore();
+    const catalog = createBrowserCatalogStore({ plugin, bus, log: log.scope('catalog') });
 
     // Money and the account (stage 0.4): both read the plugin through the same typed calls.
     const pluginAccount = createPluginAccount({ client: plugin });

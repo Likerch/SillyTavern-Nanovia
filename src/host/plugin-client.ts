@@ -43,6 +43,15 @@ export interface PluginClient {
     lastStatus(): ApiStatus | null;
     /** Forgets the cached availability. */
     invalidate(): void;
+    /**
+     * One raw call of the admin API (`path` starts with `/`, relative to PLUGIN_ADMIN_BASE) with the same headers,
+     * timeout and error mapping as the typed methods. For the typed clients of later stages (catalog, account …).
+     */
+    request(
+        method: string,
+        path: string,
+        options?: { body?: unknown; timeoutMs?: number },
+    ): Promise<PluginResult<unknown>>;
     listConnections(): Promise<PluginResult<ConnectionView[]>>;
     createConnection(
         input: Partial<ConnectionConfig> & { name: string; modelId: string },
@@ -55,12 +64,6 @@ export interface PluginClient {
     addKey(label: string, value: string): Promise<PluginResult<KeyInfo>>;
     deleteKey(id: string): Promise<PluginResult<true>>;
     checkKey(id: string): Promise<PluginResult<KeyCheck>>;
-    /**
-     * One raw call of the admin API (`path` starts with `/`, query included): what the typed wrappers of the stages
-     * (host/plugin-account.ts …) are built on. Same rules as every other method: never throws, a dead plugin is an
-     * ordinary error value, availability is noted.
-     */
-    request(method: string, path: string, body?: unknown, timeoutMs?: number): Promise<PluginResult<unknown>>;
 }
 
 export interface PluginClientDeps {
@@ -243,8 +246,6 @@ export function createPluginClient(deps: PluginClientDeps): PluginClient {
     }
 
     const client: PluginClient = {
-        request: (method, path, body, timeoutMs) => call(method, path, body, timeoutMs),
-
         async status() {
             const result = map(await call('GET', '/status'), parseStatus, 'status');
             if (result.ok) {
@@ -273,6 +274,10 @@ export function createPluginClient(deps: PluginClientDeps): PluginClient {
 
         invalidate(): void {
             cached = null;
+        },
+
+        request(method, path, options) {
+            return call(method, path, options?.body, options?.timeoutMs);
         },
 
         async listConnections() {

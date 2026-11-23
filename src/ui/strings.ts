@@ -14,6 +14,13 @@ export const UI_STRINGS: I18nParts = {
         'ui.general.language.en': 'English',
         'ui.general.debug': 'Debug logging',
         'ui.general.debugHint': 'Prints Nanovia details to the browser console. Keys and tokens are never printed.',
+        'ui.picker.loading': 'Loading the model catalog… You can type the id by hand.',
+        'ui.picker.unavailable': 'The model catalog is not available. Type the model id by hand.',
+        'ui.picker.noMatch': 'No catalog model matches. The text is used as the model id.',
+        'ui.picker.more': '{count} more: keep typing to narrow the list.',
+        'ui.picker.sub': 'sub',
+        'ui.picker.subTitle': 'Included in the subscription',
+        'ui.picker.priceTitle': 'USD per 1M tokens: prompt / completion',
     },
     ru: {
         'ui.title': 'Nanovia',
@@ -28,5 +35,12 @@ export const UI_STRINGS: I18nParts = {
         'ui.general.debug': 'Подробный журнал',
         'ui.general.debugHint':
             'Пишет подробности работы Nanovia в консоль браузера. Ключи и токены не выводятся никогда.',
+        'ui.picker.loading': 'Загружаю каталог моделей… Id можно ввести и вручную.',
+        'ui.picker.unavailable': 'Каталог моделей недоступен. Введите id модели вручную.',
+        'ui.picker.noMatch': 'В каталоге нет такой модели. Введённый текст будет использован как id модели.',
+        'ui.picker.more': 'Ещё {count}: продолжайте вводить, чтобы сузить список.',
+        'ui.picker.sub': 'подп.',
+        'ui.picker.subTitle': 'Входит в подписку',
+        'ui.picker.priceTitle': 'USD за 1M токенов: промпт / ответ',
     },
 };

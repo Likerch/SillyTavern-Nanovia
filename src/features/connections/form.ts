@@ -5,6 +5,7 @@ import type { FeatureContext } from '../../core/context';
 import type { KeyInfo } from '../../shared/contracts';
 import { button, chip, el, field, select, textArea, textInput, toggle } from '../../ui';
 import type { SelectOption } from '../../ui';
+import { modelPicker } from '../../ui/model-picker';
 import {
     BILLING_MODES,
     CONNECTION_MODES,
@@ -114,7 +115,10 @@ export function renderConnectionForm(deps: FormDeps): HTMLElement {
         ),
         field(
             t('connections.form.model'),
-            textInput({
+            // A searchable pick from the catalog; typing any id by hand works too (and is all there is without a catalog).
+            modelPicker({
+                catalog: ctx.catalog,
+                t,
                 value: form.modelId,
                 label: t('connections.form.model'),
                 maxLength: 200,

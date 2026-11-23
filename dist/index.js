@@ -106,7 +106,7 @@ function createHostModules(log, importer = importByUrl, origin = pageOrigin) {
 	};
 }
 // src/domain/connection.ts
-var QUANTIZATIONS = [
+var QUANTIZATIONS$1 = [
 	"int4",
 	"fp4",
 	"fp6",
@@ -117,7 +117,7 @@ var QUANTIZATIONS = [
 	"fp32",
 	"unknown"
 ];
-var SORTS = [
+var SORTS$1 = [
 	"default",
 	"price",
 	"throughput",
@@ -210,7 +210,7 @@ function createConnection(input, id, now) {
 }
 /** Applies a patch (already typed or raw) over a connection; unknown or invalid fields are ignored. */
 function mergeConnection(base, patch, now) {
-	const p = isRecord$9(patch) ? patch : {};
+	const p = isRecord$11(patch) ? patch : {};
 	const next = {
 		...base,
 		routing: {
@@ -231,9 +231,9 @@ function mergeConnection(base, patch, now) {
 	if (typeof p["webSearch"] === "boolean") next.webSearch = p["webSearch"];
 	if (typeof p["stripNeutralSamplers"] === "boolean") next.stripNeutralSamplers = p["stripNeutralSamplers"];
 	if (typeof p["note"] === "string") next.note = clip$1(p["note"], 1e3);
-	if (isRecord$9(p["routing"])) next.routing = mergeRouting(next.routing, p["routing"]);
-	if (isRecord$9(p["reasoning"])) next.reasoning = mergeReasoning(next.reasoning, p["reasoning"]);
-	if (isRecord$9(p["memory"])) {
+	if (isRecord$11(p["routing"])) next.routing = mergeRouting(next.routing, p["routing"]);
+	if (isRecord$11(p["reasoning"])) next.reasoning = mergeReasoning(next.reasoning, p["reasoning"]);
+	if (isRecord$11(p["memory"])) {
 		const m = p["memory"];
 		if (typeof m["enabled"] === "boolean") next.memory.enabled = m["enabled"];
 		if (m["expirationDays"] === null) next.memory.expirationDays = null;
@@ -248,7 +248,7 @@ function mergeConnection(base, patch, now) {
 * model). Everything else falls back to defaults, so a hand-edited file never crashes the plugin.
 */
 function normalizeConnection(raw, now) {
-	if (!isRecord$9(raw)) return null;
+	if (!isRecord$11(raw)) return null;
 	const id = raw["id"];
 	const name = raw["name"];
 	const modelId = raw["modelId"];
@@ -269,11 +269,11 @@ function mergeRouting(base, p) {
 	if (Array.isArray(p["order"])) next.order = ids(p["order"]);
 	if (Array.isArray(p["only"])) next.only = ids(p["only"]);
 	if (Array.isArray(p["ignore"])) next.ignore = ids(p["ignore"]);
-	if (isOneOf(SORTS, p["sort"])) next.sort = p["sort"];
-	if (Array.isArray(p["quantizations"])) next.quantizations = [...new Set(p["quantizations"].filter((q) => isOneOf(QUANTIZATIONS, q)))];
+	if (isOneOf(SORTS$1, p["sort"])) next.sort = p["sort"];
+	if (Array.isArray(p["quantizations"])) next.quantizations = [...new Set(p["quantizations"].filter((q) => isOneOf(QUANTIZATIONS$1, q)))];
 	if (p["minQuantization"] === null) next.minQuantization = null;
-	else if (isOneOf(QUANTIZATIONS, p["minQuantization"])) next.minQuantization = p["minQuantization"];
-	if (isRecord$9(p["maxPrice"])) {
+	else if (isOneOf(QUANTIZATIONS$1, p["minQuantization"])) next.minQuantization = p["minQuantization"];
+	if (isRecord$11(p["maxPrice"])) {
 		const mp = p["maxPrice"];
 		if (mp["prompt"] === null || isPrice$1(mp["prompt"])) next.maxPrice.prompt = mp["prompt"];
 		if (mp["completion"] === null || isPrice$1(mp["completion"])) next.maxPrice.completion = mp["completion"];
@@ -307,7 +307,7 @@ function ids(list) {
 	}
 	return out;
 }
-function isRecord$9(value) {
+function isRecord$11(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function isNumber(value) {
@@ -364,13 +364,13 @@ function isPluginDown(error) {
 var DEFAULT_TTL_MS = 5e3;
 var DEFAULT_TIMEOUT_MS = 1e4;
 var CHECK_TIMEOUT_MS = 3e4;
-function isRecord$8(value) {
+function isRecord$10(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function str(value) {
 	return typeof value === "string" ? value : null;
 }
-function invalid$1(what) {
+function invalid$2(what) {
 	return {
 		ok: false,
 		error: {
@@ -383,7 +383,7 @@ function invalid$1(what) {
 /** A connection of the wire as the browser uses it; null when it is not one. */
 function parseConnectionView(raw, now = Date.now()) {
 	const config = normalizeConnection(raw, now);
-	if (!config || !isRecord$8(raw)) return null;
+	if (!config || !isRecord$10(raw)) return null;
 	const proxyUrl = str(raw["proxyUrl"]);
 	const directUrl = str(raw["directUrl"]);
 	if (proxyUrl === null || directUrl === null) return null;
@@ -396,7 +396,7 @@ function parseConnectionView(raw, now = Date.now()) {
 	};
 }
 function parseStatus(raw) {
-	if (!isRecord$8(raw) || !isRecord$8(raw["proxy"])) return null;
+	if (!isRecord$10(raw) || !isRecord$10(raw["proxy"])) return null;
 	const proxy = raw["proxy"];
 	const version = str(raw["version"]);
 	const host = str(proxy["host"]);
@@ -415,7 +415,7 @@ function parseStatus(raw) {
 	};
 }
 function parseKey(raw) {
-	if (!isRecord$8(raw)) return null;
+	if (!isRecord$10(raw)) return null;
 	const id = str(raw["id"]);
 	if (!id) return null;
 	return {
@@ -426,7 +426,7 @@ function parseKey(raw) {
 	};
 }
 function parseKeyCheck(raw) {
-	if (!isRecord$8(raw) || typeof raw["ok"] !== "boolean") return null;
+	if (!isRecord$10(raw) || typeof raw["ok"] !== "boolean") return null;
 	return {
 		ok: raw["ok"],
 		usdBalance: str(raw["usdBalance"]),
@@ -495,7 +495,7 @@ function createPluginClient(deps) {
 				parsedOk = false;
 			}
 			if (!response.ok) {
-				const wire = isRecord$8(json) && isRecord$8(json["error"]) ? json["error"] : null;
+				const wire = isRecord$10(json) && isRecord$10(json["error"]) ? json["error"] : null;
 				const code = wire ? str(wire["code"]) : null;
 				const message = (wire ? str(wire["message"]) : null) ?? `HTTP ${response.status}`;
 				let resolved = code ?? `http_${response.status}`;
@@ -514,7 +514,7 @@ function createPluginClient(deps) {
 				};
 			}
 			noteAnswered();
-			if (!parsedOk) return invalid$1("response (not JSON)");
+			if (!parsedOk) return invalid$2("response (not JSON)");
 			return {
 				ok: true,
 				data: json
@@ -536,16 +536,15 @@ function createPluginClient(deps) {
 	function map(result, read, what) {
 		if (!result.ok) return result;
 		const value = read(result.data);
-		return value === null ? invalid$1(what) : {
+		return value === null ? invalid$2(what) : {
 			ok: true,
 			data: value
 		};
 	}
 	function viewOf(data) {
-		return isRecord$8(data) ? parseConnectionView(data["connection"], now()) : null;
+		return isRecord$10(data) ? parseConnectionView(data["connection"], now()) : null;
 	}
 	const client = {
-		request: (method, path, body, timeoutMs) => call(method, path, body, timeoutMs),
 		async status() {
 			const result = map(await call("GET", "/status"), parseStatus, "status");
 			if (result.ok) {
@@ -566,9 +565,12 @@ function createPluginClient(deps) {
 		invalidate() {
 			cached = null;
 		},
+		request(method, path, options) {
+			return call(method, path, options?.body, options?.timeoutMs);
+		},
 		async listConnections() {
 			return map(await call("GET", "/connections"), (data) => {
-				if (!isRecord$8(data) || !Array.isArray(data["connections"])) return null;
+				if (!isRecord$10(data) || !Array.isArray(data["connections"])) return null;
 				const views = [];
 				for (const item of data["connections"]) {
 					const view = parseConnectionView(item, now());
@@ -596,7 +598,7 @@ function createPluginClient(deps) {
 		},
 		async listKeys() {
 			return map(await call("GET", "/keys"), (data) => {
-				if (!isRecord$8(data) || !Array.isArray(data["keys"])) return null;
+				if (!isRecord$10(data) || !Array.isArray(data["keys"])) return null;
 				return data["keys"].map(parseKey).filter((key) => key !== null);
 			}, "key list");
 		},
@@ -604,7 +606,7 @@ function createPluginClient(deps) {
 			return map(await call("POST", "/keys", {
 				label,
 				value
-			}), (data) => isRecord$8(data) ? parseKey(data["key"]) : null, "key");
+			}), (data) => isRecord$10(data) ? parseKey(data["key"]) : null, "key");
 		},
 		async deleteKey(id) {
 			const result = await call("DELETE", `/keys/${encodeURIComponent(id)}`);
@@ -647,14 +649,14 @@ function emptyUsage() {
 * is the real cost only when the block says `isEstimate: false`; otherwise it is kept as `estimateUsd`.
 */
 function normalizeUsage(raw) {
-	if (!isRecord$7(raw)) return emptyUsage();
+	if (!isRecord$9(raw)) return emptyUsage();
 	const nested = raw["usage"];
-	if (nested !== void 0 && !isRecord$7(nested)) return emptyUsage();
-	const usage = isRecord$7(nested) ? nested : raw;
+	if (nested !== void 0 && !isRecord$9(nested)) return emptyUsage();
+	const usage = isRecord$9(nested) ? nested : raw;
 	const pricingRaw = raw["x_nanogpt_pricing"] ?? usage["x_nanogpt_pricing"];
-	const pricing = isRecord$7(pricingRaw) ? pricingRaw : null;
-	const promptDetails = isRecord$7(usage["prompt_tokens_details"]) ? usage["prompt_tokens_details"] : {};
-	const completionDetails = isRecord$7(usage["completion_tokens_details"]) ? usage["completion_tokens_details"] : {};
+	const pricing = isRecord$9(pricingRaw) ? pricingRaw : null;
+	const promptDetails = isRecord$9(usage["prompt_tokens_details"]) ? usage["prompt_tokens_details"] : {};
+	const completionDetails = isRecord$9(usage["completion_tokens_details"]) ? usage["completion_tokens_details"] : {};
 	const promptTokens = firstCount(usage["prompt_tokens"], usage["input_tokens"], pricing?.["inputTokens"]);
 	const completionTokens = firstCount(usage["completion_tokens"], usage["output_tokens"], pricing?.["outputTokens"]);
 	const totalTokens = firstCount(usage["total_tokens"]);
@@ -706,7 +708,7 @@ function normalizeUsage(raw) {
 	};
 }
 /** Rounds a USD amount to 1e-9 so sums of floats print cleanly (`0.1 + 0.2`). */
-function roundUsd(value) {
+function roundUsd$1(value) {
 	return Math.round(value * 1e9) / 1e9;
 }
 /**
@@ -778,8 +780,8 @@ function addRecord(totals, record) {
 function finish(totals) {
 	return {
 		...totals,
-		costUsd: roundUsd(totals.costUsd),
-		equivalentUsd: roundUsd(totals.equivalentUsd)
+		costUsd: roundUsd$1(totals.costUsd),
+		equivalentUsd: roundUsd$1(totals.equivalentUsd)
 	};
 }
 /** A stored number counts when it is finite and not negative; anything else (null, NaN, a negative) counts as 0. */
@@ -792,7 +794,7 @@ function byWeight(a, b) {
 function compareText(a, b) {
 	return a < b ? -1 : a > b ? 1 : 0;
 }
-function isRecord$7(value) {
+function isRecord$9(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 var DECIMAL$1 = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/;
@@ -838,7 +840,7 @@ function preferPositive(...values) {
 /** NanoGPT answers within 15 s on the plugin's side; the browser waits a little longer than that. */
 var NANOGPT_TIMEOUT_MS = 2e4;
 var SPEND_TIMEOUT_MS = 15e3;
-function invalid(what) {
+function invalid$1(what) {
 	return {
 		ok: false,
 		error: {
@@ -863,7 +865,7 @@ function countOf(value) {
 	return n !== null && n > 0 ? n : 0;
 }
 function parseBalance(raw, now) {
-	if (!isRecord$7(raw)) return null;
+	if (!isRecord$9(raw)) return null;
 	return {
 		usdBalance: numberOf(raw["usdBalance"]),
 		nanoBalance: numberOf(raw["nanoBalance"]),
@@ -871,7 +873,7 @@ function parseBalance(raw, now) {
 	};
 }
 function parseWindow(raw) {
-	const window = isRecord$7(raw) ? raw : {};
+	const window = isRecord$9(raw) ? raw : {};
 	return {
 		used: numberOf(window["used"]),
 		limit: numberOf(window["limit"]),
@@ -879,7 +881,7 @@ function parseWindow(raw) {
 	};
 }
 function parseSubscriptionUsage(raw) {
-	if (!isRecord$7(raw) || typeof raw["active"] !== "boolean") return null;
+	if (!isRecord$9(raw) || typeof raw["active"] !== "boolean") return null;
 	const mode = raw["recommendedMode"];
 	return {
 		active: raw["active"],
@@ -889,7 +891,7 @@ function parseSubscriptionUsage(raw) {
 	};
 }
 function parseSubscriptionState(raw, now) {
-	if (!isRecord$7(raw)) return null;
+	if (!isRecord$9(raw)) return null;
 	const subscription = raw["subscription"];
 	if (subscription !== null && subscription !== void 0 && parseSubscriptionUsage(subscription) === null) return null;
 	return {
@@ -898,7 +900,7 @@ function parseSubscriptionState(raw, now) {
 	};
 }
 function parseTotals(raw) {
-	if (!isRecord$7(raw) || numberOf(raw["requests"]) === null) return null;
+	if (!isRecord$9(raw) || numberOf(raw["requests"]) === null) return null;
 	return {
 		requests: countOf(raw["requests"]),
 		costUsd: countOf(raw["costUsd"]),
@@ -914,14 +916,14 @@ function rows(raw, read) {
 	const out = [];
 	for (const item of raw) {
 		const totals = parseTotals(item);
-		if (!totals || !isRecord$7(item)) continue;
+		if (!totals || !isRecord$9(item)) continue;
 		const row = read(item, totals);
 		if (row) out.push(row);
 	}
 	return out;
 }
 function parseSpend(raw) {
-	if (!isRecord$7(raw)) return null;
+	if (!isRecord$9(raw)) return null;
 	const from = numberOf(raw["from"]);
 	const to = numberOf(raw["to"]);
 	const total = parseTotals(raw["total"]);
@@ -945,7 +947,7 @@ function parseSpend(raw) {
 	};
 }
 function parseLookup(raw) {
-	if (!isRecord$7(raw) || typeof raw["requestId"] !== "string" || typeof raw["ready"] !== "boolean") return null;
+	if (!isRecord$9(raw) || typeof raw["requestId"] !== "string" || typeof raw["ready"] !== "boolean") return null;
 	const cost = numberOf(raw["costUsd"]);
 	return {
 		requestId: raw["requestId"],
@@ -956,7 +958,7 @@ function parseLookup(raw) {
 function map(result, read, what) {
 	if (!result.ok) return result;
 	const value = read(result.data);
-	return value === null ? invalid(what) : {
+	return value === null ? invalid$1(what) : {
 		ok: true,
 		data: value
 	};
@@ -975,11 +977,11 @@ function createPluginAccount(deps) {
 	return {
 		async balance(keyId) {
 			const path = `/account/balance${query({ keyId })}`;
-			return map(await client.request("GET", path, void 0, NANOGPT_TIMEOUT_MS), (d) => parseBalance(d, now()), "balance");
+			return map(await client.request("GET", path, { timeoutMs: NANOGPT_TIMEOUT_MS }), (d) => parseBalance(d, now()), "balance");
 		},
 		async subscription(keyId) {
 			const path = `/account/subscription${query({ keyId })}`;
-			return map(await client.request("GET", path, void 0, NANOGPT_TIMEOUT_MS), (d) => parseSubscriptionState(d, now()), "subscription");
+			return map(await client.request("GET", path, { timeoutMs: NANOGPT_TIMEOUT_MS }), (d) => parseSubscriptionState(d, now()), "subscription");
 		},
 		async spend(range, connectionId) {
 			const path = `/spend${query({
@@ -987,11 +989,14 @@ function createPluginAccount(deps) {
 				to: range.to,
 				connectionId
 			})}`;
-			return map(await client.request("GET", path, void 0, SPEND_TIMEOUT_MS), parseSpend, "spend summary");
+			return map(await client.request("GET", path, { timeoutMs: SPEND_TIMEOUT_MS }), parseSpend, "spend summary");
 		},
 		async lookup(requestId, keyId) {
 			const path = `/lookup/${encodeURIComponent(requestId)}${query({ keyId })}`;
-			return map(await client.request("POST", path, {}, NANOGPT_TIMEOUT_MS), parseLookup, "cost lookup");
+			return map(await client.request("POST", path, {
+				body: {},
+				timeoutMs: NANOGPT_TIMEOUT_MS
+			}), parseLookup, "cost lookup");
 		}
 	};
 }
@@ -1036,7 +1041,7 @@ function profileName(name) {
 }
 var PROFILE_API = "custom";
 var CM_EXTENSION = "connection-manager";
-function isRecord$6(value) {
+function isRecord$8(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function escapeRegExp(text) {
@@ -1073,7 +1078,7 @@ function createProfilesHost(deps) {
 		if (!available()) return null;
 		const store = ctx().extensionSettings;
 		const value = store["connectionManager"];
-		if (isRecord$6(value) && Array.isArray(value["profiles"])) return value;
+		if (isRecord$8(value) && Array.isArray(value["profiles"])) return value;
 		if (!create) return null;
 		const fresh = {
 			profiles: [],
@@ -1083,7 +1088,7 @@ function createProfilesHost(deps) {
 		return fresh;
 	}
 	function valid(profile) {
-		return isRecord$6(profile) && typeof profile["id"] === "string";
+		return isRecord$8(profile) && typeof profile["id"] === "string";
 	}
 	/** CM renders its profile list once; rebuild it the way CM does so a new profile is selectable without a reload. */
 	function syncDropdown(settings) {
@@ -1210,7 +1215,7 @@ function createProfilesHost(deps) {
 	return host;
 }
 // src/host/secrets.ts
-function isRecord$5(value) {
+function isRecord$7(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function createSecretsHost(deps) {
@@ -1230,12 +1235,12 @@ function createSecretsHost(deps) {
 			const response = await post("/api/secrets/read");
 			if (!response.ok) return null;
 			const json = await response.json();
-			const list = isRecord$5(json) ? json[SECRET_KEY_CUSTOM] : null;
+			const list = isRecord$7(json) ? json[SECRET_KEY_CUSTOM] : null;
 			if (list === null || list === void 0) return [];
 			if (!Array.isArray(list)) return null;
 			const states = [];
 			for (const item of list) {
-				if (!isRecord$5(item) || typeof item["id"] !== "string") continue;
+				if (!isRecord$7(item) || typeof item["id"] !== "string") continue;
 				states.push({
 					id: item["id"],
 					label: typeof item["label"] === "string" ? item["label"] : "",
@@ -1274,7 +1279,7 @@ function createSecretsHost(deps) {
 					error: `HTTP ${response.status}`
 				};
 				const json = await response.json();
-				const written = isRecord$5(json) ? json["id"] : null;
+				const written = isRecord$7(json) ? json["id"] : null;
 				if (typeof written !== "string" || !written) return {
 					ok: false,
 					error: "no id in the answer"
@@ -1326,7 +1331,7 @@ function createSecretsHost(deps) {
 var KEY_LINE = /^(?:"((?:[^"\\]|\\.)*)"|'((?:[^']|'')*)'|([^\s#'"\-?:[\]{}&*!|>%@`,][^:#]*?|-[^\s:#][^:#]*?))[ \t]*:(?:[ \t]|$)/;
 var PLAIN_KEY = /^[A-Za-z_][A-Za-z0-9_.-]*$/;
 var RESERVED_KEY = /^(?:true|false|null|yes|no|on|off|y|n)$/i;
-function isRecord$4(value) {
+function isRecord$6(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function formatKey(key) {
@@ -1424,7 +1429,7 @@ function mergeJson(text, entries, fold) {
 			reason: "a flow collection that is not plain JSON"
 		};
 	}
-	if (isRecord$4(parsed)) {
+	if (isRecord$6(parsed)) {
 		const present = new Set(Object.keys(parsed).map(fold));
 		const { add, kept } = split(entries, (key) => present.has(fold(key)));
 		if (add.length === 0) return {
@@ -1442,7 +1447,7 @@ function mergeJson(text, entries, fold) {
 			kept
 		};
 	}
-	if (Array.isArray(parsed) && parsed.every(isRecord$4)) {
+	if (Array.isArray(parsed) && parsed.every(isRecord$6)) {
 		const present = new Set(parsed.flatMap((item) => Object.keys(item).map(fold)));
 		const { add, kept } = split(entries, (key) => present.has(fold(key)));
 		if (add.length === 0) return {
@@ -1468,7 +1473,7 @@ function mergeJson(text, entries, fold) {
 // src/host/fetch-hook.ts
 var GENERATE_PATH = "/api/backends/chat-completions/generate";
 var STATE_KEY = Symbol.for("nanovia.fetchHook");
-function isRecord$3(value) {
+function isRecord$5(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** Where a generate body goes and who sends it. Pure. */
@@ -1561,7 +1566,7 @@ async function patchInit(state, scope, input, init) {
 	} catch {
 		return UNTOUCHED;
 	}
-	if (!isRecord$3(body)) return UNTOUCHED;
+	if (!isRecord$5(body)) return UNTOUCHED;
 	const before = JSON.stringify(body);
 	const request = {
 		body,
@@ -1849,7 +1854,7 @@ function cloneRouting$1(r) {
 }
 // src/domain/reasoning.ts
 /** The effort ladder, lowest first. The distance between two levels is the distance of their indices. */
-var EFFORT_ORDER = [
+var EFFORT_ORDER$1 = [
 	"none",
 	"minimal",
 	"low",
@@ -1888,7 +1893,7 @@ function normalizeEffortHint(hint) {
 * usable is left. `supported` may lack 'none'.
 */
 function nearestEffort(wanted, supported) {
-	const target = EFFORT_ORDER.indexOf(wanted);
+	const target = EFFORT_ORDER$1.indexOf(wanted);
 	if (target < 0) return null;
 	let best = -1;
 	for (const level of supported) {
@@ -1902,7 +1907,7 @@ function nearestEffort(wanted, supported) {
 		const bestDistance = Math.abs(best - target);
 		if (distance < bestDistance || distance === bestDistance && index < best) best = index;
 	}
-	return best < 0 ? null : EFFORT_ORDER[best] ?? null;
+	return best < 0 ? null : EFFORT_ORDER$1[best] ?? null;
 }
 /**
 * Decides what to put into the request's `reasoning` object.
@@ -1984,10 +1989,10 @@ function lowestEffort$1(supported) {
 		const index = ladderIndex(level);
 		if (index >= 0 && (best < 0 || index < best)) best = index;
 	}
-	return best < 0 ? null : EFFORT_ORDER[best] ?? null;
+	return best < 0 ? null : EFFORT_ORDER$1[best] ?? null;
 }
 function ladderIndex(level) {
-	return EFFORT_ORDER.indexOf(level.trim().toLowerCase());
+	return EFFORT_ORDER$1.indexOf(level.trim().toLowerCase());
 }
 // src/domain/upstream.ts
 /** Fields ST sends with a neutral value that some NanoGPT routes reject. */
@@ -2005,17 +2010,17 @@ function planUpstream(input) {
 	body["model"] = model;
 	if (connection.stripNeutralSamplers) stripNeutralSamplers(body);
 	body["usage"] = {
-		...isRecord$2(body["usage"]) ? body["usage"] : {},
+		...isRecord$4(body["usage"]) ? body["usage"] : {},
 		include: true
 	};
 	if (body["stream"] === true) body["stream_options"] = {
-		...isRecord$2(body["stream_options"]) ? body["stream_options"] : {},
+		...isRecord$4(body["stream_options"]) ? body["stream_options"] : {},
 		include_usage: true
 	};
 	const reasoning = planReasoning(input.model, connection.reasoning, hints);
 	if (reasoning.reasoning !== null) {
 		body["reasoning"] = {
-			...isRecord$2(body["reasoning"]) ? body["reasoning"] : {},
+			...isRecord$4(body["reasoning"]) ? body["reasoning"] : {},
 			...reasoning.reasoning
 		};
 		delete body["reasoning_effort"];
@@ -2023,7 +2028,7 @@ function planUpstream(input) {
 	const routing = safe ? subscriptionSafeOverrides(connection, input.model).routing : connection.routing;
 	if (safe) {
 		delete body["caching"];
-		if (isRecord$2(body["provider"])) {
+		if (isRecord$4(body["provider"])) {
 			const zdr = body["provider"]["zdr"];
 			if (zdr === void 0) delete body["provider"];
 			else body["provider"] = { zdr };
@@ -2032,7 +2037,7 @@ function planUpstream(input) {
 	const fixedRoute = input.providerSelection === false;
 	const provider = buildProviderObject(routing, { zdrOnly: fixedRoute });
 	if (provider !== null) body["provider"] = {
-		...isRecord$2(body["provider"]) ? body["provider"] : {},
+		...isRecord$4(body["provider"]) ? body["provider"] : {},
 		...provider
 	};
 	if (!fixedRoute && routing.enabled && routing.cachingRoute) body["caching"] = true;
@@ -2070,9 +2075,9 @@ function withSuffixes(modelId, connection) {
 function stripNeutralSamplers(body) {
 	for (const [key, neutral] of NEUTRAL_SAMPLERS) if (body[key] === neutral) delete body[key];
 	const bias = body["logit_bias"];
-	if (isRecord$2(bias) && Object.keys(bias).length === 0) delete body["logit_bias"];
+	if (isRecord$4(bias) && Object.keys(bias).length === 0) delete body["logit_bias"];
 }
-function isRecord$2(value) {
+function isRecord$4(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 // src/domain/cost.ts
@@ -2096,7 +2101,7 @@ function priceTokens(model, u) {
 	const promptTokens = u.promptTokens ?? 0;
 	const cached = Math.min(u.cachedTokens ?? 0, promptTokens);
 	const cachePrice = cacheRead !== null && isPrice(cacheRead) ? cacheRead : prompt;
-	return roundUsd(((promptTokens - cached) * prompt + cached * cachePrice + (u.completionTokens ?? 0) * completion) / 1e6);
+	return roundUsd$1(((promptTokens - cached) * prompt + cached * cachePrice + (u.completionTokens ?? 0) * completion) / 1e6);
 }
 function isPrice(value) {
 	return Number.isFinite(value) && value >= 0;
@@ -2179,7 +2184,7 @@ function buildUsageRecord(args) {
 // src/domain/shim.ts
 /** Works out billing, cost and request id of a body or chunk; null when it carries no usable usage. */
 function resolveUsage(json, ctx) {
-	if (!isRecord$7(json) || !isRecord$7(json["usage"])) return null;
+	if (!isRecord$9(json) || !isRecord$9(json["usage"])) return null;
 	const usage = normalizeUsage(json);
 	if (!usage.present) return null;
 	return {
@@ -2199,7 +2204,7 @@ function resolveUsage(json, ctx) {
 function shimResponse(json, ctx) {
 	const resolved = resolveUsage(json, ctx);
 	const original = json["usage"];
-	if (!resolved || !isRecord$7(original)) return {
+	if (!resolved || !isRecord$9(original)) return {
 		body: { ...json },
 		resolved: null
 	};
@@ -2211,13 +2216,13 @@ function shimResponse(json, ctx) {
 	out["completion_tokens"] = completion;
 	out["total_tokens"] = usage.totalTokens ?? prompt + completion;
 	const promptDetails = {
-		...isRecord$7(original["prompt_tokens_details"]) ? original["prompt_tokens_details"] : {},
+		...isRecord$9(original["prompt_tokens_details"]) ? original["prompt_tokens_details"] : {},
 		cached_tokens: usage.cachedTokens ?? 0
 	};
 	if (usage.cacheWriteTokens !== null) promptDetails["cache_write_tokens"] = usage.cacheWriteTokens;
 	out["prompt_tokens_details"] = promptDetails;
 	out["completion_tokens_details"] = {
-		...isRecord$7(original["completion_tokens_details"]) ? original["completion_tokens_details"] : {},
+		...isRecord$9(original["completion_tokens_details"]) ? original["completion_tokens_details"] : {},
 		reasoning_tokens: usage.reasoningTokens ?? 0
 	};
 	delete out["total_cost"];
@@ -2253,7 +2258,7 @@ function shimSsePayload(data, ctx) {
 	} catch {
 		return unchanged;
 	}
-	if (!isRecord$7(parsed)) return unchanged;
+	if (!isRecord$9(parsed)) return unchanged;
 	const { body, resolved } = shimResponse(parsed, ctx);
 	return resolved ? {
 		data: JSON.stringify(body),
@@ -2391,7 +2396,7 @@ function splitLines(raw) {
 // src/host/usage-tap.ts
 /** The longest error text kept in a record. */
 var MAX_ERROR_LENGTH = 300;
-function isRecord$1(value) {
+function isRecord$3(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function clip(text) {
@@ -2400,10 +2405,10 @@ function clip(text) {
 }
 /** The message of an OpenAI-style error body (`{ error: { message } }` or `{ error: "…" }`); null when it is none. */
 function errorOf(json) {
-	if (!isRecord$1(json)) return null;
+	if (!isRecord$3(json)) return null;
 	const error = json["error"];
 	if (typeof error === "string" && error) return clip(error);
-	if (isRecord$1(error)) {
+	if (isRecord$3(error)) {
 		for (const key of [
 			"message",
 			"code",
@@ -2531,7 +2536,7 @@ async function tapUsage(args) {
 	}
 }
 // src/host/direct-mode.ts
-function isRecord(value) {
+function isRecord$2(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function trimSlash(value) {
@@ -2564,7 +2569,7 @@ function matchDirectConnection(request, connections, directSecrets) {
 function sameValue(a, b) {
 	if (a === b) return true;
 	if (Array.isArray(a)) return Array.isArray(b) && a.length === b.length && a.every((item, index) => sameValue(item, b[index]));
-	if (isRecord(a) && isRecord(b)) {
+	if (isRecord$2(a) && isRecord$2(b)) {
 		const keys = Object.keys(a);
 		return keys.length === Object.keys(b).length && keys.every((key) => key in b && sameValue(a[key], b[key]));
 	}
@@ -3390,24 +3395,1229 @@ function createConnectionsService(deps) {
 		}
 	};
 }
-// src/core/catalog.ts
-/** A store that knows nothing: the default until a real one is wired in. */
-function createEmptyCatalogStore() {
+// src/domain/catalog.ts
+/** Weight precisions from the coarsest to the finest. `unknown` is outside the scale. */
+var QUANTIZATION_ORDER = [
+	"int4",
+	"fp4",
+	"fp6",
+	"int8",
+	"fp8",
+	"fp16",
+	"bf16",
+	"fp32"
+];
+function isRecord$1(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function record(value) {
+	return isRecord$1(value) ? value : {};
+}
+function finite$1(value) {
+	return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+function nonNegative$1(value) {
+	const n = finite$1(value);
+	return n !== null && n >= 0 ? n : null;
+}
+function positive$1(value) {
+	const n = finite$1(value);
+	return n !== null && n > 0 ? n : null;
+}
+function text$1(value) {
+	return typeof value === "string" ? value.trim() : "";
+}
+function strings$1(value) {
+	if (!Array.isArray(value)) return [];
+	const out = [];
+	for (const item of value) {
+		const s = text$1(item);
+		if (s) out.push(s);
+	}
+	return out;
+}
+/** Cleans float noise of unit conversions (0.0000042 * 1000 = 0.004200000000000001). */
+function roundUsd(value) {
+	return Math.round(value * 1e9) / 1e9;
+}
+function round4(value) {
+	return Math.round(value * 1e4) / 1e4;
+}
+/** NanoGPT lists `…Per1kTokens`; the contracts hold USD per 1M tokens. */
+function per1kToPer1m(value) {
+	return roundUsd(value * 1e3);
+}
+function clamp01(value) {
+	return Math.min(1, Math.max(0, value));
+}
+function compareNumbers(a, b) {
+	return a < b ? -1 : a > b ? 1 : 0;
+}
+/** `created` is seconds in NanoGPT's list; a millisecond value is tolerated. */
+function toSeconds(value) {
+	const n = positive$1(value);
+	if (n === null) return null;
+	return n > 1e11 ? Math.floor(n / 1e3) : Math.floor(n);
+}
+/**
+* One entry of `GET /api/v1/models?detailed=true`. Null when it has no id. Everything else is tolerated: a missing
+* price becomes 0 (NanoGPT lists a few models as "varies by modality" without a price), a missing window becomes null.
+* `pricing.prompt/completion` are already USD per 1M; `cacheReadInputPer1kTokens` is per 1k and converted.
+*/
+function normalizeCatalogModel(raw) {
+	if (!isRecord$1(raw)) return null;
+	const id = text$1(raw["id"]);
+	if (!id) return null;
+	const caps = record(raw["capabilities"]);
+	const price = record(raw["pricing"]);
+	const sub = record(raw["subscription"]);
+	const cacheRead = nonNegative$1(price["cacheReadInputPer1kTokens"]);
 	return {
-		models: () => [],
-		model: () => null,
-		providers: () => null,
-		ensureProviders: async () => null,
-		hints: () => [],
-		status: () => ({
-			loaded: false,
-			fetchedAt: null,
-			source: null,
-			error: null
-		}),
-		refresh: async () => {},
-		onChange: () => () => {}
+		id,
+		name: text$1(raw["name"]) || id,
+		description: text$1(raw["description"]),
+		contextLength: positive$1(raw["context_length"]),
+		maxOutputTokens: positive$1(raw["max_output_tokens"]),
+		capabilities: {
+			vision: caps["vision"] === true,
+			reasoning: caps["reasoning"] === true,
+			toolCalling: caps["tool_calling"] === true,
+			structuredOutput: caps["structured_output"] === true
+		},
+		reasoningEfforts: strings$1(raw["reasoning_efforts"]),
+		openWeights: raw["open_weights"] === true,
+		pricing: {
+			prompt: roundUsd(nonNegative$1(price["prompt"]) ?? 0),
+			completion: roundUsd(nonNegative$1(price["completion"]) ?? 0),
+			cacheRead: cacheRead === null ? null : per1kToPer1m(cacheRead)
+		},
+		category: text$1(raw["category"]) || null,
+		subscription: {
+			included: sub["included"] === true,
+			inputTokenMultiplier: positive$1(sub["inputTokenMultiplier"]) ?? 1
+		},
+		providerIds: strings$1(raw["providers"]),
+		created: toSeconds(raw["created"])
 	};
+}
+/**
+* The whole answer of the models endpoint: the `{ data: [...] }` envelope or a bare array. Junk entries are skipped,
+* the order is kept, and a repeated id keeps its first entry.
+*/
+function normalizeCatalog(rawList) {
+	const list = Array.isArray(rawList) ? rawList : isRecord$1(rawList) && Array.isArray(rawList["data"]) ? rawList["data"] : [];
+	const seen = /* @__PURE__ */ new Set();
+	const out = [];
+	for (const item of list) {
+		const model = normalizeCatalogModel(item);
+		if (!model || seen.has(model.id)) continue;
+		seen.add(model.id);
+		out.push(model);
+	}
+	return out;
+}
+/** Spellings of a host's weight precision (compared without case, spaces, `-`, `_` and `.`). */
+var QUANTIZATION_ALIASES = {
+	fp4: "fp4",
+	mxfp4: "fp4",
+	nvfp4: "fp4",
+	int4: "int4",
+	"4bit": "int4",
+	fp6: "fp6",
+	mxfp6: "fp6",
+	int8: "int8",
+	"8bit": "int8",
+	fp8: "fp8",
+	mxfp8: "fp8",
+	float8: "fp8",
+	fp8e4m3: "fp8",
+	fp8e5m2: "fp8",
+	fp16: "fp16",
+	float16: "fp16",
+	half: "fp16",
+	bf16: "bf16",
+	bfloat16: "bf16",
+	fp32: "fp32",
+	float32: "fp32"
+};
+/**
+* Maps what a host reports to the contract: `quantization` is the normalised precision (mxfp4/nvfp4 -> fp4, native,
+* unknown, `-` and labels we do not know -> 'unknown'); both fields are null when the host reports nothing.
+* `rawQuantization` keeps the label as the host wrote it.
+*/
+function mapQuantization(raw) {
+	const label = text$1(raw);
+	if (!label) return {
+		quantization: null,
+		rawQuantization: null
+	};
+	return {
+		quantization: QUANTIZATION_ALIASES[label.toLowerCase().replace(/[\s_\-.]/g, "")] ?? "unknown",
+		rawQuantization: label
+	};
+}
+function priceOf(raw) {
+	const p = record(raw);
+	const input = nonNegative$1(p["inputPer1kTokens"]);
+	const output = nonNegative$1(p["outputPer1kTokens"]);
+	if (input === null || output === null) return null;
+	const cacheRead = nonNegative$1(p["cacheReadInputPer1kTokens"]);
+	return {
+		prompt: per1kToPer1m(input),
+		completion: per1kToPer1m(output),
+		cacheRead: cacheRead === null ? null : per1kToPer1m(cacheRead)
+	};
+}
+/** NanoGPT reports `uptime: { uptimePct }` (percent); a bare number is taken as percent too. */
+function uptimeOf(raw) {
+	const n = isRecord$1(raw) ? nonNegative$1(raw["uptimePct"]) : nonNegative$1(raw);
+	return n !== null && n <= 100 ? n : null;
+}
+/** `features` is an object of flags (`{ toolCalling: true, … }`): the names that are true. A list of names is kept. */
+function featuresOf(raw) {
+	if (Array.isArray(raw)) return strings$1(raw);
+	if (!isRecord$1(raw)) return [];
+	return Object.keys(raw).filter((key) => raw[key] === true);
+}
+function normalizeEndpoint(raw) {
+	if (!isRecord$1(raw)) return null;
+	const id = text$1(raw["provider"]);
+	if (!id || raw["available"] === false) return null;
+	const { quantization, rawQuantization } = mapQuantization(raw["quantization"]);
+	return {
+		id,
+		quantization,
+		rawQuantization,
+		pricing: priceOf(raw["pricing"]),
+		tps: positive$1(raw["tps"]),
+		ttftMs: positive$1(raw["ttftMs"]),
+		uptime: uptimeOf(raw["uptime"]),
+		maxOutputTokens: positive$1(raw["maxOutputTokens"]),
+		features: featuresOf(raw["features"])
+	};
+}
+/**
+* The answer of `GET /api/models/:id/providers`. `modelId` is the id the caller asked for (the answer's `canonicalId`
+* fills in when it is empty). A model without provider selection answers `supportsProviderSelection: false` and no host
+* list: that is a valid result with no hosts. Null when the body is not recognisable (an error shape, junk).
+* Prices become USD per 1M; unavailable hosts are dropped; a repeated host keeps its first entry.
+*/
+function normalizeModelProviders(modelId, raw) {
+	if (!isRecord$1(raw)) return null;
+	const hosts = raw["providers"];
+	if (!(Array.isArray(hosts) || typeof raw["supportsProviderSelection"] === "boolean" || typeof raw["canonicalId"] === "string")) return null;
+	const id = text$1(modelId) || text$1(raw["canonicalId"]);
+	if (!id) return null;
+	const rate = finite$1(raw["autoCacheReadRate"]);
+	const seen = /* @__PURE__ */ new Set();
+	const providers = [];
+	for (const item of Array.isArray(hosts) ? hosts : []) {
+		const endpoint = normalizeEndpoint(item);
+		if (!endpoint || seen.has(endpoint.id)) continue;
+		seen.add(endpoint.id);
+		providers.push(endpoint);
+	}
+	return {
+		modelId: id,
+		supportsProviderSelection: raw["supportsProviderSelection"] !== false,
+		autoCacheReadRate: rate !== null && rate >= 0 && rate <= 1 ? rate : null,
+		autoTps: positive$1(raw["autoTps"]),
+		autoTtftMs: positive$1(raw["autoTtftMs"]),
+		providers
+	};
+}
+/** Position on the precision scale (int4 lowest); null for 'unknown', null and undefined. */
+function quantizationRank(q) {
+	if (!q) return null;
+	const index = QUANTIZATION_ORDER.indexOf(q);
+	return index < 0 ? null : index;
+}
+/**
+* Does precision `q` reach the floor `min`? No floor (null or 'unknown') always passes. A host with an unknown precision
+* gives null: it cannot be checked, and what NanoGPT does with it is up to NanoGPT.
+*/
+function meetsMinQuantization(q, min) {
+	const floor = quantizationRank(min);
+	if (floor === null) return true;
+	const rank = quantizationRank(q);
+	return rank === null ? null : rank >= floor;
+}
+/** Case-folds for search: lower case, ё = е, compatibility forms unified. No `\w`, so Cyrillic is safe. */
+function fold(value) {
+	return value.normalize("NFKC").toLowerCase().replace(/ё/g, "е");
+}
+/** The models that pass every field of the query, in their incoming order. */
+function filterCatalog(models, query) {
+	const words = fold(query.text ?? "").split(/\s+/).filter(Boolean);
+	const categories = (query.categories ?? []).map(fold);
+	const caps = query.capabilities ?? {};
+	const minContext = finite$1(query.minContext);
+	const maxPrompt = finite$1(query.maxPromptPrice);
+	return models.filter((m) => {
+		if (words.length > 0) {
+			const haystack = fold(`${m.id}\n${m.name}\n${m.description}`);
+			if (!words.every((w) => haystack.includes(w))) return false;
+		}
+		if (categories.length > 0 && !categories.includes(fold(m.category ?? ""))) return false;
+		if (query.subscriptionOnly && !m.subscription.included) return false;
+		if (caps.vision && !m.capabilities.vision) return false;
+		if (caps.reasoning && !m.capabilities.reasoning) return false;
+		if (caps.tools && !m.capabilities.toolCalling) return false;
+		if (caps.structured && !m.capabilities.structuredOutput) return false;
+		if (minContext !== null && (m.contextLength === null || m.contextLength < minContext)) return false;
+		if (maxPrompt !== null && m.pricing.prompt > maxPrompt) return false;
+		if (query.openWeightsOnly && !m.openWeights) return false;
+		return true;
+	});
+}
+/** The shelves of the list with their sizes, the biggest first (equal sizes keep the order of first appearance). */
+function listCategories(models) {
+	const counts = /* @__PURE__ */ new Map();
+	for (const m of models) counts.set(m.category, (counts.get(m.category) ?? 0) + 1);
+	return [...counts].map(([category, count]) => ({
+		category,
+		count
+	})).sort((a, b) => b.count - a.count);
+}
+var NAME_COLLATOR = new Intl.Collator("en", {
+	numeric: true,
+	sensitivity: "base"
+});
+/** Unknown values (null) always go last, whichever way the order runs. */
+function compareNullable(a, b, direction) {
+	if (a === null) return b === null ? 0 : 1;
+	if (b === null) return -1;
+	return direction * compareNumbers(a, b);
+}
+/** A sorted copy; see `CatalogSort` for the orders. `reverse` turns the order around. Ties keep their incoming order. */
+function sortCatalog(models, sort, reverse = false) {
+	const dir = reverse ? -1 : 1;
+	const price = (m) => m.pricing.prompt + m.pricing.completion;
+	const compare = (a, b) => {
+		switch (sort) {
+			case "name": return dir * NAME_COLLATOR.compare(a.name, b.name);
+			case "price": return dir * compareNumbers(price(a), price(b));
+			case "context": return compareNullable(a.contextLength, b.contextLength, reverse ? 1 : -1);
+			case "newest": return compareNullable(a.created, b.created, reverse ? 1 : -1);
+			case "subscription": return dir * (Number(b.subscription.included) - Number(a.subscription.included));
+		}
+	};
+	return [...models].sort(compare);
+}
+/** The part of the id before the first `/`, lower case (`z-ai/glm-5.3` -> `z-ai`, `TEE/glm-5.3` -> `tee`); else 'other'. */
+function vendorOf(id) {
+	const slash = id.indexOf("/");
+	return (slash > 0 ? id.slice(0, slash).trim().toLowerCase() : "") || "other";
+}
+/** Groups by vendor. Groups come in the order their first model appears, so a prior sort carries over. */
+function groupByVendor(models) {
+	const groups = /* @__PURE__ */ new Map();
+	for (const model of models) {
+		const vendor = vendorOf(model.id);
+		const group = groups.get(vendor);
+		if (group) group.models.push(model);
+		else groups.set(vendor, {
+			vendor,
+			models: [model]
+		});
+	}
+	return [...groups.values()];
+}
+function tokens(value) {
+	return nonNegative$1(value) ?? 0;
+}
+/**
+* Pay-as-you-go cost of one turn in USD. The cached part of the prompt is billed at `pricing.cacheRead` (the plain
+* prompt price when the model has none). A subscription-included model costs nothing real: that is for the caller.
+*/
+function estimateTurnCost(model, usage) {
+	const prompt = tokens(usage.promptTokens);
+	const completion = tokens(usage.completionTokens);
+	const cached = prompt * clamp01(finite$1(usage.cachedShare) ?? 0);
+	const { prompt: promptPrice, completion: completionPrice, cacheRead } = model.pricing;
+	return roundUsd(((prompt - cached) * promptPrice + cached * (cacheRead ?? promptPrice) + completion * completionPrice) / 1e6);
+}
+function normalisedWeights(criteria) {
+	const w = (v) => nonNegative$1(v) ?? 0;
+	const price = w(criteria.weightPrice);
+	const speed = w(criteria.weightSpeed);
+	const uptime = w(criteria.weightUptime);
+	const sum = price + speed + uptime;
+	return sum > 0 ? {
+		price: price / sum,
+		speed: speed / sum,
+		uptime: uptime / sum
+	} : {
+		price: 1 / 3,
+		speed: 1 / 3,
+		uptime: 1 / 3
+	};
+}
+function numbersOf(values) {
+	return values.filter((v) => v !== null);
+}
+/** Order inside the ranking: hosts over the price cap last, then hosts below the preferred precision. */
+function tierOf(overMaxPrice, meets, hasPreference) {
+	if (overMaxPrice) return 3;
+	if (meets === false) return 2;
+	return hasPreference && meets === null ? 1 : 0;
+}
+/**
+* Ranks the hosts of one model for the given priorities. Components and the total are described at `HostScore`;
+* hosts in the same tier (see `tierOf`) are ordered by total, then by their incoming order.
+*/
+function scoreHosts(providers, criteria) {
+	const weights = normalisedWeights(criteria);
+	const blended = providers.map((p) => p.pricing ? p.pricing.prompt + p.pricing.completion : null);
+	const cheapest = Math.min(...numbersOf(blended));
+	const bestTps = Math.max(...numbersOf(providers.map((p) => positive$1(p.tps))));
+	const bestTtft = Math.min(...numbersOf(providers.map((p) => positive$1(p.ttftMs))));
+	const preference = criteria.preferQuantization;
+	const hasPreference = quantizationRank(preference) !== null;
+	const cap = criteria.maxPrice;
+	const scored = providers.map((p, index) => {
+		const missing = [];
+		const own = blended[index] ?? null;
+		let price = 0;
+		if (own === null) missing.push("price");
+		else price = own <= cheapest ? 1 : cheapest / own;
+		const parts = [];
+		const tps = positive$1(p.tps);
+		const ttft = positive$1(p.ttftMs);
+		if (tps !== null) parts.push(tps / bestTps);
+		if (ttft !== null) parts.push(bestTtft / ttft);
+		let speed = 0;
+		if (parts.length === 0) missing.push("speed");
+		else speed = parts.reduce((sum, v) => sum + v, 0) / parts.length;
+		let uptime = 0;
+		if (p.uptime === null) missing.push("uptime");
+		else uptime = clamp01((p.uptime - 90) / 10);
+		const overMaxPrice = !!cap && !!p.pricing && (cap.prompt !== null && p.pricing.prompt > cap.prompt || cap.completion !== null && p.pricing.completion > cap.completion);
+		const meetsQuantization = hasPreference ? meetsMinQuantization(p.quantization, preference) : null;
+		const total = weights.price * price + weights.speed * speed + weights.uptime * uptime;
+		return {
+			index,
+			tier: tierOf(overMaxPrice, meetsQuantization, hasPreference),
+			score: {
+				providerId: p.id,
+				rank: 0,
+				total: round4(total),
+				price: round4(price),
+				speed: round4(speed),
+				uptime: round4(uptime),
+				missing,
+				overMaxPrice,
+				meetsQuantization
+			}
+		};
+	});
+	scored.sort((a, b) => a.tier - b.tier || b.score.total - a.score.total || a.index - b.index);
+	return scored.map((entry, i) => ({
+		...entry.score,
+		rank: i + 1
+	}));
+}
+// src/domain/catalog-hints.ts
+/** Lower-cased fragments of the model id that put a model in a family. */
+var GLM_ID_MARKERS = ["glm"];
+var DEEPSEEK_V4_ID_MARKERS = ["deepseek-v4"];
+var UNCENSORED_ID_MARKERS = [
+	"uncensored",
+	"abliterated",
+	"heretic"
+];
+var UNCENSORED_CATEGORY = "uncensored";
+/** The precision GLM's own (official) hosts serve; hosts below it are re-quantised copies. */
+var GLM_REFERENCE_QUANTIZATION = "fp8";
+/** DeepSeek V4 experts are natively MXFP4: that label is the original, any other 4-bit label is a re-quantisation. */
+var DEEPSEEK_NATIVE_LABEL = "mxfp4";
+/** `hosts.few` fires at this many hosts or fewer (but at least one). */
+var FEW_HOSTS_MAX = 2;
+/** `cache.lowRate` fires below this share of the prompt read from cache under automatic routing. */
+var LOW_CACHE_RATE = .6;
+/** The reasoning ladder, lowest first. */
+var EFFORT_ORDER = [
+	"none",
+	"minimal",
+	"low",
+	"medium",
+	"high",
+	"xhigh",
+	"max"
+];
+function idHas(model, markers) {
+	const id = model.id.toLowerCase();
+	return markers.some((m) => id.includes(m));
+}
+function names(hosts) {
+	return hosts.map((h) => h.id).join(", ");
+}
+/** The number of hosts the model has: the loaded list when there is one, else what the catalog entry names. */
+function hostCount(ctx) {
+	return ctx.mp ? ctx.mp.providers.length : ctx.model.providerIds.length;
+}
+/** The rule table, in the order the hints are listed (warnings are moved to the front, the order inside is kept). */
+var HINT_RULES = [
+	{
+		code: "quant.glmFp8",
+		severity: "warn",
+		evaluate({ model, mp }) {
+			if (!idHas(model, GLM_ID_MARKERS)) return null;
+			const suggestion = {
+				enabled: true,
+				minQuantization: GLM_REFERENCE_QUANTIZATION
+			};
+			if (!mp) {
+				if (model.providerIds.length === 0) return null;
+				return {
+					severity: "info",
+					params: {
+						model: model.id,
+						hostsKnown: false
+					},
+					suggestedRouting: suggestion
+				};
+			}
+			const low = mp.providers.filter((h) => meetsMinQuantization(h.quantization, GLM_REFERENCE_QUANTIZATION) === false);
+			if (low.length === 0) return null;
+			const unknown = mp.providers.filter((h) => meetsMinQuantization(h.quantization, GLM_REFERENCE_QUANTIZATION) === null);
+			const ok = mp.providers.length - low.length - unknown.length;
+			const params = {
+				model: model.id,
+				hostsKnown: true,
+				lowHosts: low.length,
+				low: names(low),
+				unknownHosts: unknown.length,
+				okHosts: ok
+			};
+			return ok > 0 ? {
+				params,
+				suggestedRouting: suggestion
+			} : { params };
+		}
+	},
+	{
+		code: "quant.deepseekNative",
+		severity: "warn",
+		evaluate({ model, mp }) {
+			if (!mp || !idHas(model, DEEPSEEK_V4_ID_MARKERS)) return null;
+			const fourBit = mp.providers.filter((h) => h.quantization === "fp4" || h.quantization === "int4");
+			const suspicious = fourBit.filter((h) => (h.rawQuantization ?? "").toLowerCase() !== DEEPSEEK_NATIVE_LABEL);
+			if (suspicious.length === 0) return null;
+			return {
+				params: {
+					model: model.id,
+					suspiciousHosts: suspicious.length,
+					suspicious: names(suspicious),
+					nativeHosts: fourBit.length - suspicious.length
+				},
+				suggestedRouting: {
+					enabled: true,
+					ignore: suspicious.map((h) => h.id)
+				}
+			};
+		}
+	},
+	{
+		code: "hosts.few",
+		severity: "warn",
+		evaluate(ctx) {
+			const count = hostCount(ctx);
+			return count >= 1 && count <= FEW_HOSTS_MAX ? { params: { hosts: count } } : null;
+		}
+	},
+	{
+		code: "routing.fixedRoute",
+		severity: "info",
+		evaluate({ model, mp }) {
+			return mp?.supportsProviderSelection === false ? { params: { model: model.id } } : null;
+		}
+	},
+	{
+		code: "cache.lowRate",
+		severity: "info",
+		evaluate({ mp }) {
+			const rate = mp?.autoCacheReadRate;
+			return rate !== null && rate !== void 0 && rate < LOW_CACHE_RATE ? { params: {
+				percent: Math.round(rate * 100),
+				threshold: Math.round(LOW_CACHE_RATE * 100)
+			} } : null;
+		}
+	},
+	{
+		code: "reasoning.alwaysOn",
+		severity: "info",
+		evaluate({ model }) {
+			const efforts = model.reasoningEfforts;
+			if (efforts.length === 0 || efforts.includes("none")) return null;
+			const rank = (e) => {
+				const i = EFFORT_ORDER.indexOf(e);
+				return i < 0 ? EFFORT_ORDER.length : i;
+			};
+			const lowest = [...efforts].sort((a, b) => rank(a) - rank(b))[0] ?? "";
+			return { params: {
+				efforts: efforts.join(", "),
+				lowest
+			} };
+		}
+	},
+	{
+		code: "shelf.uncensoredUnmeasured",
+		severity: "info",
+		evaluate({ model }) {
+			const byShelf = (model.category ?? "").toLowerCase() === UNCENSORED_CATEGORY;
+			if (!byShelf && !idHas(model, UNCENSORED_ID_MARKERS)) return null;
+			return { params: {
+				model: model.id,
+				byShelf
+			} };
+		}
+	}
+];
+/** Added after the rules when a suggestion would leave the subscription (explicit routing is billed with a markup). */
+var BILLING_BYPASS_CODE = "billing.bypass";
+[...HINT_RULES.map((r) => r.code)];
+/**
+* Hints for one model. `mp` is the loaded host list or null; rules that need hosts stay quiet without it. Warnings come
+* first, then infos, each group in table order; `billing.bypass` closes the list when a subscription-included model gets
+* a suggested routing.
+*/
+function routingHints(model, mp) {
+	const hints = [];
+	for (const rule of HINT_RULES) {
+		const outcome = rule.evaluate({
+			model,
+			mp
+		});
+		if (!outcome) continue;
+		const hint = {
+			code: rule.code,
+			severity: outcome.severity ?? rule.severity,
+			params: outcome.params
+		};
+		if (outcome.suggestedRouting) hint.suggestedRouting = outcome.suggestedRouting;
+		hints.push(hint);
+	}
+	if (model.subscription.included && hints.some((h) => h.suggestedRouting)) {
+		const source = hints.find((h) => h.suggestedRouting);
+		hints.push({
+			code: BILLING_BYPASS_CODE,
+			severity: "info",
+			params: {
+				markupPercent: 5,
+				because: source?.code ?? ""
+			}
+		});
+	}
+	const rank = (h) => h.severity === "warn" ? 0 : 1;
+	return hints.sort((a, b) => rank(a) - rank(b));
+}
+// src/host/catalog-source.ts
+var CATALOG_TIMEOUT_MS$1 = 2e4;
+var PROVIDERS_TIMEOUT_MS$1 = 15e3;
+function createDirectCatalogSource(deps) {
+	const { log } = deps;
+	const site = (deps.site ?? "https://nano-gpt.com").replace(/\/+$/, "");
+	const doFetch = (input, init) => (deps.fetchImpl ?? globalThis.fetch)(input, init);
+	/** One public GET: 2xx -> parsed JSON; any other status -> a failure carrying it. */
+	async function getJson(url, timeoutMs) {
+		const controller = new AbortController();
+		let timer;
+		const timeout = new Promise((resolve) => {
+			timer = setTimeout(() => {
+				resolve("timeout");
+				controller.abort();
+			}, timeoutMs);
+		});
+		const work = (async () => {
+			const response = await doFetch(url, {
+				method: "GET",
+				headers: { accept: "application/json" },
+				credentials: "omit",
+				cache: "no-store",
+				signal: controller.signal
+			});
+			const ok = response.status >= 200 && response.status < 300;
+			return {
+				status: response.status,
+				body: ok ? await response.text() : ""
+			};
+		})();
+		work.catch(() => {});
+		try {
+			const outcome = await Promise.race([work, timeout]);
+			if (outcome === "timeout") return {
+				ok: false,
+				code: "timeout",
+				message: "timeout",
+				status: null
+			};
+			if (outcome.status === 404) return {
+				ok: false,
+				code: "not_found",
+				message: "HTTP 404",
+				status: 404
+			};
+			if (outcome.status < 200 || outcome.status >= 300) return {
+				ok: false,
+				code: `http_${outcome.status}`,
+				message: `HTTP ${outcome.status}`,
+				status: outcome.status
+			};
+			try {
+				return {
+					ok: true,
+					data: JSON.parse(outcome.body)
+				};
+			} catch {
+				return {
+					ok: false,
+					code: "invalid_response",
+					message: "not JSON",
+					status: null
+				};
+			}
+		} catch (error) {
+			return {
+				ok: false,
+				code: "unreachable",
+				message: error instanceof Error ? error.message : String(error),
+				status: null
+			};
+		} finally {
+			if (timer !== void 0) clearTimeout(timer);
+		}
+	}
+	return {
+		async catalog() {
+			const result = await getJson(`${site}/api/v1/models?detailed=true`, deps.catalogTimeoutMs ?? CATALOG_TIMEOUT_MS$1);
+			if (!result.ok) {
+				log.debug(`direct catalog fetch failed (${result.code})`);
+				return result;
+			}
+			const models = normalizeCatalog(result.data);
+			if (models.length === 0) return {
+				ok: false,
+				code: "invalid_response",
+				message: "no models in the answer",
+				status: null
+			};
+			return {
+				ok: true,
+				data: models
+			};
+		},
+		async providers(modelId) {
+			const result = await getJson(`${site}/api/models/${encodeURIComponent(modelId)}/providers`, deps.providersTimeoutMs ?? PROVIDERS_TIMEOUT_MS$1);
+			if (!result.ok) {
+				log.debug(`direct providers fetch failed (${result.code})`);
+				return result;
+			}
+			const value = normalizeModelProviders(modelId, result.data);
+			if (!value) return {
+				ok: false,
+				code: "invalid_response",
+				message: "unrecognised answer",
+				status: null
+			};
+			return {
+				ok: true,
+				data: value
+			};
+		}
+	};
+}
+var DB_NAME = "nanovia";
+var STORE_NAME = "catalog";
+var SNAPSHOT_KEY = "snapshot";
+/** Keeps the snapshot in memory only (the fallback, and what tests use). */
+function createMemoryCatalogStorage(initial = null) {
+	let held = initial;
+	return {
+		load: async () => held,
+		save: async (value) => {
+			held = value;
+		}
+	};
+}
+function isStored(value) {
+	if (typeof value !== "object" || value === null) return false;
+	const record = value;
+	return record["version"] === 1 && typeof record["fetchedAt"] === "number" && Number.isFinite(record["fetchedAt"]) && Array.isArray(record["models"]);
+}
+/** IndexedDB through ST's localforage; falls back to memory when it cannot be opened or used. */
+function createCatalogStorage(log) {
+	const memory = createMemoryCatalogStorage();
+	let instance;
+	function store() {
+		if (instance !== void 0) return instance;
+		try {
+			const forage = globalThis.SillyTavern?.libs?.localforage;
+			instance = forage ? forage.createInstance({
+				name: DB_NAME,
+				storeName: STORE_NAME
+			}) : null;
+		} catch (error) {
+			log.debug("localforage is not usable; the catalog is kept in memory", error);
+			instance = null;
+		}
+		return instance;
+	}
+	return {
+		async load() {
+			const forage = store();
+			if (forage) try {
+				const value = await forage.getItem(SNAPSHOT_KEY);
+				if (isStored(value)) return value;
+			} catch (error) {
+				log.debug("the stored catalog could not be read", error);
+			}
+			return memory.load();
+		},
+		async save(value) {
+			await memory.save(value);
+			const forage = store();
+			if (!forage) return;
+			try {
+				await forage.setItem(SNAPSHOT_KEY, value);
+			} catch (error) {
+				log.debug("the catalog could not be stored", error);
+			}
+		}
+	};
+}
+// src/host/plugin-catalog.ts
+/** The catalog is ~700 KB: give the plugin more than the default call time when it has to fetch NanoGPT first. */
+var CATALOG_TIMEOUT_MS = 3e4;
+var PROVIDERS_TIMEOUT_MS = 2e4;
+function isRecord(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function finite(value) {
+	return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+function positive(value) {
+	const n = finite(value);
+	return n !== null && n > 0 ? n : null;
+}
+function nonNegative(value) {
+	const n = finite(value);
+	return n !== null && n >= 0 ? n : null;
+}
+function strings(value) {
+	if (!Array.isArray(value)) return [];
+	return value.filter((item) => typeof item === "string" && item.length > 0);
+}
+var QUANTIZATIONS = [
+	"int4",
+	"fp4",
+	"fp6",
+	"int8",
+	"fp8",
+	"fp16",
+	"bf16",
+	"fp32",
+	"unknown"
+];
+/** One model of the contract shape (`CatalogModel`); null when it has no id or no usable prices. */
+function readCatalogModel(raw) {
+	if (!isRecord(raw)) return null;
+	const id = typeof raw["id"] === "string" ? raw["id"].trim() : "";
+	if (!id) return null;
+	const caps = isRecord(raw["capabilities"]) ? raw["capabilities"] : {};
+	const price = isRecord(raw["pricing"]) ? raw["pricing"] : {};
+	const sub = isRecord(raw["subscription"]) ? raw["subscription"] : {};
+	return {
+		id,
+		name: typeof raw["name"] === "string" && raw["name"].trim() ? raw["name"].trim() : id,
+		description: typeof raw["description"] === "string" ? raw["description"] : "",
+		contextLength: positive(raw["contextLength"]),
+		maxOutputTokens: positive(raw["maxOutputTokens"]),
+		capabilities: {
+			vision: caps["vision"] === true,
+			reasoning: caps["reasoning"] === true,
+			toolCalling: caps["toolCalling"] === true,
+			structuredOutput: caps["structuredOutput"] === true
+		},
+		reasoningEfforts: strings(raw["reasoningEfforts"]),
+		openWeights: raw["openWeights"] === true,
+		pricing: {
+			prompt: nonNegative(price["prompt"]) ?? 0,
+			completion: nonNegative(price["completion"]) ?? 0,
+			cacheRead: nonNegative(price["cacheRead"])
+		},
+		category: typeof raw["category"] === "string" && raw["category"] ? raw["category"] : null,
+		subscription: {
+			included: sub["included"] === true,
+			inputTokenMultiplier: positive(sub["inputTokenMultiplier"]) ?? 1
+		},
+		providerIds: strings(raw["providerIds"]),
+		created: positive(raw["created"])
+	};
+}
+/** A list of models of the contract shape: junk entries are skipped, a repeated id keeps its first entry. */
+function readCatalogModels(raw) {
+	if (!Array.isArray(raw)) return [];
+	const seen = /* @__PURE__ */ new Set();
+	const out = [];
+	for (const item of raw) {
+		const model = readCatalogModel(item);
+		if (!model || seen.has(model.id)) continue;
+		seen.add(model.id);
+		out.push(model);
+	}
+	return out;
+}
+function readEndpoint(raw) {
+	if (!isRecord(raw)) return null;
+	const id = typeof raw["id"] === "string" ? raw["id"].trim() : "";
+	if (!id) return null;
+	const price = isRecord(raw["pricing"]) ? raw["pricing"] : null;
+	const prompt = price ? nonNegative(price["prompt"]) : null;
+	const completion = price ? nonNegative(price["completion"]) : null;
+	const quantization = raw["quantization"];
+	return {
+		id,
+		quantization: typeof quantization === "string" && QUANTIZATIONS.includes(quantization) ? quantization : null,
+		rawQuantization: typeof raw["rawQuantization"] === "string" && raw["rawQuantization"] ? raw["rawQuantization"] : null,
+		pricing: price && prompt !== null && completion !== null ? {
+			prompt,
+			completion,
+			cacheRead: nonNegative(price["cacheRead"])
+		} : null,
+		tps: positive(raw["tps"]),
+		ttftMs: positive(raw["ttftMs"]),
+		uptime: nonNegative(raw["uptime"]),
+		maxOutputTokens: positive(raw["maxOutputTokens"]),
+		features: strings(raw["features"])
+	};
+}
+/** A host list of the contract shape (`ModelProviders` + `fetchedAt`); null when it is not one. */
+function readModelProviders(raw, fallbackFetchedAt) {
+	if (!isRecord(raw)) return null;
+	const modelId = typeof raw["modelId"] === "string" ? raw["modelId"].trim() : "";
+	if (!modelId || !Array.isArray(raw["providers"])) return null;
+	const seen = /* @__PURE__ */ new Set();
+	const providers = [];
+	for (const item of raw["providers"]) {
+		const endpoint = readEndpoint(item);
+		if (!endpoint || seen.has(endpoint.id)) continue;
+		seen.add(endpoint.id);
+		providers.push(endpoint);
+	}
+	const rate = finite(raw["autoCacheReadRate"]);
+	return {
+		modelId,
+		supportsProviderSelection: raw["supportsProviderSelection"] !== false,
+		autoCacheReadRate: rate !== null && rate >= 0 && rate <= 1 ? rate : null,
+		autoTps: positive(raw["autoTps"]),
+		autoTtftMs: positive(raw["autoTtftMs"]),
+		providers,
+		fetchedAt: positive(raw["fetchedAt"]) ?? fallbackFetchedAt
+	};
+}
+function invalid(what) {
+	return {
+		ok: false,
+		error: {
+			code: "invalid_response",
+			message: `unexpected ${what}`,
+			status: null
+		}
+	};
+}
+function createPluginCatalogClient(plugin, log, now = Date.now) {
+	return {
+		async catalog(options) {
+			const result = await plugin.request("GET", options?.refresh ? "/catalog?refresh=1" : "/catalog", { timeoutMs: CATALOG_TIMEOUT_MS });
+			if (!result.ok) return result;
+			const data = result.data;
+			if (!isRecord(data) || !Array.isArray(data["models"])) return invalid("catalog answer");
+			const models = readCatalogModels(data["models"]);
+			if (models.length === 0) return invalid("catalog answer (no models)");
+			if (models.length < data["models"].length) log.debug("the plugin sent models that could not be read; skipped");
+			const source = data["source"];
+			return {
+				ok: true,
+				data: {
+					models,
+					fetchedAt: positive(data["fetchedAt"]) ?? now(),
+					source: source === "live" || source === "cache" || source === "stale" ? source : "cache"
+				}
+			};
+		},
+		async providers(modelId, options) {
+			const query = `id=${encodeURIComponent(modelId)}${options?.refresh ? "&refresh=1" : ""}`;
+			const result = await plugin.request("GET", `/catalog/providers?${query}`, { timeoutMs: PROVIDERS_TIMEOUT_MS });
+			if (!result.ok) return result;
+			const value = readModelProviders(result.data, now());
+			return value ? {
+				ok: true,
+				data: value
+			} : invalid("host list");
+		}
+	};
+}
+function createCatalogStore(deps) {
+	const { plugin, pluginCatalog, direct, storage, bus, log } = deps;
+	const now = deps.now ?? Date.now;
+	const freshMs = deps.freshMs ?? 6e5;
+	const providersFreshMs = deps.providersFreshMs ?? 3e5;
+	const capacity = Math.max(1, deps.providersCapacity ?? 200);
+	const backoffMs = deps.failureBackoffMs ?? 3e4;
+	let snapshot = null;
+	let source = null;
+	let via = null;
+	let error = null;
+	let failedAt = null;
+	let triedStorage = false;
+	let inflight = null;
+	let inflightForced = false;
+	const entries = /* @__PURE__ */ new Map();
+	const flights = /* @__PURE__ */ new Map();
+	const listeners = /* @__PURE__ */ new Set();
+	function changed() {
+		for (const listener of [...listeners]) try {
+			listener();
+		} catch (failure) {
+			log.error("a catalog listener failed", failure);
+		}
+		bus.emit("catalog:changed", { count: snapshot?.models.length ?? 0 });
+	}
+	/** The exact id, else the id with trailing `:suffix` parts peeled off one by one (`:thinking:max` -> `:thinking` -> base). */
+	function lookup(id) {
+		const held = snapshot;
+		if (!held || typeof id !== "string") return null;
+		let key = id.trim();
+		for (;;) {
+			const model = held.byId.get(key);
+			if (model) return model;
+			const cut = key.lastIndexOf(":");
+			if (cut <= 0) return null;
+			key = key.slice(0, cut);
+		}
+	}
+	/** The key of a model's host list: its catalog id when the catalog knows the model, else the id as given. */
+	function providersKey(id) {
+		return lookup(id)?.id ?? (typeof id === "string" ? id.trim() : "");
+	}
+	function touch(key) {
+		const entry = entries.get(key);
+		if (entry) {
+			entries.delete(key);
+			entries.set(key, entry);
+		}
+		return entry;
+	}
+	function putEntry(key, entry) {
+		entries.delete(key);
+		entries.set(key, entry);
+		while (entries.size > capacity) {
+			const oldest = entries.keys().next();
+			if (oldest.done) break;
+			entries.delete(oldest.value);
+		}
+	}
+	function makeSnapshot(models, fetchedAt) {
+		return {
+			models,
+			byId: new Map(models.map((m) => [m.id, m])),
+			fetchedAt: Math.min(fetchedAt, now())
+		};
+	}
+	const isFresh = (value) => now() - value.fetchedAt < freshMs;
+	/** Reads the copy stored in the browser, once. It only fills an empty store. */
+	async function restore() {
+		triedStorage = true;
+		let stored = null;
+		try {
+			stored = await storage.load();
+		} catch (failure) {
+			log.debug("the stored catalog could not be read", failure);
+		}
+		if (!stored || snapshot || stored.version !== 1) return;
+		const models = readCatalogModels(stored.models);
+		if (models.length === 0) return;
+		snapshot = makeSnapshot(models, stored.fetchedAt);
+		source = isFresh(snapshot) ? "cache" : "stale";
+		via = "storage";
+		error = null;
+		changed();
+	}
+	function persist(value) {
+		storage.save({
+			version: 1,
+			fetchedAt: value.fetchedAt,
+			models: value.models
+		}).catch((failure) => log.debug("the catalog could not be stored", failure));
+	}
+	async function pluginIsUp() {
+		try {
+			return await plugin.available();
+		} catch {
+			return false;
+		}
+	}
+	/** The plugin first, then NanoGPT itself. null with the last error code when neither delivered. */
+	async function fetchSnapshot(force) {
+		if (await pluginIsUp()) {
+			const result = await pluginCatalog.catalog({ refresh: force });
+			if (result.ok) {
+				const { models, fetchedAt, source: kind } = result.data;
+				return {
+					ok: true,
+					value: {
+						models,
+						fetchedAt,
+						source: kind,
+						via: "plugin"
+					}
+				};
+			}
+			log.debug(`the plugin could not deliver the catalog (${result.error.code}); asking NanoGPT directly`);
+		}
+		const result = await direct.catalog();
+		if (result.ok) return {
+			ok: true,
+			value: {
+				models: result.data,
+				fetchedAt: now(),
+				source: "live",
+				via: "direct"
+			}
+		};
+		return {
+			ok: false,
+			code: result.code
+		};
+	}
+	async function load(force) {
+		if (!triedStorage && !snapshot) await restore();
+		if (snapshot && !force) {
+			if (isFresh(snapshot)) return;
+			if (failedAt !== null && now() - failedAt < backoffMs) return;
+		}
+		const result = await fetchSnapshot(force);
+		if (result.ok) {
+			const { value } = result;
+			if (!snapshot || Math.min(value.fetchedAt, now()) >= snapshot.fetchedAt) {
+				snapshot = makeSnapshot(value.models, value.fetchedAt);
+				source = value.source;
+				via = value.via;
+				persist(snapshot);
+			}
+			error = null;
+			failedAt = null;
+			changed();
+			return;
+		}
+		failedAt = now();
+		error = result.code;
+		log.warn(`the catalog could not be loaded (${result.code})${snapshot ? "; the old copy is kept" : ""}`);
+		if (snapshot) source = "stale";
+		changed();
+	}
+	function refresh(force = false) {
+		if (inflight) {
+			if (!force || inflightForced) return inflight;
+			return inflight.then(() => refresh(true));
+		}
+		inflightForced = force;
+		const running = load(force).catch((failure) => {
+			log.error("the catalog load failed unexpectedly", failure);
+		}).finally(() => {
+			if (inflight === running) inflight = null;
+		});
+		inflight = running;
+		return running;
+	}
+	async function fetchProviders(key, held) {
+		let value = null;
+		if (await pluginIsUp()) {
+			const result = await pluginCatalog.providers(key);
+			if (result.ok) value = result.data;
+			else log.debug(`the plugin could not deliver the hosts (${result.error.code}); asking NanoGPT directly`);
+		}
+		if (!value) {
+			const result = await direct.providers(key);
+			if (result.ok) value = {
+				...result.data,
+				fetchedAt: now()
+			};
+		}
+		if (value) {
+			putEntry(key, {
+				value,
+				fetchedAt: Math.min(value.fetchedAt, now()),
+				failedAt: null
+			});
+			changed();
+			return value;
+		}
+		log.debug("the host list could not be loaded");
+		putEntry(key, {
+			value: held?.value ?? null,
+			fetchedAt: held?.fetchedAt ?? 0,
+			failedAt: now()
+		});
+		return held?.value ?? null;
+	}
+	async function ensureProviders(id, options) {
+		try {
+			const key = providersKey(id);
+			if (!key) return null;
+			const held = touch(key);
+			if (!options?.force) {
+				if (held?.value && now() - held.fetchedAt < providersFreshMs) return held.value;
+				if (held?.failedAt != null && now() - held.failedAt < backoffMs) return held.value;
+			}
+			const running = flights.get(key);
+			if (running) return await running;
+			const flight = fetchProviders(key, held).finally(() => {
+				if (flights.get(key) === flight) flights.delete(key);
+			});
+			flights.set(key, flight);
+			return await flight;
+		} catch (failure) {
+			log.error("loading a host list failed unexpectedly", failure);
+			return null;
+		}
+	}
+	return {
+		models: () => snapshot?.models ?? [],
+		model: lookup,
+		providers: (id) => touch(providersKey(id))?.value ?? null,
+		ensureProviders,
+		hints(id) {
+			const model = lookup(id);
+			return model ? routingHints(model, touch(model.id)?.value ?? null) : [];
+		},
+		status: () => ({
+			loaded: snapshot !== null,
+			fetchedAt: snapshot?.fetchedAt ?? null,
+			source,
+			error,
+			via
+		}),
+		refresh,
+		onChange(listener) {
+			listeners.add(listener);
+			return () => {
+				listeners.delete(listener);
+			};
+		}
+	};
+}
+/** The store as the app wires it: the plugin client, a direct source, and IndexedDB storage. */
+function createBrowserCatalogStore(deps) {
+	return createCatalogStore({
+		plugin: deps.plugin,
+		pluginCatalog: createPluginCatalogClient(deps.plugin, deps.log),
+		direct: createDirectCatalogSource({ log: deps.log }),
+		storage: createCatalogStorage(deps.log),
+		bus: deps.bus,
+		log: deps.log
+	});
 }
 // src/core/i18n.ts
 /**
@@ -3685,8 +4895,8 @@ function emptyTotals() {
 function addTotals(a, b) {
 	return {
 		requests: a.requests + b.requests,
-		costUsd: roundUsd(a.costUsd + b.costUsd),
-		equivalentUsd: roundUsd(a.equivalentUsd + b.equivalentUsd),
+		costUsd: roundUsd$1(a.costUsd + b.costUsd),
+		equivalentUsd: roundUsd$1(a.equivalentUsd + b.equivalentUsd),
 		promptTokens: a.promptTokens + b.promptTokens,
 		completionTokens: a.completionTokens + b.completionTokens,
 		cachedTokens: a.cachedTokens + b.cachedTokens
@@ -4567,7 +5777,14 @@ var UI_STRINGS = {
 		"ui.general.language.ru": "Russian",
 		"ui.general.language.en": "English",
 		"ui.general.debug": "Debug logging",
-		"ui.general.debugHint": "Prints Nanovia details to the browser console. Keys and tokens are never printed."
+		"ui.general.debugHint": "Prints Nanovia details to the browser console. Keys and tokens are never printed.",
+		"ui.picker.loading": "Loading the model catalog… You can type the id by hand.",
+		"ui.picker.unavailable": "The model catalog is not available. Type the model id by hand.",
+		"ui.picker.noMatch": "No catalog model matches. The text is used as the model id.",
+		"ui.picker.more": "{count} more: keep typing to narrow the list.",
+		"ui.picker.sub": "sub",
+		"ui.picker.subTitle": "Included in the subscription",
+		"ui.picker.priceTitle": "USD per 1M tokens: prompt / completion"
 	},
 	ru: {
 		"ui.title": "Nanovia",
@@ -4580,7 +5797,14 @@ var UI_STRINGS = {
 		"ui.general.language.ru": "Русский",
 		"ui.general.language.en": "English",
 		"ui.general.debug": "Подробный журнал",
-		"ui.general.debugHint": "Пишет подробности работы Nanovia в консоль браузера. Ключи и токены не выводятся никогда."
+		"ui.general.debugHint": "Пишет подробности работы Nanovia в консоль браузера. Ключи и токены не выводятся никогда.",
+		"ui.picker.loading": "Загружаю каталог моделей… Id можно ввести и вручную.",
+		"ui.picker.unavailable": "Каталог моделей недоступен. Введите id модели вручную.",
+		"ui.picker.noMatch": "В каталоге нет такой модели. Введённый текст будет использован как id модели.",
+		"ui.picker.more": "Ещё {count}: продолжайте вводить, чтобы сузить список.",
+		"ui.picker.sub": "подп.",
+		"ui.picker.subTitle": "Входит в подписку",
+		"ui.picker.priceTitle": "USD за 1M токенов: промпт / ответ"
 	}
 };
 // src/features/account/view-model.ts
@@ -4591,7 +5815,7 @@ var DASH = "—";
 * USD with the decimals the amount needs to show three significant digits, at least two and at most six:
 * $12.40, $0.052, $0.0123, $0.000345. A positive amount too small for six decimals reads "<$0.000001", never "$0.00".
 */
-function formatUsd(value) {
+function formatUsd$1(value) {
 	if (value === null || !Number.isFinite(value)) return DASH;
 	if (value === 0) return "$0.00";
 	const abs = Math.abs(value);
@@ -4612,7 +5836,7 @@ function formatTokens(value) {
 function trim(value) {
 	return value.toFixed(1).replace(/\.0$/, "");
 }
-function formatPercent(fraction) {
+function formatPercent$1(fraction) {
 	return `${Math.round(fraction * 100)}`;
 }
 function formatLatency(ms) {
@@ -4655,7 +5879,7 @@ function quotaBar(id, window, now, t) {
 	else valueText = t("account.quota.value", {
 		used: formatTokens(used),
 		limit: formatTokens(limit),
-		percent: formatPercent(used / limit)
+		percent: formatPercent$1(used / limit)
 	});
 	let level = "muted";
 	if (fraction !== null) level = fraction >= 1 ? "error" : fraction >= .8 ? "warn" : "ok";
@@ -4688,7 +5912,7 @@ function recommendedChip(mode, t) {
 		title: t("account.recommended.paygo.hint")
 	};
 }
-function errorText(error, t) {
+function errorText$1(error, t) {
 	if ([
 		"key_rejected",
 		"rate_limited",
@@ -4718,7 +5942,7 @@ function accountNotice(detail, t) {
 		};
 		case "error": return {
 			kind: "error",
-			text: detail.error ? errorText(detail.error, t) : t("account.error.other", { code: "?" }),
+			text: detail.error ? errorText$1(detail.error, t) : t("account.error.other", { code: "?" }),
 			action: detail.error?.code === "key_rejected" ? "keys" : null
 		};
 		case "ok":
@@ -4778,8 +6002,8 @@ function spendCard(range, totals, t) {
 		id: range,
 		title,
 		requests: String(totals.requests),
-		real: formatUsd(totals.costUsd),
-		equivalent: formatUsd(totals.equivalentUsd),
+		real: formatUsd$1(totals.costUsd),
+		equivalent: formatUsd$1(totals.equivalentUsd),
 		tokens: t("account.spend.tokens", {
 			prompt: formatTokens(totals.promptTokens),
 			completion: formatTokens(totals.completionTokens)
@@ -4792,8 +6016,8 @@ function breakdownRow(key, name, totals) {
 		key,
 		name,
 		requests: String(totals.requests),
-		real: formatUsd(totals.costUsd),
-		equivalent: formatUsd(totals.equivalentUsd),
+		real: formatUsd$1(totals.costUsd),
+		equivalent: formatUsd$1(totals.equivalentUsd),
 		tokens: formatTokens(totals.promptTokens + totals.completionTokens)
 	};
 }
@@ -4833,13 +6057,13 @@ function recentRow(record, index, now, nameOf, t) {
 			label: t(`account.billing.${record.billing}`),
 			kind: BILLING_KIND[record.billing]
 		},
-		cost: formatUsd(record.costUsd),
-		equivalent: formatUsd(record.equivalentUsd),
+		cost: formatUsd$1(record.costUsd),
+		equivalent: formatUsd$1(record.equivalentUsd),
 		tokens: t("account.row.tokens", {
 			prompt: formatTokens(record.promptTokens),
 			completion: formatTokens(record.completionTokens)
 		}),
-		cached: share === null ? null : t("account.row.cached", { percent: formatPercent(share) }),
+		cached: share === null ? null : t("account.row.cached", { percent: formatPercent$1(share) }),
 		latency: formatLatency(record.latencyMs),
 		error: failed ? {
 			label: t("account.row.error"),
@@ -4875,7 +6099,7 @@ function lookupView(result, t) {
 	};
 	return {
 		kind: "ok",
-		text: t("account.lookup.cost", { cost: formatUsd(costUsd) })
+		text: t("account.lookup.cost", { cost: formatUsd$1(costUsd) })
 	};
 }
 /** The spend summaries are not asked for more often than this when records keep arriving. */
@@ -4983,7 +6207,7 @@ function renderAccountTab(root, ctx) {
 			el("b", { text: t("account.balance.title") }),
 			el("div", {
 				class: "nanovia-big",
-				text: formatUsd(snapshot.usdBalance)
+				text: formatUsd$1(snapshot.usdBalance)
 			}),
 			snapshot.nanoBalance !== null && snapshot.nanoBalance !== 0 ? el("div", {
 				class: "nanovia-muted",
@@ -5298,6 +6522,1824 @@ var accountFeature = {
 		});
 	}
 };
+// src/ui/format.ts
+/** Strips trailing zeros of a fixed-point number: 1.50 -> 1.5, 2.00 -> 2. */
+function trimZeros(text) {
+	return text.includes(".") ? text.replace(/0+$/, "").replace(/\.$/, "") : text;
+}
+/** USD per 1M tokens, three significant digits: 0.0387 -> "0.0387", 0.6 -> "0.6", 15 -> "15", 0 -> "0". */
+function formatPrice(usdPer1M) {
+	if (!Number.isFinite(usdPer1M) || usdPer1M <= 0) return "0";
+	const text = String(Number(usdPer1M.toPrecision(3)));
+	return text.includes("e") ? trimZeros(usdPer1M.toFixed(9)) : text;
+}
+/** A price pair for a list row: "0.6 / 1.1". */
+function formatPricePair(prompt, completion) {
+	return `${formatPrice(prompt)} / ${formatPrice(completion)}`;
+}
+/**
+* Tokens as K/M. A round decimal count stays decimal (200000 -> "200K", 512000 -> "512K", 1000000 -> "1M"); a multiple of
+* 1024 that is not one counts in 1024s (131072 -> "128K", 1048576 -> "1M", 49152 -> "48K"); null -> "?".
+*/
+function formatContext(tokens) {
+	if (tokens === null || !Number.isFinite(tokens) || tokens <= 0) return "?";
+	const k = tokens % 1e3 !== 0 && tokens % 1024 === 0 ? 1024 : 1e3;
+	if (tokens >= k * k) return `${trimZeros((tokens / (k * k)).toFixed(1))}M`;
+	if (tokens >= k) return `${trimZeros((tokens / k).toFixed(1))}K`;
+	return String(tokens);
+}
+// src/features/catalog/view-model.ts
+/** A cost in USD for a turn: "$0.0123", "$1.50", "<$0.0001", "$0". */
+function formatUsd(usd) {
+	if (!Number.isFinite(usd) || usd <= 0) return "$0";
+	if (usd < 1e-4) return "<$0.0001";
+	const trimmed = trimZeros(usd >= 1 ? usd.toFixed(2) : usd.toFixed(4));
+	return `$${(trimmed.includes(".") ? trimmed.split(".")[1]?.length ?? 0 : 0) >= 2 ? trimmed : Number(trimmed).toFixed(2)}`;
+}
+function formatPercent(share) {
+	return `${Math.round(share * 100)}%`;
+}
+function formatCount(value, unit) {
+	return value === null ? "—" : `${trimZeros(value.toFixed(1))}${unit}`;
+}
+/** "5 min ago" and friends; `now` is passed in so the function stays pure. */
+function formatAge(at, now, t) {
+	const seconds = Math.max(0, Math.round((now - at) / 1e3));
+	if (seconds < 60) return t("catalog.age.now");
+	const minutes = Math.round(seconds / 60);
+	if (minutes < 60) return t("catalog.age.minutes", { n: minutes });
+	const hours = Math.round(minutes / 60);
+	if (hours < 48) return t("catalog.age.hours", { n: hours });
+	return t("catalog.age.days", { n: Math.round(hours / 24) });
+}
+/** A number typed into a field ("1,5", " 20000 "); null when empty, not a number or negative. */
+function parseNumber(text) {
+	const cleaned = text.trim().replace(/\s+/g, "").replace(",", ".");
+	if (!cleaned) return null;
+	const value = Number(cleaned);
+	return Number.isFinite(value) && value >= 0 ? value : null;
+}
+var KNOWN_CATEGORIES = {
+	uncensored: "uncensored",
+	"roleplay/storytelling models": "roleplay",
+	"private/tee": "tee",
+	more: "more"
+};
+/** The shelf of a model in the user's language; an unknown shelf shows as NanoGPT names it, no shelf as "Other". */
+function categoryLabel(category, t) {
+	if (category === null || category === "") return t("catalog.category.none");
+	const known = KNOWN_CATEGORIES[category.toLowerCase()];
+	return known ? t(`catalog.category.${known}`) : category;
+}
+function vendorLabel(vendor, t) {
+	return vendor === "other" ? t("catalog.vendor.other") : vendor;
+}
+var CAPABILITIES = [
+	{
+		key: "vision",
+		icon: "eye",
+		has: (m) => m.capabilities.vision
+	},
+	{
+		key: "reasoning",
+		icon: "brain",
+		has: (m) => m.capabilities.reasoning
+	},
+	{
+		key: "tools",
+		icon: "screwdriver-wrench",
+		has: (m) => m.capabilities.toolCalling
+	},
+	{
+		key: "structured",
+		icon: "code",
+		has: (m) => m.capabilities.structuredOutput
+	}
+];
+var SORTS = [
+	"name",
+	"price",
+	"context",
+	"newest",
+	"subscription"
+];
+/** Minimum context choices of the filter (tokens); 0 = no requirement. */
+var CONTEXT_CHOICES = [
+	0,
+	8192,
+	32768,
+	131072,
+	2e5,
+	1048576
+];
+function defaultFilters() {
+	return {
+		text: "",
+		categories: [],
+		subscriptionOnly: false,
+		vision: false,
+		reasoning: false,
+		tools: false,
+		structured: false,
+		minContext: 0,
+		maxPromptPrice: null,
+		openWeightsOnly: false,
+		sort: "name",
+		reverse: false,
+		groupByVendor: false
+	};
+}
+function queryOf(state) {
+	const query = {};
+	if (state.text.trim()) query.text = state.text;
+	if (state.categories.length > 0) query.categories = state.categories;
+	if (state.subscriptionOnly) query.subscriptionOnly = true;
+	const capabilities = {
+		...state.vision ? { vision: true } : {},
+		...state.reasoning ? { reasoning: true } : {},
+		...state.tools ? { tools: true } : {},
+		...state.structured ? { structured: true } : {}
+	};
+	if (Object.keys(capabilities).length > 0) query.capabilities = capabilities;
+	if (state.minContext > 0) query.minContext = state.minContext;
+	if (state.maxPromptPrice !== null) query.maxPromptPrice = state.maxPromptPrice;
+	if (state.openWeightsOnly) query.openWeightsOnly = true;
+	return query;
+}
+/** Whether any filter (not the sort or the grouping) is set: the "reset" button and the empty-result message use it. */
+function hasActiveFilters(state) {
+	return Object.keys(queryOf(state)).length > 0;
+}
+/** The state with the filters cleared and the sort and grouping kept. */
+function clearedFilters(state) {
+	return {
+		...defaultFilters(),
+		sort: state.sort,
+		reverse: state.reverse,
+		groupByVendor: state.groupByVendor
+	};
+}
+/** Toggles a shelf in the selection (key '' = no shelf). */
+function toggleCategory(state, key) {
+	const has = state.categories.includes(key);
+	return {
+		...state,
+		categories: has ? state.categories.filter((item) => item !== key) : [...state.categories, key]
+	};
+}
+function subscriptionBadge(model, t) {
+	if (!model.subscription.included) return null;
+	const multiplier = model.subscription.inputTokenMultiplier;
+	if (multiplier === 1) return {
+		label: t("catalog.sub.included"),
+		title: t("catalog.sub.includedHint")
+	};
+	return {
+		label: t("catalog.sub.includedMultiplier", { multiplier: trimZeros(String(multiplier)) }),
+		title: t("catalog.sub.multiplierHint", { multiplier: trimZeros(String(multiplier)) })
+	};
+}
+function rowOf(model, t) {
+	return {
+		id: model.id,
+		name: model.name,
+		price: formatPricePair(model.pricing.prompt, model.pricing.completion),
+		context: formatContext(model.contextLength),
+		capabilities: CAPABILITIES.filter((cap) => cap.has(model)).map((cap) => cap.key),
+		openWeights: model.openWeights,
+		subscription: subscriptionBadge(model, t)
+	};
+}
+function categoryChips(models, state, t) {
+	return listCategories(models).map(({ category, count }) => {
+		const key = category ?? "";
+		return {
+			key,
+			label: categoryLabel(category, t),
+			count,
+			active: state.categories.includes(key)
+		};
+	});
+}
+/** The filtered, sorted (and optionally grouped) list, cut to the first `limit` models. */
+function buildList(models, state, limit, t) {
+	const matched = sortCatalog(filterCatalog(models, queryOf(state)), state.sort, state.reverse);
+	const cut = Math.max(0, Math.min(limit, matched.length));
+	const drawn = matched.slice(0, cut);
+	let sections;
+	if (state.groupByVendor) {
+		const sizes = new Map(groupByVendor(matched).map((group) => [group.vendor, group.models.length]));
+		sections = groupByVendor(drawn).map((group) => ({
+			vendor: group.vendor,
+			vendorLabel: vendorLabel(group.vendor, t),
+			count: sizes.get(group.vendor) ?? group.models.length,
+			rows: group.models.map((model) => rowOf(model, t))
+		}));
+	} else sections = drawn.length ? [{
+		vendor: null,
+		vendorLabel: null,
+		count: matched.length,
+		rows: drawn.map((model) => rowOf(model, t))
+	}] : [];
+	return {
+		total: models.length,
+		matched: matched.length,
+		shown: cut,
+		remaining: matched.length - cut,
+		sections,
+		chips: categoryChips(models, state, t)
+	};
+}
+var KNOWN_ERRORS = [
+	"unreachable",
+	"timeout",
+	"invalid_response",
+	"not_found"
+];
+function errorText(code, t) {
+	if (KNOWN_ERRORS.includes(code)) return t(`catalog.error.${code}`);
+	const http = /^http_(\d+)$/.exec(code);
+	if (http) return t("catalog.error.http", { status: http[1] ?? "" });
+	return t("catalog.error.other", { code });
+}
+function statusView(status, count, now, t) {
+	if (!status.loaded) {
+		if (status.error) return {
+			kind: "error",
+			text: t("catalog.status.failed"),
+			notice: errorText(status.error, t)
+		};
+		return {
+			kind: "muted",
+			text: t("catalog.status.loading"),
+			notice: null
+		};
+	}
+	const via = status.via ? t(`catalog.via.${status.via}`) : null;
+	const age = status.fetchedAt !== null ? t("catalog.status.updated", { age: formatAge(status.fetchedAt, now, t) }) : null;
+	const text = [
+		t("catalog.status.count", { count }),
+		via,
+		age
+	].filter((part) => part !== null).join(" · ");
+	if (status.source === "stale") return {
+		kind: "warn",
+		text,
+		notice: status.error ? t("catalog.status.staleError", { error: errorText(status.error, t) }) : t("catalog.status.stale")
+	};
+	return {
+		kind: "ok",
+		text,
+		notice: null
+	};
+}
+function detailOf(model, t) {
+	return {
+		id: model.id,
+		name: model.name,
+		description: model.description,
+		category: categoryLabel(model.category, t),
+		context: formatContext(model.contextLength),
+		maxOutput: model.maxOutputTokens === null ? null : formatContext(model.maxOutputTokens),
+		prices: {
+			prompt: formatPrice(model.pricing.prompt),
+			completion: formatPrice(model.pricing.completion),
+			cacheRead: model.pricing.cacheRead === null ? null : formatPrice(model.pricing.cacheRead)
+		},
+		capabilities: CAPABILITIES.map((cap) => ({
+			key: cap.key,
+			on: cap.has(model)
+		})),
+		openWeights: model.openWeights,
+		efforts: model.reasoningEfforts,
+		alwaysReasons: model.reasoningEfforts.length > 0 && !model.reasoningEfforts.includes("none"),
+		subscription: subscriptionBadge(model, t),
+		hostCount: model.providerIds.length
+	};
+}
+var DEFAULT_COST_INPUTS = {
+	promptTokens: 2e4,
+	completionTokens: 1500,
+	cachedPercent: 80
+};
+/** Reads the three fields of the estimate; an empty or wrong field keeps its default, the share is clamped to 0..100. */
+function parseCostInputs(prompt, completion, cached) {
+	const clampPercent = (value) => Math.min(100, Math.max(0, value));
+	const cachedValue = parseNumber(cached);
+	return {
+		promptTokens: parseNumber(prompt) ?? DEFAULT_COST_INPUTS.promptTokens,
+		completionTokens: parseNumber(completion) ?? DEFAULT_COST_INPUTS.completionTokens,
+		cachedPercent: cachedValue === null ? DEFAULT_COST_INPUTS.cachedPercent : clampPercent(cachedValue)
+	};
+}
+function costView(model, inputs, t) {
+	const usage = {
+		promptTokens: inputs.promptTokens,
+		completionTokens: inputs.completionTokens,
+		cachedShare: inputs.cachedPercent / 100
+	};
+	const turn = estimateTurnCost(model, usage);
+	const noCachePrice = model.pricing.cacheRead === null;
+	const plain = estimateTurnCost(model, {
+		...usage,
+		cachedShare: 0
+	});
+	const sub = model.subscription;
+	return {
+		turn: formatUsd(turn),
+		withoutCache: !noCachePrice && inputs.cachedPercent > 0 ? formatUsd(plain) : null,
+		hundredTurns: formatUsd(turn * 100),
+		noCachePrice,
+		subscriptionNote: sub.included ? sub.inputTokenMultiplier === 1 ? t("catalog.cost.subscription") : t("catalog.cost.subscriptionMultiplier", { multiplier: trimZeros(String(sub.inputTokenMultiplier)) }) : null
+	};
+}
+var HOST_PRIORITIES = [
+	"balanced",
+	"price",
+	"speed",
+	"uptime"
+];
+var PRIORITY_WEIGHTS = {
+	balanced: {
+		weightPrice: 1,
+		weightSpeed: 1,
+		weightUptime: 1
+	},
+	price: {
+		weightPrice: 3,
+		weightSpeed: 1,
+		weightUptime: 1
+	},
+	speed: {
+		weightPrice: 1,
+		weightSpeed: 3,
+		weightUptime: 1
+	},
+	uptime: {
+		weightPrice: 1,
+		weightSpeed: 1,
+		weightUptime: 3
+	}
+};
+function defaultHostCriteria() {
+	return {
+		priority: "balanced",
+		preferQuantization: "",
+		maxPrompt: null,
+		maxCompletion: null
+	};
+}
+function criteriaOf(state) {
+	return {
+		...PRIORITY_WEIGHTS[state.priority],
+		...state.preferQuantization ? { preferQuantization: state.preferQuantization } : {},
+		...state.maxPrompt !== null || state.maxCompletion !== null ? { maxPrice: {
+			prompt: state.maxPrompt,
+			completion: state.maxCompletion
+		} } : {}
+	};
+}
+function quantizationText(host) {
+	if (host.quantization === null) return "?";
+	if (host.rawQuantization && host.rawQuantization.toLowerCase() !== host.quantization) return `${host.quantization} (${host.rawQuantization})`;
+	return host.quantization;
+}
+/** The hosts of a model, ranked for the criteria. */
+function hostRows(providers, state) {
+	const scores = scoreHosts(providers.providers, criteriaOf(state));
+	const byId = new Map(providers.providers.map((host) => [host.id, host]));
+	const rows = [];
+	for (const score of scores) {
+		const host = byId.get(score.providerId);
+		if (!host) continue;
+		rows.push({
+			rank: score.rank,
+			id: host.id,
+			quantization: quantizationText(host),
+			price: host.pricing ? formatPricePair(host.pricing.prompt, host.pricing.completion) : "—",
+			tps: formatCount(host.tps, ""),
+			ttft: host.ttftMs === null ? "—" : String(Math.round(host.ttftMs)),
+			uptime: formatCount(host.uptime, "%"),
+			features: host.features,
+			score: String(Math.round(score.total * 100)),
+			overMaxPrice: score.overMaxPrice,
+			belowQuantization: score.meetsQuantization === false,
+			unknownQuantization: state.preferQuantization !== "" && score.meetsQuantization === null,
+			missing: score.missing
+		});
+	}
+	return rows;
+}
+function hostsSummary(providers) {
+	return {
+		selection: providers.supportsProviderSelection,
+		autoTps: providers.autoTps === null ? null : formatCount(providers.autoTps, ""),
+		autoTtft: providers.autoTtftMs === null ? null : String(Math.round(providers.autoTtftMs)),
+		autoCache: providers.autoCacheReadRate === null ? null : formatPercent(providers.autoCacheReadRate)
+	};
+}
+/**
+* The i18n key of a hint. A rule with two readings (hosts known or not, found by the id or the shelf) has one text per
+* reading, chosen from its params.
+*/
+function hintKey(hint) {
+	const base = `catalog.hint.${hint.code}`;
+	const { params } = hint;
+	if (hint.code === "quant.glmFp8") {
+		if (params["hostsKnown"] === false) return `${base}.unknown`;
+		if (params["okHosts"] === 0) return `${base}.noneOk`;
+	}
+	if (hint.code === "shelf.uncensoredUnmeasured" && params["byShelf"] === false) return `${base}.byId`;
+	return base;
+}
+/** Hint params as translate params: booleans become words nobody prints, the rest keep their value. */
+function hintParams(params) {
+	const out = {};
+	for (const [key, value] of Object.entries(params)) out[key] = typeof value === "boolean" ? String(value) : value;
+	return out;
+}
+/** A routing patch in words. Only the fields a hint suggests are named; anything else is listed as `name: value`. */
+function suggestionText(patch, t) {
+	const parts = [];
+	for (const [key, value] of Object.entries(patch)) {
+		if (key === "enabled") continue;
+		switch (key) {
+			case "minQuantization":
+				parts.push(t("catalog.suggest.minQuantization", { value: String(value) }));
+				break;
+			case "ignore":
+				parts.push(t("catalog.suggest.ignore", { hosts: value.join(", ") }));
+				break;
+			case "only":
+				parts.push(t("catalog.suggest.only", { hosts: value.join(", ") }));
+				break;
+			case "order":
+				parts.push(t("catalog.suggest.order", { hosts: value.join(", ") }));
+				break;
+			case "quantizations":
+				parts.push(t("catalog.suggest.quantizations", { value: value.join(", ") }));
+				break;
+			default: parts.push(`${key}: ${JSON.stringify(value)}`);
+		}
+	}
+	return parts.length > 0 ? parts.join("; ") : t("catalog.suggest.enable");
+}
+function hintViews(hints, t) {
+	return hints.map((hint) => ({
+		code: hint.code,
+		severity: hint.severity,
+		text: t(hintKey(hint), hintParams(hint.params)),
+		suggestion: hint.suggestedRouting !== void 0,
+		suggestionText: hint.suggestedRouting ? suggestionText(hint.suggestedRouting, t) : null,
+		bypass: hint.code === "billing.bypass"
+	}));
+}
+/** Several routing patches as one: lists (order, only, ignore, quantizations) are united, anything else the last one wins. */
+function mergeRoutingPatches(patches) {
+	const merged = {};
+	for (const patch of patches) for (const [key, value] of Object.entries(patch)) {
+		const before = merged[key];
+		if (Array.isArray(value) && Array.isArray(before)) merged[key] = [.../* @__PURE__ */ new Set([...before, ...value])];
+		else merged[key] = Array.isArray(value) ? [...value] : value;
+	}
+	return merged;
+}
+/**
+* What "Create a connection with this model" saves: the model, a name taken from it, the defaults of
+* `createConnection` for everything else, and the routing of the hints the user ticked (none = untouched routing).
+*/
+function newConnectionPatch(model, hints, applied) {
+	const routing = mergeRoutingPatches(hints.flatMap((hint) => applied.has(hint.code) && hint.suggestedRouting ? [hint.suggestedRouting] : []));
+	const patch = {
+		name: model.name.trim().slice(0, 80) || model.id,
+		modelId: model.id
+	};
+	if (Object.keys(routing).length > 0) patch.routing = {
+		...defaultRouting(),
+		...routing,
+		enabled: true
+	};
+	return patch;
+}
+// src/features/catalog/session.ts
+function createSession() {
+	return {
+		filters: defaultFilters(),
+		shown: 50,
+		selected: null,
+		cost: { ...DEFAULT_COST_INPUTS },
+		hosts: defaultHostCriteria()
+	};
+}
+// src/features/catalog/strings.ts
+var CATALOG_STRINGS = {
+	en: {
+		"catalog.tab": "Catalog",
+		"catalog.status.loading": "Loading the catalog…",
+		"catalog.status.failed": "The catalog could not be loaded.",
+		"catalog.status.count": "{count} models",
+		"catalog.status.updated": "updated {age}",
+		"catalog.status.stale": "Showing stored data: NanoGPT was not reachable for the last refresh.",
+		"catalog.status.staleError": "Showing stored data: the last refresh failed ({error}).",
+		"catalog.via.plugin": "via the plugin",
+		"catalog.via.direct": "straight from NanoGPT",
+		"catalog.via.storage": "from the copy stored in this browser",
+		"catalog.age.now": "just now",
+		"catalog.age.minutes": "{n} min ago",
+		"catalog.age.hours": "{n} h ago",
+		"catalog.age.days": "{n} d ago",
+		"catalog.error.unreachable": "no answer from the network",
+		"catalog.error.timeout": "the answer took too long",
+		"catalog.error.invalid_response": "the answer was not a model list",
+		"catalog.error.not_found": "not found",
+		"catalog.error.http": "HTTP {status}",
+		"catalog.error.other": "error {code}",
+		"catalog.refresh": "Refresh",
+		"catalog.retry": "Try again",
+		"catalog.filter.search": "Search models",
+		"catalog.filter.searchPlaceholder": "Name, id or description",
+		"catalog.filter.categories": "Shelves",
+		"catalog.filter.subscriptionOnly": "Included in the subscription",
+		"catalog.filter.openWeights": "Open weights only",
+		"catalog.filter.minContext": "Context at least",
+		"catalog.filter.minContext.any": "Any",
+		"catalog.filter.maxPrice": "Max prompt price, USD per 1M",
+		"catalog.filter.maxPricePlaceholder": "No limit",
+		"catalog.filter.sort": "Sort by",
+		"catalog.filter.reverse": "Reverse order",
+		"catalog.filter.group": "Group by vendor",
+		"catalog.filter.reset": "Reset filters",
+		"catalog.sort.name": "Name",
+		"catalog.sort.price": "Price",
+		"catalog.sort.context": "Context",
+		"catalog.sort.newest": "Newest",
+		"catalog.sort.subscription": "Subscription first",
+		"catalog.list.count": "Showing {shown} of {matched} models ({total} in the catalog)",
+		"catalog.list.empty": "No model matches the filters.",
+		"catalog.list.showMore": "Show {count} more",
+		"catalog.list.priceTitle": "USD per 1M tokens: prompt / completion",
+		"catalog.list.priceUnit": "USD per 1M",
+		"catalog.list.contextTitle": "Context window",
+		"catalog.category.uncensored": "Uncensored",
+		"catalog.category.roleplay": "Roleplay and storytelling",
+		"catalog.category.tee": "Private / TEE",
+		"catalog.category.more": "More",
+		"catalog.category.none": "No shelf",
+		"catalog.vendor.other": "other",
+		"catalog.sub.included": "In subscription",
+		"catalog.sub.includedHint": "Covered by the NanoGPT subscription.",
+		"catalog.sub.includedMultiplier": "In subscription ×{multiplier}",
+		"catalog.sub.multiplierHint": "Covered by the subscription, but input tokens count ×{multiplier} against the quota.",
+		"catalog.cap.vision": "Images in",
+		"catalog.cap.reasoning": "Reasoning",
+		"catalog.cap.tools": "Tool calling",
+		"catalog.cap.structured": "Structured output",
+		"catalog.cap.openWeights": "Open weights",
+		"catalog.detail.back": "Back to the list",
+		"catalog.detail.category": "Shelf",
+		"catalog.detail.context": "Context window",
+		"catalog.detail.maxOutput": "Max reply length",
+		"catalog.detail.noDescription": "No description.",
+		"catalog.detail.prices": "Prices, USD per 1M tokens",
+		"catalog.detail.price.prompt": "Prompt",
+		"catalog.detail.price.completion": "Completion",
+		"catalog.detail.price.cacheRead": "Cached prompt",
+		"catalog.detail.capabilities": "Capabilities",
+		"catalog.detail.efforts": "Reasoning efforts",
+		"catalog.detail.efforts.alwaysOn": "This model always reasons: it cannot be switched off, only lowered to the smallest effort.",
+		"catalog.detail.efforts.optional": "Reasoning can be switched off.",
+		"catalog.detail.efforts.none": "No choice of effort.",
+		"catalog.cost.title": "Cost of a turn",
+		"catalog.cost.hint": "Pay-as-you-go price of one chat turn with the numbers below.",
+		"catalog.cost.prompt": "Prompt tokens",
+		"catalog.cost.completion": "Reply tokens",
+		"catalog.cost.cached": "Prompt read from cache, %",
+		"catalog.cost.turn": "One turn",
+		"catalog.cost.withoutCache": "without cache",
+		"catalog.cost.hundred": "100 turns",
+		"catalog.cost.noCachePrice": "This model has no cache price: the cached share changes nothing.",
+		"catalog.cost.subscription": "In the subscription this costs nothing extra; the figures are what pay-as-you-go would charge.",
+		"catalog.cost.subscriptionMultiplier": "In the subscription this costs nothing extra (input tokens count ×{multiplier} against the quota); the figures are what pay-as-you-go would charge.",
+		"catalog.hosts.title": "Hosts",
+		"catalog.hosts.loading": "Loading the hosts…",
+		"catalog.hosts.unavailable": "The host list could not be loaded.",
+		"catalog.hosts.none": "NanoGPT lists no separate hosts for this model.",
+		"catalog.hosts.fixedRoute": "This model runs on a fixed route: choosing hosts does nothing, so the routing settings of a connection have no effect on it.",
+		"catalog.hosts.auto": "Automatic routing: {tps} tokens/s, first token after {ttft} ms, {cache} of the prompt from cache.",
+		"catalog.hosts.priority": "Rank by",
+		"catalog.hosts.priority.balanced": "Balanced",
+		"catalog.hosts.priority.price": "Cheapest first",
+		"catalog.hosts.priority.speed": "Fastest first",
+		"catalog.hosts.priority.uptime": "Most reliable first",
+		"catalog.hosts.prefer": "Prefer precision",
+		"catalog.hosts.prefer.none": "No preference",
+		"catalog.hosts.maxPrompt": "Hosts: max prompt price, USD per 1M",
+		"catalog.hosts.maxCompletion": "Hosts: max completion price, USD per 1M",
+		"catalog.hosts.col.rank": "#",
+		"catalog.hosts.col.host": "Host",
+		"catalog.hosts.col.quantization": "Precision",
+		"catalog.hosts.col.price": "Price in / out",
+		"catalog.hosts.col.tps": "tok/s",
+		"catalog.hosts.col.ttft": "TTFT, ms",
+		"catalog.hosts.col.uptime": "Uptime",
+		"catalog.hosts.col.features": "Features",
+		"catalog.hosts.col.score": "Score",
+		"catalog.hosts.flag.overPrice": "over the price limit",
+		"catalog.hosts.flag.belowQuantization": "below the preferred precision",
+		"catalog.hosts.flag.unknownQuantization": "precision not reported",
+		"catalog.hosts.note": "The score blends price, speed and uptime (100 is the best of this list on all three). Hosts over the price limit or below the preferred precision go last.",
+		"catalog.hints.title": "Notes on routing",
+		"catalog.hints.none": "Nothing special to know about this model.",
+		"catalog.hints.apply": "Use this routing in the new connection",
+		"catalog.hint.quant.glmFp8": "Some hosts of {model} serve it below fp8 ({lowHosts}: {low}). GLM’s own hosts run fp8, so a lower precision is a re-quantised copy and may write worse. A precision floor of fp8 keeps the original quality ({okHosts} hosts reach it).",
+		"catalog.hint.quant.glmFp8.unknown": "{model} is a GLM model. GLM’s own hosts run fp8, while some other hosts serve lower precisions. The host list shows which; a precision floor of fp8 keeps the original quality.",
+		"catalog.hint.quant.glmFp8.noneOk": "Some hosts of {model} serve it below fp8 ({lowHosts}: {low}), and none is known to reach fp8, so a floor would leave nothing to route to. The quality of the hosts is unverified.",
+		"catalog.hint.quant.deepseekNative": "The experts of {model} are natively MXFP4, so a host labelled mxfp4 serves the original. {suspiciousHosts} host(s) serve a 4-bit copy under another label ({suspicious}); it may be re-quantised, and you can ignore those hosts.",
+		"catalog.hint.hosts.few": "Few hosts serve this model ({hosts}): if one goes down there is little to fall back on.",
+		"catalog.hint.routing.fixedRoute": "NanoGPT runs {model} on a fixed route: provider selection does nothing for it (order, only, ignore and precision settings are not applied).",
+		"catalog.hint.cache.lowRate": "Under automatic routing only {percent}% of the prompt is read from cache (below {threshold}%). Caching saves the most when a connection stays on one host; consider the caching route or a fixed host.",
+		"catalog.hint.reasoning.alwaysOn": "This model always reasons (efforts: {efforts}) and cannot be switched off; the lowest effort is {lowest}. Expect thinking tokens on every reply: a connection can only lower the effort.",
+		"catalog.hint.shelf.uncensoredUnmeasured": "{model} is on NanoGPT’s Uncensored shelf. How uncensored it really is, is not measured: try it before relying on it.",
+		"catalog.hint.shelf.uncensoredUnmeasured.byId": "The name of {model} says uncensored, abliterated or heretic, but NanoGPT does not put it on the Uncensored shelf. Such labels are not measured: try the model before relying on it.",
+		"catalog.hint.billing.bypass": "Choosing hosts explicitly (any routing suggestion above) takes a subscription model off the subscription: NanoGPT bills an explicit provider choice pay-as-you-go with about {markupPercent}% markup.",
+		"catalog.suggest.minQuantization": "precision floor {value}",
+		"catalog.suggest.ignore": "ignore hosts {hosts}",
+		"catalog.suggest.only": "only hosts {hosts}",
+		"catalog.suggest.order": "try hosts in order {hosts}",
+		"catalog.suggest.quantizations": "only precisions {value}",
+		"catalog.suggest.enable": "turn provider routing on",
+		"catalog.action.create": "Create a connection with this model",
+		"catalog.action.createHint": "A new connection with this model, default settings and the ticked routing.",
+		"catalog.action.useIn": "Use in connection…",
+		"catalog.action.useIn.select": "Connection",
+		"catalog.action.useIn.apply": "Use this model",
+		"catalog.action.useIn.none": "No connections yet: create one first.",
+		"catalog.notice.created": "Connection \"{name}\" created.",
+		"catalog.notice.updated": "Connection \"{name}\" now uses {model}."
+	},
+	ru: {
+		"catalog.tab": "Каталог",
+		"catalog.status.loading": "Загружаю каталог…",
+		"catalog.status.failed": "Каталог не удалось загрузить.",
+		"catalog.status.count": "моделей: {count}",
+		"catalog.status.updated": "обновлён {age}",
+		"catalog.status.stale": "Показаны сохранённые данные: при последнем обновлении NanoGPT не ответил.",
+		"catalog.status.staleError": "Показаны сохранённые данные: последнее обновление не удалось ({error}).",
+		"catalog.via.plugin": "через плагин",
+		"catalog.via.direct": "напрямую с NanoGPT",
+		"catalog.via.storage": "из копии в этом браузере",
+		"catalog.age.now": "только что",
+		"catalog.age.minutes": "{n} мин назад",
+		"catalog.age.hours": "{n} ч назад",
+		"catalog.age.days": "{n} дн назад",
+		"catalog.error.unreachable": "сеть не ответила",
+		"catalog.error.timeout": "ответ шёл слишком долго",
+		"catalog.error.invalid_response": "ответ не похож на список моделей",
+		"catalog.error.not_found": "не найдено",
+		"catalog.error.http": "HTTP {status}",
+		"catalog.error.other": "ошибка {code}",
+		"catalog.refresh": "Обновить",
+		"catalog.retry": "Повторить",
+		"catalog.filter.search": "Поиск по моделям",
+		"catalog.filter.searchPlaceholder": "Название, id или описание",
+		"catalog.filter.categories": "Полки",
+		"catalog.filter.subscriptionOnly": "Входят в подписку",
+		"catalog.filter.openWeights": "Только открытые веса",
+		"catalog.filter.minContext": "Контекст не меньше",
+		"catalog.filter.minContext.any": "Любой",
+		"catalog.filter.maxPrice": "Макс. цена промпта, USD за 1M",
+		"catalog.filter.maxPricePlaceholder": "Без ограничения",
+		"catalog.filter.sort": "Сортировать",
+		"catalog.filter.reverse": "В обратном порядке",
+		"catalog.filter.group": "Группировать по разработчику",
+		"catalog.filter.reset": "Сбросить фильтры",
+		"catalog.sort.name": "По названию",
+		"catalog.sort.price": "По цене",
+		"catalog.sort.context": "По контексту",
+		"catalog.sort.newest": "Сначала новые",
+		"catalog.sort.subscription": "Сначала из подписки",
+		"catalog.list.count": "Показано {shown} из {matched} моделей (в каталоге {total})",
+		"catalog.list.empty": "Ни одна модель не подходит под фильтры.",
+		"catalog.list.showMore": "Показать ещё {count}",
+		"catalog.list.priceTitle": "USD за 1M токенов: промпт / ответ",
+		"catalog.list.priceUnit": "USD за 1M",
+		"catalog.list.contextTitle": "Окно контекста",
+		"catalog.category.uncensored": "Без цензуры",
+		"catalog.category.roleplay": "Ролевые игры и истории",
+		"catalog.category.tee": "Приватные / TEE",
+		"catalog.category.more": "Остальные",
+		"catalog.category.none": "Без полки",
+		"catalog.vendor.other": "прочие",
+		"catalog.sub.included": "В подписке",
+		"catalog.sub.includedHint": "Покрывается подпиской NanoGPT.",
+		"catalog.sub.includedMultiplier": "В подписке ×{multiplier}",
+		"catalog.sub.multiplierHint": "Покрывается подпиской, но входные токены считаются в квоту с коэффициентом ×{multiplier}.",
+		"catalog.cap.vision": "Принимает картинки",
+		"catalog.cap.reasoning": "Рассуждения",
+		"catalog.cap.tools": "Вызов инструментов",
+		"catalog.cap.structured": "Структурированный вывод",
+		"catalog.cap.openWeights": "Открытые веса",
+		"catalog.detail.back": "К списку",
+		"catalog.detail.category": "Полка",
+		"catalog.detail.context": "Окно контекста",
+		"catalog.detail.maxOutput": "Макс. длина ответа",
+		"catalog.detail.noDescription": "Описания нет.",
+		"catalog.detail.prices": "Цены, USD за 1M токенов",
+		"catalog.detail.price.prompt": "Промпт",
+		"catalog.detail.price.completion": "Ответ",
+		"catalog.detail.price.cacheRead": "Промпт из кэша",
+		"catalog.detail.capabilities": "Возможности",
+		"catalog.detail.efforts": "Уровни рассуждений",
+		"catalog.detail.efforts.alwaysOn": "Эта модель рассуждает всегда: отключить нельзя, можно только снизить до наименьшего уровня.",
+		"catalog.detail.efforts.optional": "Рассуждения можно отключить.",
+		"catalog.detail.efforts.none": "Выбора уровня нет.",
+		"catalog.cost.title": "Цена хода",
+		"catalog.cost.hint": "Цена одного хода чата при оплате по факту, с числами ниже.",
+		"catalog.cost.prompt": "Токенов в промпте",
+		"catalog.cost.completion": "Токенов в ответе",
+		"catalog.cost.cached": "Промпт из кэша, %",
+		"catalog.cost.turn": "Один ход",
+		"catalog.cost.withoutCache": "без кэша",
+		"catalog.cost.hundred": "100 ходов",
+		"catalog.cost.noCachePrice": "У этой модели нет цены кэша: доля кэша ничего не меняет.",
+		"catalog.cost.subscription": "По подписке это ничего не стоит сверх неё; цифры показывают, сколько взяли бы при оплате по факту.",
+		"catalog.cost.subscriptionMultiplier": "По подписке это ничего не стоит сверх неё (входные токены идут в квоту ×{multiplier}); цифры показывают, сколько взяли бы при оплате по факту.",
+		"catalog.hosts.title": "Хосты",
+		"catalog.hosts.loading": "Загружаю хосты…",
+		"catalog.hosts.unavailable": "Список хостов не удалось загрузить.",
+		"catalog.hosts.none": "NanoGPT не показывает отдельных хостов у этой модели.",
+		"catalog.hosts.fixedRoute": "Эта модель идёт по фиксированному маршруту: выбор хостов ничего не меняет, поэтому настройки маршрутизации подключения на неё не действуют.",
+		"catalog.hosts.auto": "Автоматическая маршрутизация: {tps} токенов/с, первый токен через {ttft} мс, {cache} промпта из кэша.",
+		"catalog.hosts.priority": "Ранжировать по",
+		"catalog.hosts.priority.balanced": "Сбалансированно",
+		"catalog.hosts.priority.price": "Сначала дешёвые",
+		"catalog.hosts.priority.speed": "Сначала быстрые",
+		"catalog.hosts.priority.uptime": "Сначала надёжные",
+		"catalog.hosts.prefer": "Предпочитать точность",
+		"catalog.hosts.prefer.none": "Без предпочтения",
+		"catalog.hosts.maxPrompt": "Хосты: макс. цена промпта, USD за 1M",
+		"catalog.hosts.maxCompletion": "Хосты: макс. цена ответа, USD за 1M",
+		"catalog.hosts.col.rank": "№",
+		"catalog.hosts.col.host": "Хост",
+		"catalog.hosts.col.quantization": "Точность",
+		"catalog.hosts.col.price": "Цена вх. / исх.",
+		"catalog.hosts.col.tps": "ток/с",
+		"catalog.hosts.col.ttft": "TTFT, мс",
+		"catalog.hosts.col.uptime": "Аптайм",
+		"catalog.hosts.col.features": "Возможности",
+		"catalog.hosts.col.score": "Балл",
+		"catalog.hosts.flag.overPrice": "дороже лимита цены",
+		"catalog.hosts.flag.belowQuantization": "ниже предпочитаемой точности",
+		"catalog.hosts.flag.unknownQuantization": "точность не указана",
+		"catalog.hosts.note": "Балл сводит цену, скорость и аптайм (100 — лучший в этом списке по всем трём). Хосты дороже лимита или ниже предпочитаемой точности идут в конце.",
+		"catalog.hints.title": "Заметки о маршрутизации",
+		"catalog.hints.none": "Об этой модели нечего особо знать.",
+		"catalog.hints.apply": "Применить этот маршрут в новом подключении",
+		"catalog.hint.quant.glmFp8": "Часть хостов {model} отдаёт её ниже fp8 ({lowHosts}: {low}). Собственные хосты GLM работают в fp8, так что меньшая точность — пережатая копия, она может писать хуже. Нижняя граница fp8 сохраняет исходное качество (её достигают хостов: {okHosts}).",
+		"catalog.hint.quant.glmFp8.unknown": "{model} — модель GLM. Собственные хосты GLM работают в fp8, а некоторые другие отдают меньшую точность. Какие именно, видно в списке хостов; нижняя граница fp8 сохраняет исходное качество.",
+		"catalog.hint.quant.glmFp8.noneOk": "Часть хостов {model} отдаёт её ниже fp8 ({lowHosts}: {low}), и ни про один не известно, что он достигает fp8, поэтому граница оставила бы маршрутизацию без вариантов. Качество хостов не проверено.",
+		"catalog.hint.quant.deepseekNative": "Эксперты {model} родом в MXFP4, поэтому хост с меткой mxfp4 отдаёт оригинал. Хостов с 4-битной копией под другой меткой: {suspiciousHosts} ({suspicious}); она может быть пережатой, такие хосты можно игнорировать.",
+		"catalog.hint.hosts.few": "Эту модель отдаёт мало хостов ({hosts}): если один упадёт, запасных почти нет.",
+		"catalog.hint.routing.fixedRoute": "NanoGPT ведёт {model} по фиксированному маршруту: выбор провайдера на неё не действует (порядок, only, ignore и точность не применяются).",
+		"catalog.hint.cache.lowRate": "При автоматической маршрутизации из кэша читается только {percent}% промпта (меньше {threshold}%). Кэш выгоднее всего, когда подключение остаётся на одном хосте; подумайте о маршруте с кэшем или о фиксированном хосте.",
+		"catalog.hint.reasoning.alwaysOn": "Эта модель рассуждает всегда (уровни: {efforts}), отключить нельзя; наименьший уровень — {lowest}. Ждите токены размышлений в каждом ответе: подключение может только снизить уровень.",
+		"catalog.hint.shelf.uncensoredUnmeasured": "{model} стоит на полке NanoGPT «Без цензуры». Насколько она на деле без цензуры, не измерено: проверьте сами, прежде чем полагаться.",
+		"catalog.hint.shelf.uncensoredUnmeasured.byId": "В названии {model} есть uncensored, abliterated или heretic, но NanoGPT не ставит её на полку «Без цензуры». Такие метки не измерены: проверьте модель сами, прежде чем полагаться.",
+		"catalog.hint.billing.bypass": "Явный выбор хостов (любая подсказка выше) выводит модель из подписки: NanoGPT берёт за явный выбор провайдера плату по факту с наценкой около {markupPercent}%.",
+		"catalog.suggest.minQuantization": "нижняя граница точности {value}",
+		"catalog.suggest.ignore": "игнорировать хосты {hosts}",
+		"catalog.suggest.only": "только хосты {hosts}",
+		"catalog.suggest.order": "пробовать хосты по порядку {hosts}",
+		"catalog.suggest.quantizations": "только точности {value}",
+		"catalog.suggest.enable": "включить выбор провайдера",
+		"catalog.action.create": "Создать подключение с этой моделью",
+		"catalog.action.createHint": "Новое подключение с этой моделью, настройками по умолчанию и отмеченным маршрутом.",
+		"catalog.action.useIn": "Использовать в подключении…",
+		"catalog.action.useIn.select": "Подключение",
+		"catalog.action.useIn.apply": "Взять эту модель",
+		"catalog.action.useIn.none": "Подключений пока нет: сначала создайте одно.",
+		"catalog.notice.created": "Подключение «{name}» создано.",
+		"catalog.notice.updated": "Подключение «{name}» теперь использует {model}."
+	}
+};
+// src/features/connections/view-model.ts
+var CONNECTION_MODES = [
+	"auto",
+	"plugin",
+	"direct"
+];
+var BILLING_MODES$1 = [
+	"auto",
+	"subscription",
+	"paygo"
+];
+var REASONING_POLICIES$1 = [
+	"follow",
+	"fixed",
+	"off",
+	"default"
+];
+var REASONING_EFFORTS = [
+	"none",
+	"minimal",
+	"low",
+	"medium",
+	"high",
+	"xhigh",
+	"max"
+];
+function emptyForm() {
+	return {
+		id: null,
+		name: "",
+		modelId: "",
+		mode: "auto",
+		keyId: "",
+		billing: "auto",
+		reasoningPolicy: "follow",
+		reasoningEffort: "",
+		hideThoughts: false,
+		webSearch: false,
+		note: "",
+		directKey: ""
+	};
+}
+function formFromConfig(config) {
+	return {
+		id: config.id,
+		name: config.name,
+		modelId: config.modelId,
+		mode: config.mode,
+		keyId: config.keyId ?? "",
+		billing: config.billing,
+		reasoningPolicy: config.reasoning.policy,
+		reasoningEffort: config.reasoning.effort ?? "",
+		hideThoughts: config.reasoning.hideThoughts,
+		webSearch: config.webSearch,
+		note: config.note,
+		directKey: ""
+	};
+}
+/** The part of a ConnectionConfig the form controls. Everything else (routing, memory …) is left to be. */
+function patchFromForm(form) {
+	const patch = {
+		name: form.name.trim(),
+		modelId: form.modelId.trim(),
+		mode: form.mode,
+		billing: form.billing,
+		webSearch: form.webSearch,
+		note: form.note,
+		reasoning: {
+			policy: form.reasoningPolicy,
+			effort: form.reasoningPolicy === "fixed" ? effortOf(form) : null,
+			hideThoughts: form.hideThoughts
+		}
+	};
+	if (form.mode !== "direct") patch.keyId = form.keyId || null;
+	return patch;
+}
+function effortOf(form) {
+	return form.reasoningEffort === "" ? "medium" : form.reasoningEffort;
+}
+/** Whether the form must ask for the NanoGPT key (shown as a field and required). */
+function needsDirectKey(form, ctx) {
+	if (ctx.hasDirectKey) return false;
+	if (form.mode === "direct") return true;
+	return form.mode === "auto" && !ctx.pluginUp && form.id === null;
+}
+/** Whether the key field is shown at all (also to replace a key on file). */
+function showsDirectKey(form, ctx) {
+	return form.mode === "direct" || needsDirectKey(form, ctx);
+}
+function validateForm(form, ctx) {
+	const issues = [];
+	if (!form.name.trim()) issues.push({
+		field: "name",
+		code: "required"
+	});
+	if (!form.modelId.trim()) issues.push({
+		field: "modelId",
+		code: "required"
+	});
+	if (needsDirectKey(form, ctx) && !form.directKey.trim()) issues.push({
+		field: "directKey",
+		code: "required"
+	});
+	return issues;
+}
+/** The chips of one connection card, in display order. */
+function chipsFor(entry, pluginUp, t) {
+	const chips = [];
+	const { config } = entry;
+	if (config.mode === "auto") {
+		const key = entry.effectiveMode === "plugin" ? "connections.chip.mode.autoPlugin" : "connections.chip.mode.autoDirect";
+		chips.push({
+			label: t(key),
+			kind: "info"
+		});
+	} else chips.push({
+		label: t(`connections.chip.mode.${config.mode}`),
+		kind: "info"
+	});
+	chips.push({
+		label: t(`connections.chip.billing.${config.billing}`),
+		kind: config.billing === "subscription" ? "ok" : "muted"
+	});
+	if (entry.effectiveMode === "direct" && !entry.hasDirectKey) chips.push({
+		label: t("connections.chip.noKey"),
+		kind: "error",
+		title: t("connections.chip.noKey.hint")
+	});
+	chips.push({
+		label: t(`connections.chip.profile.${entry.profileState}`),
+		kind: {
+			linked: "ok",
+			drifted: "warn",
+			missing: "warn",
+			none: "muted",
+			blocked: "warn",
+			unavailable: "error"
+		}[entry.profileState],
+		title: entry.profileState === "blocked" ? t("connections.chip.profile.blocked.hint") : void 0
+	});
+	if (entry.pending) chips.push({
+		label: t("connections.chip.pending"),
+		kind: "warn",
+		title: t("connections.chip.pending.hint")
+	});
+	if (entry.orphan && pluginUp) chips.push({
+		label: t("connections.chip.orphan"),
+		kind: "warn",
+		title: t("connections.chip.orphan.hint")
+	});
+	return chips;
+}
+/** The buttons a connection card offers right now. */
+function actionsFor(entry, pluginUp, t) {
+	const actions = [{
+		id: "edit",
+		label: t("connections.action.edit"),
+		kind: "default"
+	}];
+	if (pluginUp && entry.view && entry.config.mode !== "direct") actions.push({
+		id: "rotate",
+		label: t("connections.action.rotate"),
+		title: t("connections.action.rotate.hint"),
+		kind: "default"
+	});
+	if (!pluginUp && entry.config.mode !== "direct") actions.push({
+		id: "switchDirect",
+		label: t("connections.action.switchDirect"),
+		title: t("connections.action.switchDirect.hint"),
+		kind: "default"
+	});
+	if (entry.orphan && pluginUp) actions.push({
+		id: "sendToPlugin",
+		label: t("connections.action.sendToPlugin"),
+		kind: "default"
+	});
+	if (entry.profileState === "none" || entry.profileState === "missing") actions.push({
+		id: "repairProfile",
+		label: t("connections.action.repairProfile"),
+		kind: "default"
+	});
+	else if (entry.profileState === "drifted") actions.push({
+		id: "repairProfile",
+		label: t("connections.action.repairProfile.fix"),
+		kind: "default"
+	});
+	actions.push({
+		id: "delete",
+		label: t("connections.action.delete"),
+		kind: "danger"
+	});
+	return actions;
+}
+/** What the plugin status chip says. `checked` is false until the plugin has been asked once. */
+function bannerFor(status, error, pluginUp, t, checked = true) {
+	if (!checked && !pluginUp) return {
+		state: "checking",
+		up: false,
+		title: t("connections.status.checking"),
+		detail: "",
+		advice: null
+	};
+	if (pluginUp && status) return {
+		state: "up",
+		up: true,
+		title: t("connections.status.up"),
+		detail: t("connections.status.upDetail", {
+			port: status.proxy.port,
+			version: status.version
+		}),
+		advice: status.proxy.up ? null : t("connections.status.proxyDown", { port: status.proxy.port })
+	};
+	const known = [
+		"not_installed",
+		"unreachable",
+		"timeout",
+		"forbidden"
+	];
+	const code = error?.code ?? "unreachable";
+	const reason = known.includes(code) ? t(`connections.status.reason.${code}`) : t("connections.status.reason.other", { code });
+	return {
+		state: "down",
+		up: false,
+		title: t("connections.status.down"),
+		detail: reason,
+		advice: t("connections.status.installHint")
+	};
+}
+/** Text of an operation's error or warning. */
+function issueText(issue, t) {
+	const params = {};
+	for (const [key, value] of Object.entries(issue.params ?? {})) params[key] = value;
+	if (issue.code === "invalid" && typeof params["field"] === "string") params["field"] = t(`connections.field.${params["field"]}`);
+	return t(`connections.issue.${issue.code}`, params);
+}
+/** Label of a select option of a key the plugin knows. */
+function keyLabel(key, t) {
+	const base = key.label ? `${key.label} · ${key.masked}` : key.masked;
+	return key.active ? `${base} (${t("connections.form.keyActive")})` : base;
+}
+// src/features/catalog/detail.ts
+function kv(label, value) {
+	if (value === null) return null;
+	return el("div", { class: "nanovia-kv" }, [el("span", {
+		class: "nanovia-kv-key nanovia-muted",
+		text: label
+	}), typeof value === "string" ? el("span", {
+		class: "nanovia-kv-value",
+		text: value
+	}) : value]);
+}
+function renderDetail(host, deps) {
+	const { ctx, session, modelId } = deps;
+	const t = ctx.t;
+	const model = ctx.catalog.model(modelId);
+	let disposed = false;
+	/** Hints whose suggested routing goes into the new connection. */
+	const applied = /* @__PURE__ */ new Set();
+	let hostsState = ctx.catalog.providers(modelId) ? "ready" : "loading";
+	let lastProviders = ctx.catalog.providers(modelId);
+	let chosenConnection = "";
+	if (!model) {
+		host.appendChild(el("div", {
+			class: "nanovia-muted",
+			text: t("catalog.list.empty")
+		}));
+		return {
+			refresh: () => {},
+			dispose: () => {}
+		};
+	}
+	const current = model;
+	const view = detailOf(current, t);
+	const costResult = el("div", {
+		class: "nanovia-cost-result",
+		attrs: { "aria-live": "polite" }
+	});
+	const hostsHost = el("div", { class: "nanovia-detail-block nanovia-hosts-block" });
+	const hintsHost = el("div", { class: "nanovia-detail-block nanovia-hints-block" });
+	const noticeHost = el("div", {
+		class: "nanovia-notice-host",
+		attrs: { "aria-live": "polite" }
+	});
+	const actionsHost = el("div", { class: "nanovia-detail-block nanovia-actions-block" });
+	const chips = [chip(view.category, "muted")];
+	if (view.subscription) chips.push(chip(view.subscription.label, "ok", view.subscription.title));
+	if (view.openWeights) chips.push(chip(t("catalog.cap.openWeights"), "info"));
+	const capabilities = el("div", { class: "nanovia-row nanovia-caps-row" }, view.capabilities.map((cap) => {
+		const spec = CAPABILITIES.find((item) => item.key === cap.key);
+		return el("span", {
+			class: ["nanovia-cap-line", cap.on ? "nanovia-cap-on" : "nanovia-cap-off"],
+			data: {
+				cap: cap.key,
+				on: cap.on ? "yes" : "no"
+			}
+		}, [icon(spec?.icon ?? "circle"), el("span", { text: t(`catalog.cap.${cap.key}`) })]);
+	}));
+	const efforts = view.efforts.length > 0 ? [el("div", { class: "nanovia-row" }, [el("span", {
+		class: "nanovia-muted",
+		text: t("catalog.detail.efforts")
+	}), ...view.efforts.map((effort) => chip(effort, "info"))]), el("div", {
+		class: "nanovia-muted",
+		text: t(view.alwaysReasons ? "catalog.detail.efforts.alwaysOn" : "catalog.detail.efforts.optional")
+	})] : [el("div", {
+		class: "nanovia-muted",
+		text: t("catalog.detail.efforts.none")
+	})];
+	function drawCost() {
+		clear(costResult);
+		const cost = costView(current, session.cost, t);
+		append(costResult, [
+			kv(t("catalog.cost.turn"), cost.withoutCache ? `${cost.turn} (${t("catalog.cost.withoutCache")} ${cost.withoutCache})` : cost.turn),
+			kv(t("catalog.cost.hundred"), cost.hundredTurns),
+			cost.noCachePrice ? el("div", {
+				class: "nanovia-muted",
+				text: t("catalog.cost.noCachePrice")
+			}) : null,
+			cost.subscriptionNote ? el("div", {
+				class: "nanovia-muted",
+				text: cost.subscriptionNote
+			}) : null
+		]);
+	}
+	const promptInput = textInput({
+		value: String(session.cost.promptTokens),
+		label: t("catalog.cost.prompt"),
+		onInput: () => updateCost()
+	});
+	const completionInput = textInput({
+		value: String(session.cost.completionTokens),
+		label: t("catalog.cost.completion"),
+		onInput: () => updateCost()
+	});
+	const cachedInput = textInput({
+		value: String(session.cost.cachedPercent),
+		label: t("catalog.cost.cached"),
+		onInput: () => updateCost()
+	});
+	function updateCost() {
+		session.cost = parseCostInputs(promptInput.value, completionInput.value, cachedInput.value);
+		drawCost();
+	}
+	const costBlock = el("div", { class: "nanovia-detail-block" }, [
+		el("h5", { text: t("catalog.cost.title") }),
+		el("div", {
+			class: "nanovia-muted",
+			text: t("catalog.cost.hint")
+		}),
+		el("div", { class: "nanovia-cost-inputs" }, [
+			labelled(t("catalog.cost.prompt"), promptInput),
+			labelled(t("catalog.cost.completion"), completionInput),
+			labelled(t("catalog.cost.cached"), cachedInput)
+		]),
+		costResult
+	]);
+	function criteriaControls(table) {
+		const priorities = HOST_PRIORITIES.map((value) => ({
+			value,
+			label: t(`catalog.hosts.priority.${value}`)
+		}));
+		const precisions = [{
+			value: "",
+			label: t("catalog.hosts.prefer.none")
+		}, ...QUANTIZATION_ORDER.map((value) => ({
+			value,
+			label: value
+		}))];
+		const maxPrompt = textInput({
+			value: session.hosts.maxPrompt === null ? "" : String(session.hosts.maxPrompt),
+			label: t("catalog.hosts.maxPrompt"),
+			placeholder: t("catalog.filter.maxPricePlaceholder"),
+			onInput: (value) => {
+				session.hosts.maxPrompt = parseNumber(value);
+				drawTable(table);
+			}
+		});
+		const maxCompletion = textInput({
+			value: session.hosts.maxCompletion === null ? "" : String(session.hosts.maxCompletion),
+			label: t("catalog.hosts.maxCompletion"),
+			placeholder: t("catalog.filter.maxPricePlaceholder"),
+			onInput: (value) => {
+				session.hosts.maxCompletion = parseNumber(value);
+				drawTable(table);
+			}
+		});
+		return el("div", { class: "nanovia-criteria" }, [
+			labelled(t("catalog.hosts.priority"), select({
+				value: session.hosts.priority,
+				options: priorities,
+				label: t("catalog.hosts.priority"),
+				onChange: (value) => {
+					session.hosts.priority = value;
+					drawTable(table);
+				}
+			})),
+			labelled(t("catalog.hosts.prefer"), select({
+				value: session.hosts.preferQuantization,
+				options: precisions,
+				label: t("catalog.hosts.prefer"),
+				onChange: (value) => {
+					const known = QUANTIZATION_ORDER.find((item) => item === value);
+					session.hosts.preferQuantization = known ?? "";
+					drawTable(table);
+				}
+			})),
+			labelled(t("catalog.hosts.maxPrompt"), maxPrompt),
+			labelled(t("catalog.hosts.maxCompletion"), maxCompletion)
+		]);
+	}
+	function hostCell(row) {
+		const flags = [];
+		if (row.overMaxPrice) flags.push(chip(t("catalog.hosts.flag.overPrice"), "warn"));
+		if (row.belowQuantization) flags.push(chip(t("catalog.hosts.flag.belowQuantization"), "warn"));
+		if (row.unknownQuantization) flags.push(chip(t("catalog.hosts.flag.unknownQuantization"), "muted"));
+		return el("td", {}, [el("div", { class: "nanovia-host-name" }, [el("b", { text: row.id }), ...flags])]);
+	}
+	function drawTable(table) {
+		clear(table);
+		const providers = ctx.catalog.providers(modelId);
+		if (!providers || providers.providers.length === 0) return;
+		const rows = hostRows(providers, session.hosts);
+		table.appendChild(el("table", { class: "nanovia-hosts" }, [el("thead", {}, [el("tr", {}, [
+			"rank",
+			"host",
+			"quantization",
+			"price",
+			"tps",
+			"ttft",
+			"uptime",
+			"features",
+			"score"
+		].map((name) => el("th", { text: t(`catalog.hosts.col.${name}`) })))]), el("tbody", {}, rows.map((row) => el("tr", { data: {
+			host: row.id,
+			rank: row.rank
+		} }, [
+			el("td", { text: String(row.rank) }),
+			hostCell(row),
+			el("td", { text: row.quantization }),
+			el("td", {
+				class: "nanovia-nowrap",
+				text: row.price
+			}),
+			el("td", { text: row.tps }),
+			el("td", { text: row.ttft }),
+			el("td", { text: row.uptime }),
+			el("td", {
+				class: "nanovia-host-features nanovia-muted",
+				text: row.features.join(", ")
+			}),
+			el("td", { text: row.score })
+		])))]));
+	}
+	function drawHosts() {
+		clear(hostsHost);
+		hostsHost.appendChild(el("h5", { text: t("catalog.hosts.title") }));
+		const providers = ctx.catalog.providers(modelId);
+		if (!providers) {
+			if (hostsState === "failed") hostsHost.append(el("div", {
+				class: "nanovia-error-text",
+				text: t("catalog.hosts.unavailable")
+			}), button({
+				label: t("catalog.retry"),
+				icon: "rotate",
+				onClick: () => loadHosts(true)
+			}));
+			else hostsHost.appendChild(el("div", {
+				class: "nanovia-muted",
+				text: t("catalog.hosts.loading")
+			}));
+			return;
+		}
+		const summary = hostsSummary(providers);
+		if (!summary.selection) hostsHost.appendChild(el("div", {
+			class: "nanovia-muted",
+			text: t("catalog.hosts.fixedRoute")
+		}));
+		if (summary.autoTps !== null || summary.autoTtft !== null || summary.autoCache !== null) hostsHost.appendChild(el("div", {
+			class: "nanovia-muted",
+			text: t("catalog.hosts.auto", {
+				tps: summary.autoTps ?? "—",
+				ttft: summary.autoTtft ?? "—",
+				cache: summary.autoCache ?? "—"
+			})
+		}));
+		if (providers.providers.length === 0) {
+			if (summary.selection) hostsHost.appendChild(el("div", {
+				class: "nanovia-muted",
+				text: t("catalog.hosts.none")
+			}));
+			return;
+		}
+		const table = el("div", { class: "nanovia-hosts-scroll" });
+		hostsHost.append(criteriaControls(table), table, el("div", {
+			class: "nanovia-muted",
+			text: t("catalog.hosts.note")
+		}));
+		drawTable(table);
+	}
+	async function loadHosts(force = false) {
+		hostsState = "loading";
+		drawHosts();
+		const result = await ctx.catalog.ensureProviders(modelId, { force });
+		if (disposed) return;
+		hostsState = result ? "ready" : "failed";
+		lastProviders = ctx.catalog.providers(modelId);
+		drawHosts();
+		drawHints();
+	}
+	function drawHints() {
+		clear(hintsHost);
+		hintsHost.appendChild(el("h5", { text: t("catalog.hints.title") }));
+		const views = hintViews(ctx.catalog.hints(modelId), t);
+		if (views.length === 0) {
+			hintsHost.appendChild(el("div", {
+				class: "nanovia-muted",
+				text: t("catalog.hints.none")
+			}));
+			return;
+		}
+		for (const hint of views) hintsHost.appendChild(el("div", {
+			class: [
+				"nanovia-hint",
+				`nanovia-hint-${hint.severity}`,
+				hint.bypass && "nanovia-hint-bypass"
+			],
+			data: { hint: hint.code }
+		}, [el("div", { class: "nanovia-hint-text" }, [icon(hint.severity === "warn" ? "triangle-exclamation" : "circle-info"), el("span", { text: hint.text })]), hint.suggestion ? toggle({
+			label: `${t("catalog.hints.apply")}: ${hint.suggestionText ?? ""}`,
+			checked: applied.has(hint.code),
+			onChange: (checked) => {
+				if (checked) applied.add(hint.code);
+				else applied.delete(hint.code);
+			}
+		}) : null]));
+	}
+	function notify(kind, text) {
+		clear(noticeHost);
+		noticeHost.appendChild(el("div", {
+			class: ["nanovia-notice", `nanovia-notice-${kind}`],
+			text
+		}));
+	}
+	function report(result, success) {
+		if (!result.ok) {
+			notify("error", issueText(result.error, t));
+			return;
+		}
+		const warnings = result.warnings;
+		if (warnings.length === 0) notify("ok", success);
+		else notify("warn", [success, ...warnings.map((warning) => issueText(warning, t))].join(" "));
+	}
+	function drawActions() {
+		clear(actionsHost);
+		const entries = ctx.connections.list();
+		actionsHost.appendChild(el("div", { class: "nanovia-row" }, [button({
+			label: t("catalog.action.create"),
+			title: t("catalog.action.createHint"),
+			icon: "plus",
+			kind: "primary",
+			onClick: async () => {
+				const patch = newConnectionPatch(current, ctx.catalog.hints(modelId), applied);
+				report(await ctx.connections.save({ patch }), t("catalog.notice.created", { name: patch.name }));
+			}
+		})]));
+		if (entries.length === 0) {
+			actionsHost.appendChild(el("div", {
+				class: "nanovia-muted",
+				text: t("catalog.action.useIn.none")
+			}));
+			return;
+		}
+		if (!entries.some((entry) => entry.config.id === chosenConnection)) chosenConnection = entries[0]?.config.id ?? "";
+		const options = entries.map((entry) => ({
+			value: entry.config.id,
+			label: `${entry.config.name} · ${entry.config.modelId}`
+		}));
+		actionsHost.appendChild(el("div", { class: "nanovia-row" }, [
+			el("span", {
+				class: "nanovia-muted",
+				text: t("catalog.action.useIn")
+			}),
+			select({
+				value: chosenConnection,
+				options,
+				label: t("catalog.action.useIn.select"),
+				onChange: (value) => void (chosenConnection = value)
+			}),
+			button({
+				label: t("catalog.action.useIn.apply"),
+				onClick: async () => {
+					const entry = ctx.connections.get(chosenConnection);
+					if (!entry) return;
+					report(await ctx.connections.save({
+						id: entry.config.id,
+						patch: { modelId }
+					}), t("catalog.notice.updated", {
+						name: entry.config.name,
+						model: view.name
+					}));
+				}
+			})
+		]));
+	}
+	host.append(el("div", { class: "nanovia-row" }, [button({
+		label: t("catalog.detail.back"),
+		icon: "arrow-left",
+		kind: "ghost",
+		onClick: () => deps.back()
+	})]), el("div", { class: "nanovia-detail-head" }, [
+		el("h4", {
+			class: "nanovia-detail-name",
+			text: view.name
+		}),
+		el("div", {
+			class: "nanovia-muted nanovia-detail-id",
+			text: view.id
+		}),
+		el("div", { class: "nanovia-row nanovia-chips" }, chips)
+	]), el("div", {
+		class: "nanovia-detail-description",
+		text: view.description || t("catalog.detail.noDescription")
+	}), el("div", { class: "nanovia-detail-block" }, [
+		el("h5", { text: t("catalog.detail.prices") }),
+		kv(t("catalog.detail.price.prompt"), view.prices.prompt),
+		kv(t("catalog.detail.price.completion"), view.prices.completion),
+		kv(t("catalog.detail.price.cacheRead"), view.prices.cacheRead),
+		kv(t("catalog.detail.context"), view.context),
+		kv(t("catalog.detail.maxOutput"), view.maxOutput)
+	]), el("div", { class: "nanovia-detail-block" }, [
+		el("h5", { text: t("catalog.detail.capabilities") }),
+		capabilities,
+		...efforts
+	]), costBlock, hostsHost, hintsHost, noticeHost, actionsHost);
+	drawCost();
+	drawHosts();
+	drawHints();
+	drawActions();
+	if (hostsState === "loading") loadHosts();
+	return {
+		refresh() {
+			if (disposed) return;
+			const providers = ctx.catalog.providers(modelId);
+			if (providers !== lastProviders) {
+				lastProviders = providers;
+				if (providers) hostsState = "ready";
+				drawHosts();
+				drawHints();
+			}
+			drawActions();
+		},
+		dispose() {
+			disposed = true;
+		}
+	};
+}
+/** A label above a control (the cost and criteria forms are narrow and stack on phones). */
+function labelled(label, control) {
+	return el("label", { class: "nanovia-labelled" }, [el("span", {
+		class: "nanovia-muted",
+		text: label
+	}), control]);
+}
+// src/features/catalog/view.ts
+function renderCatalogTab(root, ctx, session) {
+	const t = ctx.t;
+	let disposed = false;
+	let detail = null;
+	const statusHost = el("div", { class: "nanovia-catalog-status" });
+	const filtersHost = el("div", { class: "nanovia-filters" });
+	const countHost = el("div", {
+		class: "nanovia-muted nanovia-list-count",
+		attrs: { "aria-live": "polite" }
+	});
+	const listHost = el("div", { class: "nanovia-model-list" });
+	const moreHost = el("div", { class: "nanovia-row" });
+	const listPane = el("div", { class: "nanovia-catalog-list-pane" }, [
+		filtersHost,
+		countHost,
+		listHost,
+		moreHost
+	]);
+	const detailPane = el("div", {
+		class: "nanovia-catalog-detail-pane",
+		attrs: { hidden: true }
+	});
+	root.append(statusHost, listPane, detailPane);
+	let chipsHost = el("div");
+	let resetButton = button({});
+	function drawStatus() {
+		clear(statusHost);
+		const view = statusView(ctx.catalog.status(), ctx.catalog.models().length, Date.now(), t);
+		const modifier = {
+			ok: "up",
+			error: "down",
+			muted: "checking",
+			warn: "warn"
+		}[view.kind];
+		const box = el("div", { class: ["nanovia-banner", `nanovia-banner-${modifier}`] }, [el("div", { class: "nanovia-row" }, [el("span", {
+			class: "nanovia-status-text",
+			text: view.text
+		}), button({
+			label: t("catalog.refresh"),
+			icon: "rotate",
+			kind: "ghost",
+			onClick: () => ctx.catalog.refresh(true)
+		})]), view.notice ? el("div", {
+			class: view.kind === "error" ? "nanovia-error-text" : "nanovia-muted",
+			text: view.notice
+		}) : null]);
+		statusHost.appendChild(box);
+	}
+	function change(next) {
+		session.filters = next;
+		session.shown = 50;
+		drawChips();
+		drawList();
+		resetButton.hidden = !hasActiveFilters(session.filters);
+	}
+	function drawChips() {
+		clear(chipsHost);
+		for (const entry of categoryChips(ctx.catalog.models(), session.filters, t)) chipsHost.appendChild(el("button", {
+			class: [
+				"nanovia-chip",
+				"nanovia-chip-toggle",
+				entry.active && "nanovia-chip-active"
+			],
+			text: `${entry.label} (${entry.count})`,
+			data: { category: entry.key },
+			attrs: {
+				type: "button",
+				"aria-pressed": String(entry.active)
+			},
+			on: { click: () => change(toggleCategory(session.filters, entry.key)) }
+		}));
+	}
+	function buildFilters() {
+		clear(filtersHost);
+		const f = session.filters;
+		const flag = (label, checked, apply) => toggle({
+			label,
+			checked,
+			onChange: (on) => change(apply(session.filters, on))
+		});
+		chipsHost = el("div", {
+			class: "nanovia-row nanovia-category-chips",
+			attrs: {
+				role: "group",
+				"aria-label": t("catalog.filter.categories")
+			}
+		});
+		resetButton = button({
+			label: t("catalog.filter.reset"),
+			icon: "filter-circle-xmark",
+			kind: "ghost",
+			onClick: () => {
+				session.filters = clearedFilters(session.filters);
+				session.shown = 50;
+				buildFilters();
+				drawList();
+			}
+		});
+		resetButton.hidden = !hasActiveFilters(f);
+		const contextOptions = CONTEXT_CHOICES.map((value) => ({
+			value: String(value),
+			label: value === 0 ? t("catalog.filter.minContext.any") : formatContext(value)
+		}));
+		const sortOptions = SORTS.map((value) => ({
+			value,
+			label: t(`catalog.sort.${value}`)
+		}));
+		filtersHost.append(textInput({
+			value: f.text,
+			label: t("catalog.filter.search"),
+			placeholder: t("catalog.filter.searchPlaceholder"),
+			onInput: (value) => change({
+				...session.filters,
+				text: value
+			})
+		}), chipsHost, el("div", { class: "nanovia-row nanovia-toggles" }, [
+			flag(t("catalog.filter.subscriptionOnly"), f.subscriptionOnly, (s, on) => ({
+				...s,
+				subscriptionOnly: on
+			})),
+			...CAPABILITIES.map((cap) => flag(t(`catalog.cap.${cap.key}`), f[cap.key], (s, on) => ({
+				...s,
+				[cap.key]: on
+			}))),
+			flag(t("catalog.filter.openWeights"), f.openWeightsOnly, (s, on) => ({
+				...s,
+				openWeightsOnly: on
+			}))
+		]), field(t("catalog.filter.minContext"), select({
+			value: String(f.minContext),
+			options: contextOptions,
+			label: t("catalog.filter.minContext"),
+			onChange: (value) => change({
+				...session.filters,
+				minContext: Number(value)
+			})
+		})), field(t("catalog.filter.maxPrice"), textInput({
+			value: f.maxPromptPrice === null ? "" : String(f.maxPromptPrice),
+			label: t("catalog.filter.maxPrice"),
+			placeholder: t("catalog.filter.maxPricePlaceholder"),
+			onInput: (value) => change({
+				...session.filters,
+				maxPromptPrice: parseNumber(value)
+			})
+		})), field(t("catalog.filter.sort"), select({
+			value: f.sort,
+			options: sortOptions,
+			label: t("catalog.filter.sort"),
+			onChange: (value) => change({
+				...session.filters,
+				sort: value
+			})
+		})), el("div", { class: "nanovia-row nanovia-toggles" }, [
+			flag(t("catalog.filter.reverse"), f.reverse, (s, on) => ({
+				...s,
+				reverse: on
+			})),
+			flag(t("catalog.filter.group"), f.groupByVendor, (s, on) => ({
+				...s,
+				groupByVendor: on
+			})),
+			resetButton
+		]));
+		drawChips();
+	}
+	function renderRow(row) {
+		const caps = el("span", { class: "nanovia-caps" }, [...CAPABILITIES.filter((cap) => row.capabilities.includes(cap.key)).map((cap) => el("span", {
+			class: "nanovia-cap",
+			data: { cap: cap.key },
+			title: t(`catalog.cap.${cap.key}`),
+			attrs: {
+				role: "img",
+				"aria-label": t(`catalog.cap.${cap.key}`)
+			}
+		}, [icon(cap.icon)])), row.openWeights ? el("span", {
+			class: "nanovia-cap",
+			data: { cap: "openWeights" },
+			title: t("catalog.cap.openWeights"),
+			attrs: {
+				role: "img",
+				"aria-label": t("catalog.cap.openWeights")
+			}
+		}, [icon("lock-open")]) : null]);
+		return el("button", {
+			class: "nanovia-model-row",
+			data: { model: row.id },
+			attrs: { type: "button" },
+			on: { click: () => openDetail(row.id) }
+		}, [
+			el("span", { class: "nanovia-model-head" }, [el("b", {
+				class: "nanovia-model-name",
+				text: row.name
+			}), row.subscription ? chip(row.subscription.label, "ok", row.subscription.title) : null]),
+			el("span", {
+				class: "nanovia-muted nanovia-model-id",
+				text: row.id
+			}),
+			el("span", { class: "nanovia-model-meta" }, [
+				el("span", {
+					class: "nanovia-model-price",
+					text: row.price,
+					title: t("catalog.list.priceTitle")
+				}),
+				el("span", {
+					class: "nanovia-muted nanovia-model-unit",
+					text: t("catalog.list.priceUnit")
+				}),
+				el("span", {
+					class: "nanovia-model-context",
+					text: row.context,
+					title: t("catalog.list.contextTitle")
+				}),
+				caps
+			])
+		]);
+	}
+	function drawList() {
+		clear(listHost);
+		clear(moreHost);
+		countHost.textContent = "";
+		const status = ctx.catalog.status();
+		if (!status.loaded) {
+			if (status.error) listHost.append(el("div", {
+				class: "nanovia-error-text nanovia-empty",
+				text: t("catalog.status.failed")
+			}), button({
+				label: t("catalog.retry"),
+				icon: "rotate",
+				onClick: () => ctx.catalog.refresh(true)
+			}));
+			else listHost.appendChild(el("div", {
+				class: "nanovia-muted nanovia-empty",
+				text: t("catalog.status.loading")
+			}));
+			return;
+		}
+		const list = buildList(ctx.catalog.models(), session.filters, session.shown, t);
+		if (list.matched === 0) {
+			listHost.appendChild(el("div", {
+				class: "nanovia-muted nanovia-empty",
+				text: t("catalog.list.empty")
+			}));
+			return;
+		}
+		countHost.textContent = t("catalog.list.count", {
+			shown: list.shown,
+			matched: list.matched,
+			total: list.total
+		});
+		for (const section of list.sections) {
+			const group = el("div", { class: "nanovia-model-group" });
+			if (section.vendorLabel !== null) group.appendChild(el("div", {
+				class: "nanovia-vendor-head",
+				text: `${section.vendorLabel} (${section.count})`,
+				data: { vendor: section.vendor ?? "" }
+			}));
+			for (const row of section.rows) group.appendChild(renderRow(row));
+			listHost.appendChild(group);
+		}
+		if (list.remaining > 0) moreHost.appendChild(button({
+			label: t("catalog.list.showMore", { count: Math.min(50, list.remaining) }),
+			onClick: () => {
+				session.shown += 50;
+				drawList();
+			}
+		}));
+	}
+	function showDetail(id) {
+		detail?.dispose();
+		clear(detailPane);
+		listPane.hidden = true;
+		detailPane.hidden = false;
+		detail = renderDetail(detailPane, {
+			ctx,
+			session,
+			modelId: id,
+			back: closeDetail
+		});
+		detailPane.scrollIntoView?.({ block: "start" });
+	}
+	function openDetail(id) {
+		session.selected = id;
+		showDetail(id);
+	}
+	function closeDetail() {
+		detail?.dispose();
+		detail = null;
+		session.selected = null;
+		clear(detailPane);
+		detailPane.hidden = true;
+		listPane.hidden = false;
+		drawList();
+	}
+	const offCatalog = ctx.catalog.onChange(() => {
+		if (disposed) return;
+		drawStatus();
+		if (session.selected) {
+			if (ctx.catalog.model(session.selected)) detail?.refresh();
+			else closeDetail();
+			return;
+		}
+		drawChips();
+		drawList();
+	});
+	const offConnections = ctx.connections.onChange(() => {
+		if (!disposed && session.selected) detail?.refresh();
+	});
+	drawStatus();
+	buildFilters();
+	drawList();
+	if (session.selected) {
+		if (ctx.catalog.model(session.selected)) showDetail(session.selected);
+		else session.selected = null;
+	}
+	ctx.catalog.refresh();
+	return () => {
+		disposed = true;
+		offCatalog();
+		offConnections();
+		detail?.dispose();
+		detail = null;
+	};
+}
+// src/features/catalog/index.ts
+var CATALOG_FEATURE_ID = "catalog";
+var CATALOG_TAB_ID = "catalog";
+/** Starts the first catalog load once the page is idle, so it never competes with SillyTavern's own start. */
+function scheduleIdle(task, timeoutMs = 4e3) {
+	const host = globalThis;
+	if (typeof host.requestIdleCallback === "function") {
+		const handle = host.requestIdleCallback(task, { timeout: timeoutMs });
+		return () => host.cancelIdleCallback?.(handle);
+	}
+	const timer = setTimeout(task, 1e3);
+	return () => clearTimeout(timer);
+}
+/** Tab «Catalog»: NanoGPT's models with filters, prices, hosts and routing hints, and a way to turn one into a connection. */
+var catalogFeature = {
+	id: CATALOG_FEATURE_ID,
+	init(ctx) {
+		ctx.i18n.register(CATALOG_STRINGS);
+		const session = createSession();
+		const cancelIdle = scheduleIdle(() => void ctx.catalog.refresh());
+		const removeTab = ctx.panel.registerTab({
+			id: CATALOG_TAB_ID,
+			titleKey: "catalog.tab",
+			order: 150,
+			render: (root, tabCtx) => renderCatalogTab(root, tabCtx, session)
+		});
+		return () => {
+			cancelIdle();
+			removeTab();
+		};
+	}
+};
 // src/features/connections/strings.ts
 var CONNECTIONS_STRINGS = {
 	en: {
@@ -5553,245 +8595,169 @@ var CONNECTIONS_STRINGS = {
 		"connections.issue.key_not_removed": "Сохранённый ключ не удалось убрать из SillyTavern; при желании удалите его там."
 	}
 };
-// src/features/connections/view-model.ts
-var CONNECTION_MODES = [
-	"auto",
-	"plugin",
-	"direct"
-];
-var BILLING_MODES$1 = [
-	"auto",
-	"subscription",
-	"paygo"
-];
-var REASONING_POLICIES$1 = [
-	"follow",
-	"fixed",
-	"off",
-	"default"
-];
-var REASONING_EFFORTS = [
-	"none",
-	"minimal",
-	"low",
-	"medium",
-	"high",
-	"xhigh",
-	"max"
-];
-function emptyForm() {
-	return {
-		id: null,
-		name: "",
-		modelId: "",
-		mode: "auto",
-		keyId: "",
-		billing: "auto",
-		reasoningPolicy: "follow",
-		reasoningEffort: "",
-		hideThoughts: false,
-		webSearch: false,
-		note: "",
-		directKey: ""
-	};
+/** The models to offer for what is typed: id and name matches, those that start with it first; nothing typed = all. */
+function pickerMatches(models, text) {
+	const query = text.trim();
+	if (!query) return sortCatalog(models, "subscription");
+	const matched = filterCatalog(models, { text: query });
+	const lower = query.toLowerCase();
+	const rank = (model) => model.id.toLowerCase() === lower ? 0 : model.id.toLowerCase().startsWith(lower) ? 1 : 2;
+	return matched.map((model, index) => ({
+		model,
+		index,
+		rank: rank(model)
+	})).sort((a, b) => a.rank - b.rank || a.index - b.index).map((entry) => entry.model);
 }
-function formFromConfig(config) {
-	return {
-		id: config.id,
-		name: config.name,
-		modelId: config.modelId,
-		mode: config.mode,
-		keyId: config.keyId ?? "",
-		billing: config.billing,
-		reasoningPolicy: config.reasoning.policy,
-		reasoningEffort: config.reasoning.effort ?? "",
-		hideThoughts: config.reasoning.hideThoughts,
-		webSearch: config.webSearch,
-		note: config.note,
-		directKey: ""
-	};
-}
-/** The part of a ConnectionConfig the form controls. Everything else (routing, memory …) is left to be. */
-function patchFromForm(form) {
-	const patch = {
-		name: form.name.trim(),
-		modelId: form.modelId.trim(),
-		mode: form.mode,
-		billing: form.billing,
-		webSearch: form.webSearch,
-		note: form.note,
-		reasoning: {
-			policy: form.reasoningPolicy,
-			effort: form.reasoningPolicy === "fixed" ? effortOf(form) : null,
-			hideThoughts: form.hideThoughts
+function modelPicker(options) {
+	const { catalog, t } = options;
+	const listId = uid("nanovia-picker");
+	const input = el("input", {
+		class: "text_pole nanovia-text",
+		attrs: {
+			type: "text",
+			role: "combobox",
+			"aria-label": options.label,
+			"aria-autocomplete": "list",
+			"aria-expanded": "false",
+			"aria-controls": listId,
+			placeholder: options.placeholder,
+			maxlength: options.maxLength,
+			disabled: options.disabled === true,
+			autocomplete: "off",
+			autocapitalize: "off",
+			spellcheck: "false"
 		}
-	};
-	if (form.mode !== "direct") patch.keyId = form.keyId || null;
-	return patch;
-}
-function effortOf(form) {
-	return form.reasoningEffort === "" ? "medium" : form.reasoningEffort;
-}
-/** Whether the form must ask for the NanoGPT key (shown as a field and required). */
-function needsDirectKey(form, ctx) {
-	if (ctx.hasDirectKey) return false;
-	if (form.mode === "direct") return true;
-	return form.mode === "auto" && !ctx.pluginUp && form.id === null;
-}
-/** Whether the key field is shown at all (also to replace a key on file). */
-function showsDirectKey(form, ctx) {
-	return form.mode === "direct" || needsDirectKey(form, ctx);
-}
-function validateForm(form, ctx) {
-	const issues = [];
-	if (!form.name.trim()) issues.push({
-		field: "name",
-		code: "required"
 	});
-	if (!form.modelId.trim()) issues.push({
-		field: "modelId",
-		code: "required"
+	input.value = options.value;
+	const list = el("div", {
+		class: "nanovia-picker-list",
+		attrs: {
+			id: listId,
+			role: "listbox",
+			hidden: true
+		}
 	});
-	if (needsDirectKey(form, ctx) && !form.directKey.trim()) issues.push({
-		field: "directKey",
-		code: "required"
-	});
-	return issues;
-}
-/** The chips of one connection card, in display order. */
-function chipsFor(entry, pluginUp, t) {
-	const chips = [];
-	const { config } = entry;
-	if (config.mode === "auto") {
-		const key = entry.effectiveMode === "plugin" ? "connections.chip.mode.autoPlugin" : "connections.chip.mode.autoDirect";
-		chips.push({
-			label: t(key),
-			kind: "info"
+	const root = el("div", { class: "nanovia-picker" }, [input, list]);
+	let open = false;
+	let active = -1;
+	let shown = [];
+	let unsubscribe = null;
+	function setActive(index) {
+		active = index;
+		[...list.querySelectorAll(".nanovia-picker-option")].forEach((node, i) => {
+			node.classList.toggle("nanovia-picker-active", i === index);
+			node.setAttribute("aria-selected", String(i === index));
+			if (i === index) node.scrollIntoView?.({ block: "nearest" });
 		});
-	} else chips.push({
-		label: t(`connections.chip.mode.${config.mode}`),
-		kind: "info"
+	}
+	function pick(model) {
+		input.value = model.id;
+		options.onInput(model.id);
+		close();
+	}
+	function note(text) {
+		return el("div", {
+			class: "nanovia-picker-note nanovia-muted",
+			text
+		});
+	}
+	function render() {
+		clear(list);
+		active = -1;
+		const models = catalog.models();
+		if (models.length === 0) {
+			shown = [];
+			list.appendChild(note(t(catalog.status().error ? "ui.picker.unavailable" : "ui.picker.loading")));
+			return;
+		}
+		const matches = pickerMatches(models, input.value);
+		shown = matches.slice(0, 30);
+		if (matches.length === 0) {
+			list.appendChild(note(t("ui.picker.noMatch")));
+			return;
+		}
+		for (const model of shown) {
+			const free = model.subscription.included;
+			const row = el("div", {
+				class: "nanovia-picker-option",
+				data: { model: model.id },
+				attrs: {
+					role: "option",
+					"aria-selected": "false"
+				}
+			}, [el("div", { class: "nanovia-picker-main" }, [el("span", {
+				class: "nanovia-picker-name",
+				text: model.name
+			}), free ? el("span", {
+				class: "nanovia-picker-sub",
+				text: t("ui.picker.sub"),
+				title: t("ui.picker.subTitle")
+			}) : null]), el("div", { class: "nanovia-picker-detail nanovia-muted" }, [el("span", {
+				class: "nanovia-picker-id",
+				text: model.id
+			}), el("span", {
+				class: "nanovia-picker-price",
+				text: formatPricePair(model.pricing.prompt, model.pricing.completion),
+				title: t("ui.picker.priceTitle")
+			})])]);
+			row.addEventListener("mousedown", (event) => event.preventDefault());
+			row.addEventListener("click", () => pick(model));
+			list.appendChild(row);
+		}
+		if (matches.length > shown.length) list.appendChild(note(t("ui.picker.more", { count: matches.length - shown.length })));
+	}
+	function openList() {
+		if (options.disabled) return;
+		if (!open) {
+			open = true;
+			list.hidden = false;
+			input.setAttribute("aria-expanded", "true");
+			unsubscribe = catalog.onChange(() => {
+				if (!root.isConnected) return close();
+				if (open) render();
+			});
+			catalog.refresh();
+		}
+		render();
+	}
+	function close() {
+		open = false;
+		list.hidden = true;
+		input.setAttribute("aria-expanded", "false");
+		unsubscribe?.();
+		unsubscribe = null;
+		active = -1;
+	}
+	input.addEventListener("focus", openList);
+	input.addEventListener("click", openList);
+	input.addEventListener("blur", close);
+	input.addEventListener("input", () => {
+		options.onInput(input.value);
+		openList();
 	});
-	chips.push({
-		label: t(`connections.chip.billing.${config.billing}`),
-		kind: config.billing === "subscription" ? "ok" : "muted"
+	input.addEventListener("keydown", (event) => {
+		if (event.key === "Escape") {
+			if (open) event.preventDefault();
+			close();
+			return;
+		}
+		if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+			event.preventDefault();
+			if (!open) openList();
+			if (shown.length === 0) return;
+			const step = event.key === "ArrowDown" ? 1 : -1;
+			setActive(active < 0 ? step > 0 ? 0 : shown.length - 1 : (active + step + shown.length) % shown.length);
+			return;
+		}
+		if (event.key === "Enter" && open && active >= 0) {
+			const model = shown[active];
+			if (model) {
+				event.preventDefault();
+				pick(model);
+			}
+		}
 	});
-	if (entry.effectiveMode === "direct" && !entry.hasDirectKey) chips.push({
-		label: t("connections.chip.noKey"),
-		kind: "error",
-		title: t("connections.chip.noKey.hint")
-	});
-	chips.push({
-		label: t(`connections.chip.profile.${entry.profileState}`),
-		kind: {
-			linked: "ok",
-			drifted: "warn",
-			missing: "warn",
-			none: "muted",
-			blocked: "warn",
-			unavailable: "error"
-		}[entry.profileState],
-		title: entry.profileState === "blocked" ? t("connections.chip.profile.blocked.hint") : void 0
-	});
-	if (entry.pending) chips.push({
-		label: t("connections.chip.pending"),
-		kind: "warn",
-		title: t("connections.chip.pending.hint")
-	});
-	if (entry.orphan && pluginUp) chips.push({
-		label: t("connections.chip.orphan"),
-		kind: "warn",
-		title: t("connections.chip.orphan.hint")
-	});
-	return chips;
-}
-/** The buttons a connection card offers right now. */
-function actionsFor(entry, pluginUp, t) {
-	const actions = [{
-		id: "edit",
-		label: t("connections.action.edit"),
-		kind: "default"
-	}];
-	if (pluginUp && entry.view && entry.config.mode !== "direct") actions.push({
-		id: "rotate",
-		label: t("connections.action.rotate"),
-		title: t("connections.action.rotate.hint"),
-		kind: "default"
-	});
-	if (!pluginUp && entry.config.mode !== "direct") actions.push({
-		id: "switchDirect",
-		label: t("connections.action.switchDirect"),
-		title: t("connections.action.switchDirect.hint"),
-		kind: "default"
-	});
-	if (entry.orphan && pluginUp) actions.push({
-		id: "sendToPlugin",
-		label: t("connections.action.sendToPlugin"),
-		kind: "default"
-	});
-	if (entry.profileState === "none" || entry.profileState === "missing") actions.push({
-		id: "repairProfile",
-		label: t("connections.action.repairProfile"),
-		kind: "default"
-	});
-	else if (entry.profileState === "drifted") actions.push({
-		id: "repairProfile",
-		label: t("connections.action.repairProfile.fix"),
-		kind: "default"
-	});
-	actions.push({
-		id: "delete",
-		label: t("connections.action.delete"),
-		kind: "danger"
-	});
-	return actions;
-}
-/** What the plugin status chip says. `checked` is false until the plugin has been asked once. */
-function bannerFor(status, error, pluginUp, t, checked = true) {
-	if (!checked && !pluginUp) return {
-		state: "checking",
-		up: false,
-		title: t("connections.status.checking"),
-		detail: "",
-		advice: null
-	};
-	if (pluginUp && status) return {
-		state: "up",
-		up: true,
-		title: t("connections.status.up"),
-		detail: t("connections.status.upDetail", {
-			port: status.proxy.port,
-			version: status.version
-		}),
-		advice: status.proxy.up ? null : t("connections.status.proxyDown", { port: status.proxy.port })
-	};
-	const known = [
-		"not_installed",
-		"unreachable",
-		"timeout",
-		"forbidden"
-	];
-	const code = error?.code ?? "unreachable";
-	const reason = known.includes(code) ? t(`connections.status.reason.${code}`) : t("connections.status.reason.other", { code });
-	return {
-		state: "down",
-		up: false,
-		title: t("connections.status.down"),
-		detail: reason,
-		advice: t("connections.status.installHint")
-	};
-}
-/** Text of an operation's error or warning. */
-function issueText(issue, t) {
-	const params = {};
-	for (const [key, value] of Object.entries(issue.params ?? {})) params[key] = value;
-	if (issue.code === "invalid" && typeof params["field"] === "string") params["field"] = t(`connections.field.${params["field"]}`);
-	return t(`connections.issue.${issue.code}`, params);
-}
-/** Label of a select option of a key the plugin knows. */
-function keyLabel(key, t) {
-	const base = key.label ? `${key.label} · ${key.masked}` : key.masked;
-	return key.active ? `${base} (${t("connections.form.keyActive")})` : base;
+	return root;
 }
 // src/features/connections/form.ts
 /** A hint line that follows the value of the control above it. */
@@ -5865,7 +8831,9 @@ function renderConnectionForm(deps) {
 			maxLength: 80,
 			onInput: (value) => void (form.name = value)
 		}), t("connections.form.nameHint")),
-		field(t("connections.form.model"), textInput({
+		field(t("connections.form.model"), modelPicker({
+			catalog: ctx.catalog,
+			t,
 			value: form.modelId,
 			label: t("connections.form.model"),
 			maxLength: 200,
@@ -7029,22 +9997,6 @@ var ROUTING_STRINGS = {
 		"routing.preview.row.background": "Фоновая задача"
 	}
 };
-// src/domain/catalog.ts
-/** Weight precisions from the coarsest to the finest. `unknown` is outside the scale. */
-var QUANTIZATION_ORDER = [
-	"int4",
-	"fp4",
-	"fp6",
-	"int8",
-	"fp8",
-	"fp16",
-	"bf16",
-	"fp32"
-];
-new Intl.Collator("en", {
-	numeric: true,
-	sensitivity: "base"
-});
 // src/features/routing/view-model.ts
 var BILLING_MODES = [
 	"auto",
@@ -7572,7 +10524,7 @@ function buildRoutingSection(env) {
 			role: "group",
 			"aria-label": t("routing.field.quantizations")
 		}
-	}, QUANTIZATIONS.map((value) => toggle({
+	}, QUANTIZATIONS$1.map((value) => toggle({
 		label: value,
 		checked: routing.quantizations.includes(value),
 		onChange: (checked) => {
@@ -8042,6 +10994,7 @@ var ROUTING_TAB_ID = "routing";
 // src/features/index.ts
 var FEATURES = [
 	connectionsFeature,
+	catalogFeature,
 	{
 		id: ROUTING_FEATURE_ID,
 		init(ctx) {
@@ -8318,7 +11271,11 @@ async function startNanovia(options = {}) {
 		bus,
 		log: log.scope("connections")
 	});
-	const catalog = createEmptyCatalogStore();
+	const catalog = createBrowserCatalogStore({
+		plugin,
+		bus,
+		log: log.scope("catalog")
+	});
 	const pluginAccount = createPluginAccount({ client: plugin });
 	const usage = createUsageStore({
 		bus,

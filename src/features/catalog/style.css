@@ -1,0 +1,292 @@
+/* Tab «Catalog». Shared pieces (chips, fields, buttons, banner) live in ui/style.css and features/connections. */
+
+.nanovia-banner-warn {
+    border-left-color: var(--nanovia-warn);
+}
+
+.nanovia-status-text {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.nanovia-filters {
+    display: flex;
+    flex-direction: column;
+    gap: var(--nanovia-gap-sm);
+    margin: var(--nanovia-gap-sm) 0;
+}
+
+.nanovia-filters > input {
+    width: 100%;
+    margin: 0;
+    box-sizing: border-box;
+}
+
+.nanovia-toggles {
+    gap: 2px var(--nanovia-gap);
+}
+
+.nanovia-chip-toggle {
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.8em;
+    color: inherit;
+    background: transparent;
+}
+
+.nanovia-chip-active {
+    color: var(--nanovia-accent);
+    border-color: var(--nanovia-accent);
+}
+
+.nanovia-list-count {
+    margin: var(--nanovia-gap-sm) 0;
+}
+
+.nanovia-model-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--nanovia-gap-sm);
+}
+
+.nanovia-model-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--nanovia-gap-sm);
+}
+
+.nanovia-vendor-head {
+    margin-top: var(--nanovia-gap-sm);
+    font-weight: 600;
+    color: var(--nanovia-muted);
+}
+
+.nanovia-model-row {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    width: 100%;
+    margin: 0;
+    padding: 6px 10px;
+    box-sizing: border-box;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+    border: 1px solid var(--nanovia-border);
+    border-radius: var(--nanovia-radius);
+    background: var(--nanovia-raised);
+}
+
+.nanovia-model-row:hover,
+.nanovia-model-row:focus-visible {
+    border-color: var(--nanovia-accent);
+}
+
+.nanovia-model-head,
+.nanovia-model-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px var(--nanovia-gap);
+}
+
+.nanovia-model-name,
+.nanovia-model-id {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.nanovia-model-meta {
+    font-size: 0.9em;
+}
+
+.nanovia-model-price {
+    white-space: nowrap;
+}
+
+.nanovia-caps {
+    display: inline-flex;
+    gap: 6px;
+    color: var(--nanovia-muted);
+}
+
+/* ------------------------------------------------------------------ detail */
+
+.nanovia-detail-head {
+    margin: var(--nanovia-gap-sm) 0;
+}
+
+.nanovia-detail-name {
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.nanovia-detail-id {
+    margin-bottom: var(--nanovia-gap-sm);
+}
+
+.nanovia-detail-description {
+    margin: var(--nanovia-gap-sm) 0;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.nanovia-detail-block {
+    display: flex;
+    flex-direction: column;
+    gap: var(--nanovia-gap-sm);
+    margin: var(--nanovia-gap) 0;
+    padding: 8px 10px;
+    border: 1px solid var(--nanovia-border);
+    border-radius: var(--nanovia-radius);
+    background: var(--nanovia-raised);
+}
+
+.nanovia-detail-block > h5 {
+    margin: 0;
+}
+
+.nanovia-kv {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 2px var(--nanovia-gap);
+}
+
+.nanovia-caps-row {
+    gap: 4px var(--nanovia-gap);
+}
+
+.nanovia-cap-line {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.nanovia-cap-off {
+    color: var(--nanovia-muted);
+    text-decoration: line-through;
+}
+
+.nanovia-labelled {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.nanovia-labelled > input,
+.nanovia-labelled > select {
+    width: 100%;
+    margin: 0;
+    box-sizing: border-box;
+}
+
+.nanovia-cost-inputs,
+.nanovia-criteria {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(10em, 1fr));
+    gap: var(--nanovia-gap-sm) var(--nanovia-gap);
+}
+
+.nanovia-cost-result {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.nanovia-hosts-scroll {
+    overflow-x: auto;
+}
+
+.nanovia-hosts {
+    /* Wider than a phone: the table scrolls sideways inside its box instead of squeezing the columns. */
+    width: 100%;
+    min-width: 46em;
+    border-collapse: collapse;
+    font-size: 0.9em;
+}
+
+.nanovia-hosts th,
+.nanovia-hosts td {
+    padding: 3px 6px;
+    text-align: left;
+    vertical-align: top;
+    border-bottom: 1px solid var(--nanovia-border);
+}
+
+.nanovia-hosts th {
+    white-space: nowrap;
+    color: var(--nanovia-muted);
+    font-weight: 600;
+}
+
+.nanovia-host-name {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px var(--nanovia-gap-sm);
+}
+
+.nanovia-nowrap {
+    white-space: nowrap;
+}
+
+.nanovia-host-features {
+    min-width: 11em;
+}
+
+.nanovia-hint {
+    display: flex;
+    flex-direction: column;
+    gap: var(--nanovia-gap-sm);
+    padding: 6px 8px;
+    border: 1px solid var(--nanovia-border);
+    border-left-width: 4px;
+    border-radius: var(--nanovia-radius-sm);
+}
+
+.nanovia-hint-warn {
+    border-left-color: var(--nanovia-warn);
+}
+
+.nanovia-hint-info {
+    border-left-color: var(--nanovia-info);
+}
+
+.nanovia-hint-bypass {
+    border-style: dashed;
+    border-left-style: solid;
+}
+
+.nanovia-hint-text {
+    display: flex;
+    gap: var(--nanovia-gap-sm);
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+}
+
+.nanovia-hint-warn .nanovia-hint-text > i {
+    color: var(--nanovia-warn);
+}
+
+.nanovia-hint-info .nanovia-hint-text > i {
+    color: var(--nanovia-info);
+}
+
+.nanovia-actions-block select {
+    min-width: 0;
+    max-width: 100%;
+}
+
+@media (max-width: 767px) {
+    .nanovia-model-row {
+        min-height: var(--nanovia-tap);
+    }
+
+    .nanovia-chip-toggle {
+        min-height: 32px;
+    }
+}

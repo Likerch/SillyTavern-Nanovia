@@ -187,7 +187,7 @@ export function createPluginAccount(deps: PluginAccountDeps): PluginAccount {
         async balance(keyId) {
             const path = `/account/balance${query({ keyId })}`;
             return map(
-                await client.request('GET', path, undefined, NANOGPT_TIMEOUT_MS),
+                await client.request('GET', path, { timeoutMs: NANOGPT_TIMEOUT_MS }),
                 (d) => parseBalance(d, now()),
                 'balance',
             );
@@ -196,7 +196,7 @@ export function createPluginAccount(deps: PluginAccountDeps): PluginAccount {
         async subscription(keyId) {
             const path = `/account/subscription${query({ keyId })}`;
             return map(
-                await client.request('GET', path, undefined, NANOGPT_TIMEOUT_MS),
+                await client.request('GET', path, { timeoutMs: NANOGPT_TIMEOUT_MS }),
                 (d) => parseSubscriptionState(d, now()),
                 'subscription',
             );
@@ -204,12 +204,16 @@ export function createPluginAccount(deps: PluginAccountDeps): PluginAccount {
 
         async spend(range, connectionId) {
             const path = `/spend${query({ from: range.from, to: range.to, connectionId })}`;
-            return map(await client.request('GET', path, undefined, SPEND_TIMEOUT_MS), parseSpend, 'spend summary');
+            return map(await client.request('GET', path, { timeoutMs: SPEND_TIMEOUT_MS }), parseSpend, 'spend summary');
         },
 
         async lookup(requestId, keyId) {
             const path = `/lookup/${encodeURIComponent(requestId)}${query({ keyId })}`;
-            return map(await client.request('POST', path, {}, NANOGPT_TIMEOUT_MS), parseLookup, 'cost lookup');
+            return map(
+                await client.request('POST', path, { body: {}, timeoutMs: NANOGPT_TIMEOUT_MS }),
+                parseLookup,
+                'cost lookup',
+            );
         },
     };
 }
