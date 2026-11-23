@@ -1,7 +1,7 @@
 import fs, { createReadStream } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-import { createHash, randomBytes, randomInt } from "node:crypto";
+import { createHash, randomBytes, randomInt, randomUUID } from "node:crypto";
 import http from "node:http";
 import fs$1 from "node:fs/promises";
 import readline from "node:readline";
@@ -15,6 +15,10 @@ var DEFAULT_PROXY_PORT = 8787;
 var NANOGPT_API_BASE = "https://api.nano-gpt.com/api/v1";
 var NANOGPT_API_BASE_FALLBACK = "https://nano-gpt.com/api/v1";
 var NANOGPT_SITE = "https://nano-gpt.com";
+/** The Management API (API keys with limits, model presets). Its own host path, no CORS, no fallback host. */
+var NANOGPT_MGMT_BASE = "https://nano-gpt.com/api/management/v1";
+/** Every Management token starts with this; a normal inference key (`sk-nano-<uuid>`) does not work there. */
+var MGMT_TOKEN_PREFIX = "sk-nano-mgmt-";
 /** Names of ST secrets (src/endpoints/secrets.js SECRET_KEYS). Several values per key, each with an id and a label. */
 var SECRET_KEY_NANOGPT = "api_key_nanogpt";
 var SECRET_KEY_CUSTOM = "api_key_custom";
@@ -68,14 +72,14 @@ function positive(value) {
 	const n = finite(value);
 	return n !== null && n > 0 ? n : null;
 }
-function text$1(value) {
+function text$2(value) {
 	return typeof value === "string" ? value.trim() : "";
 }
 function strings(value) {
 	if (!Array.isArray(value)) return [];
 	const out = [];
 	for (const item of value) {
-		const s = text$1(item);
+		const s = text$2(item);
 		if (s) out.push(s);
 	}
 	return out;
@@ -101,7 +105,7 @@ function toSeconds(value) {
 */
 function normalizeCatalogModel(raw) {
 	if (!isRecord$7(raw)) return null;
-	const id = text$1(raw["id"]);
+	const id = text$2(raw["id"]);
 	if (!id) return null;
 	const caps = record(raw["capabilities"]);
 	const price = record(raw["pricing"]);
@@ -109,8 +113,8 @@ function normalizeCatalogModel(raw) {
 	const cacheRead = nonNegative(price["cacheReadInputPer1kTokens"]);
 	return {
 		id,
-		name: text$1(raw["name"]) || id,
-		description: text$1(raw["description"]),
+		name: text$2(raw["name"]) || id,
+		description: text$2(raw["description"]),
 		contextLength: positive(raw["context_length"]),
 		maxOutputTokens: positive(raw["max_output_tokens"]),
 		capabilities: {
@@ -126,7 +130,7 @@ function normalizeCatalogModel(raw) {
 			completion: roundUsd$1(nonNegative(price["completion"]) ?? 0),
 			cacheRead: cacheRead === null ? null : per1kToPer1m(cacheRead)
 		},
-		category: text$1(raw["category"]) || null,
+		category: text$2(raw["category"]) || null,
 		subscription: {
 			included: sub["included"] === true,
 			inputTokenMultiplier: positive(sub["inputTokenMultiplier"]) ?? 1
@@ -181,7 +185,7 @@ var QUANTIZATION_ALIASES = {
 * `rawQuantization` keeps the label as the host wrote it.
 */
 function mapQuantization(raw) {
-	const label = text$1(raw);
+	const label = text$2(raw);
 	if (!label) return {
 		quantization: null,
 		rawQuantization: null
@@ -216,7 +220,7 @@ function featuresOf(raw) {
 }
 function normalizeEndpoint(raw) {
 	if (!isRecord$7(raw)) return null;
-	const id = text$1(raw["provider"]);
+	const id = text$2(raw["provider"]);
 	if (!id || raw["available"] === false) return null;
 	const { quantization, rawQuantization } = mapQuantization(raw["quantization"]);
 	return {
@@ -241,7 +245,7 @@ function normalizeModelProviders(modelId, raw) {
 	if (!isRecord$7(raw)) return null;
 	const hosts = raw["providers"];
 	if (!(Array.isArray(hosts) || typeof raw["supportsProviderSelection"] === "boolean" || typeof raw["canonicalId"] === "string")) return null;
-	const id = text$1(modelId) || text$1(raw["canonicalId"]);
+	const id = text$2(modelId) || text$2(raw["canonicalId"]);
 	if (!id) return null;
 	const rate = finite(raw["autoCacheReadRate"]);
 	const seen = /* @__PURE__ */ new Set();
@@ -504,6 +508,7 @@ function clamp(value, min, max) {
 }
 var CONNECTIONS_FILE = "connections.json";
 var REGISTRY_FILE = "registry.json";
+var MGMT_FILE = "mgmt.json";
 var USER_DIR_NAME = "nanovia";
 var GLOBAL_DIR_NAME = "_nanovia";
 /** A JSON file with an mtime cache, atomic writes and tolerant reads. */
@@ -548,6 +553,14 @@ var JsonFile = class {
 			value
 		};
 		return structuredClone(value);
+	}
+	/** Deletes the file and the aside copy of a corrupt one (no error when they are not there); forgets the cache. */
+	remove() {
+		const file = this.file();
+		fs.rmSync(file, { force: true });
+		fs.rmSync(`${file}.corrupt`, { force: true });
+		this.cache = null;
+		this.corrupt = false;
 	}
 	write(value) {
 		const file = this.file();
@@ -622,6 +635,31 @@ function parseRegistry(raw) {
 	}
 	return registry;
 }
+var MGMT_ERRORS = [
+	"mgmt_token_invalid",
+	"upstream_unreachable",
+	"upstream_timeout",
+	"upstream_error",
+	"rate_limited"
+];
+var STORABLE_TOKEN = /^[!-~]{1,512}$/;
+/** A record needs a token that is one printable word; the check block is optional and read leniently. */
+function parseMgmt(raw) {
+	if (!isRecord$5(raw)) return null;
+	const token = raw["token"];
+	if (typeof token !== "string" || !STORABLE_TOKEN.test(token)) return null;
+	const check = isRecord$5(raw["check"]) ? raw["check"] : {};
+	const error = MGMT_ERRORS.find((code) => code === check["error"]) ?? null;
+	const checkedAt = check["checkedAt"];
+	return {
+		token,
+		check: {
+			valid: typeof check["valid"] === "boolean" ? check["valid"] : null,
+			checkedAt: typeof checkedAt === "number" && Number.isFinite(checkedAt) ? checkedAt : null,
+			error
+		}
+	};
+}
 function emptyRegistry() {
 	return {
 		version: 1,
@@ -631,6 +669,7 @@ function emptyRegistry() {
 function createStore(options) {
 	const { dataRoot, now, log } = options;
 	const userFiles = /* @__PURE__ */ new Map();
+	const mgmtFiles = /* @__PURE__ */ new Map();
 	const connectionsFile = (userRoot) => {
 		let file = userFiles.get(userRoot);
 		if (!file) {
@@ -642,6 +681,17 @@ function createStore(options) {
 		}
 		return file;
 	};
+	const mgmtFile = (userRoot) => {
+		let file = mgmtFiles.get(userRoot);
+		if (!file) {
+			file = new JsonFile(() => path.join(userRoot, USER_DIR_NAME, MGMT_FILE), parseMgmt, (record) => ({
+				version: 1,
+				...record
+			}), () => null, log);
+			mgmtFiles.set(userRoot, file);
+		}
+		return file;
+	};
 	const registryFile = new JsonFile(() => path.join(dataRoot(), GLOBAL_DIR_NAME, REGISTRY_FILE), parseRegistry, (registry) => registry, emptyRegistry, log);
 	return {
 		userDir: (userRoot) => path.join(userRoot, USER_DIR_NAME),
@@ -649,6 +699,11 @@ function createStore(options) {
 			list: (userRoot) => connectionsFile(userRoot).read(),
 			get: (userRoot, id) => connectionsFile(userRoot).read().find((c) => c.id === id) ?? null,
 			save: (userRoot, connections) => connectionsFile(userRoot).write(connections)
+		},
+		mgmt: {
+			read: (userRoot) => mgmtFile(userRoot).read(),
+			write: (userRoot, record) => mgmtFile(userRoot).write(record),
+			clear: (userRoot) => mgmtFile(userRoot).remove()
 		},
 		registry: {
 			read: () => registryFile.read(),
@@ -1384,12 +1439,12 @@ function compareText(a, b) {
 function isRecord$3(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-var DECIMAL$1 = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/;
+var DECIMAL$2 = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/;
 /** A USD amount from a number or a decimal string; null for negatives, NaN, infinities and anything else. */
 function parseCost(value) {
 	let n;
 	if (typeof value === "number") n = value;
-	else if (typeof value === "string" && DECIMAL$1.test(value.trim())) n = Number(value.trim());
+	else if (typeof value === "string" && DECIMAL$2.test(value.trim())) n = Number(value.trim());
 	else return null;
 	if (!Number.isFinite(n) || n < 0) return null;
 	return n === 0 ? 0 : n;
@@ -2624,7 +2679,7 @@ function createProxyServer(deps, steps = {
 			if (failure && failure.kind !== "aborted" && !res.destroyed) {
 				const text = failure.kind === "timeout" ? "The upstream stopped sending data" : "The upstream connection broke";
 				const code = failure.kind === "timeout" ? "upstream_timeout" : "upstream_unreachable";
-				res.write(`data: ${JSON.stringify(errorBody("upstream_error", code, text))}\n\n`);
+				res.write(`data: ${JSON.stringify(errorBody$1("upstream_error", code, text))}\n\n`);
 			}
 			const aborted = clientGone(ctx) || failure?.kind === "aborted";
 			ctx.usage.status = aborted ? 499 : failure ? failure.kind === "timeout" ? 504 : 502 : info.status;
@@ -2841,7 +2896,7 @@ function blankUsage(connectionId, model, startedAt, now) {
 		error: null
 	};
 }
-function errorBody(type, code, message) {
+function errorBody$1(type, code, message) {
 	return { error: {
 		message,
 		type,
@@ -2860,7 +2915,7 @@ function sendJson$1(res, status, body, headers = {}) {
 	res.end(payload);
 }
 function sendError$1(res, status, type, code, message, headers = {}) {
-	sendJson$1(res, status, errorBody(type, code, message), {
+	sendJson$1(res, status, errorBody$1(type, code, message), {
 		...headers,
 		...status === 413 ? { connection: "close" } : {}
 	});
@@ -2920,7 +2975,7 @@ function normalizeErrorBody(status, body, key) {
 	} catch {}
 	const text = key.redact(body.toString("utf8")).replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 300);
 	const message = text ? `NanoGPT answered HTTP ${status}: ${text}` : `NanoGPT answered HTTP ${status}`;
-	return Buffer.from(JSON.stringify(errorBody("upstream_error", "upstream_error", message)));
+	return Buffer.from(JSON.stringify(errorBody$1("upstream_error", "upstream_error", message)));
 }
 function upstreamErrorCode(body) {
 	try {
@@ -2984,7 +3039,7 @@ function bodyObject(req) {
 	return body;
 }
 // src/server/routes/nanogpt.ts
-var CALL_TIMEOUT_MS = 15e3;
+var CALL_TIMEOUT_MS$1 = 15e3;
 var MAX_KEY_ID_LENGTH = 200;
 /** The first value of a query parameter as a trimmed string; null when it is absent or empty. */
 function queryText(req, name) {
@@ -2993,7 +3048,7 @@ function queryText(req, name) {
 	return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 /** `?keyId`: an id of GET /keys, or null for the active key. */
-function keyIdOf(req) {
+function keyIdOf$1(req) {
 	const id = queryText(req, "keyId");
 	if (id !== null && id.length > MAX_KEY_ID_LENGTH) throw new HttpError(400, "invalid_request", "\"keyId\" is not a key id");
 	return id;
@@ -3017,7 +3072,7 @@ function resolveKey(deps, user, keyId) {
 /** One call to NanoGPT. Resolves for any HTTP status (the caller decides); rejects only for transport failures. */
 async function callNanogpt(deps, key, request) {
 	const controller = new AbortController();
-	const timer = setTimeout(() => controller.abort(), CALL_TIMEOUT_MS);
+	const timer = setTimeout(() => controller.abort(), CALL_TIMEOUT_MS$1);
 	timer.unref?.();
 	try {
 		const headers = { accept: "application/json" };
@@ -3056,7 +3111,7 @@ function isOk(status) {
 	return status >= 200 && status < 300;
 }
 // src/server/routes/account.ts
-var DECIMAL = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/;
+var DECIMAL$1 = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/;
 var REQUEST_ID = /^[A-Za-z0-9._:-]{1,200}$/;
 /** Answers that mean "this key has no subscription endpoint" rather than "the call failed". */
 var NO_SUBSCRIPTION_STATUSES = /* @__PURE__ */ new Set([
@@ -3067,11 +3122,11 @@ var NO_SUBSCRIPTION_STATUSES = /* @__PURE__ */ new Set([
 	501
 ]);
 /** A Unix timestamp below this is in seconds, at or above it in milliseconds (1e11 s is the year 5138, 1e11 ms is 1973). */
-var SECONDS_LIMIT = 1e11;
+var SECONDS_LIMIT$1 = 1e11;
 /** A number from a JSON number or a decimal string; null for anything else (a balance may be any finite value). */
 function amount$1(value) {
 	if (typeof value === "number") return Number.isFinite(value) ? value : null;
-	if (typeof value === "string" && DECIMAL.test(value.trim())) {
+	if (typeof value === "string" && DECIMAL$1.test(value.trim())) {
 		const n = Number(value.trim());
 		return Number.isFinite(n) ? n : null;
 	}
@@ -3086,9 +3141,9 @@ function mapBalance(payload, fetchedAt) {
 	};
 }
 function timestamp(value) {
-	if (typeof value === "number" && Number.isFinite(value) && value > 0) return value < SECONDS_LIMIT ? Math.round(value * 1e3) : value;
+	if (typeof value === "number" && Number.isFinite(value) && value > 0) return value < SECONDS_LIMIT$1 ? Math.round(value * 1e3) : value;
 	if (typeof value === "string" && value.trim()) {
-		const parsed = DECIMAL.test(value.trim()) ? timestamp(Number(value.trim())) : Date.parse(value);
+		const parsed = DECIMAL$1.test(value.trim()) ? timestamp(Number(value.trim())) : Date.parse(value);
 		return typeof parsed === "number" && Number.isFinite(parsed) ? parsed : null;
 	}
 	return null;
@@ -3129,7 +3184,7 @@ function mapSubscriptionUsage(payload) {
 }
 var accountRoutes = (router, deps) => {
 	router.get("/account/balance", route(deps.log, async (req, res) => {
-		const answer = await callNanogpt(deps, resolveKey(deps, userOf(req, deps), keyIdOf(req)), {
+		const answer = await callNanogpt(deps, resolveKey(deps, userOf(req, deps), keyIdOf$1(req)), {
 			method: "POST",
 			url: `${deps.config.siteBase}/api/check-balance`,
 			auth: "x-api-key",
@@ -3140,7 +3195,7 @@ var accountRoutes = (router, deps) => {
 		sendJson(res, 200, mapBalance(answer.json, deps.now()));
 	}));
 	router.get("/account/subscription", route(deps.log, async (req, res) => {
-		const answer = await callNanogpt(deps, resolveKey(deps, userOf(req, deps), keyIdOf(req)), {
+		const answer = await callNanogpt(deps, resolveKey(deps, userOf(req, deps), keyIdOf$1(req)), {
 			method: "GET",
 			url: `${deps.config.siteBase}/api/subscription/v1/usage`,
 			auth: "bearer"
@@ -3160,7 +3215,7 @@ var accountRoutes = (router, deps) => {
 		const user = userOf(req, deps);
 		const requestId = req.params["requestId"] ?? "";
 		if (!REQUEST_ID.test(requestId)) throw new HttpError(400, "invalid_request", "Not a request id");
-		const answer = await callNanogpt(deps, resolveKey(deps, user, keyIdOf(req)), {
+		const answer = await callNanogpt(deps, resolveKey(deps, user, keyIdOf$1(req)), {
 			method: "GET",
 			url: `${deps.config.upstreamBase}/usage/requests/${encodeURIComponent(requestId)}`,
 			auth: "bearer"
@@ -3566,7 +3621,7 @@ var connectionRoutes = (router, deps) => {
 };
 // src/server/routes/keys.ts
 var MAX_KEY_LENGTH = 512;
-var MAX_LABEL_LENGTH = 100;
+var MAX_LABEL_LENGTH$1 = 100;
 var DEFAULT_LABEL = "NanoGPT";
 var CHECK_TIMEOUT_MS = 15e3;
 function toInfo(entry) {
@@ -3594,7 +3649,7 @@ var keyRoutes = (router, deps) => {
 		if (!value || value.length > MAX_KEY_LENGTH || /[\u0000-\u001f\u007f\s]/.test(value)) throw new HttpError(400, "invalid_request", "\"value\" must be a key without spaces or line breaks");
 		const rawLabel = body["label"];
 		if (rawLabel !== void 0 && typeof rawLabel !== "string") throw new HttpError(400, "invalid_request", "\"label\" must be a string");
-		const label = (typeof rawLabel === "string" ? rawLabel.trim() : "").slice(0, MAX_LABEL_LENGTH) || DEFAULT_LABEL;
+		const label = (typeof rawLabel === "string" ? rawLabel.trim() : "").slice(0, MAX_LABEL_LENGTH$1) || DEFAULT_LABEL;
 		const id = st.writeSecret(user.handle, SECRET_KEY_NANOGPT, value, label);
 		const written = st.listSecrets(user.handle, SECRET_KEY_NANOGPT).find((s) => s.id === id);
 		sendJson(res, 200, { key: written ? toInfo(written) : {
@@ -3674,6 +3729,1263 @@ function amount(value) {
 	if (typeof value === "number" && Number.isFinite(value)) return String(value);
 	return null;
 }
+/**
+* The shape of a Management token: `sk-nano-mgmt-` plus at least MGMT_TOKEN_MIN_BODY printable characters, no spaces, at
+* most MGMT_TOKEN_MAX_LENGTH in all. Surrounding whitespace (a pasted newline) is dropped. A normal inference key
+* (`sk-nano-<uuid>`) is told apart, because pasting it into the wrong box is the likely mistake.
+*/
+function checkMgmtToken(raw) {
+	if (typeof raw !== "string") return {
+		ok: false,
+		issue: "not_string"
+	};
+	const token = raw.trim();
+	if (!token) return {
+		ok: false,
+		issue: "empty"
+	};
+	if (token.length > 512) return {
+		ok: false,
+		issue: "too_long"
+	};
+	if (!token.startsWith("sk-nano-mgmt-")) return {
+		ok: false,
+		issue: token.startsWith("sk-nano-") ? "inference_key" : "prefix"
+	};
+	if (!/^[!-~]+$/.test(token)) return {
+		ok: false,
+		issue: "characters"
+	};
+	if (token.length - 13 < 8) return {
+		ok: false,
+		issue: "too_short"
+	};
+	return {
+		ok: true,
+		token
+	};
+}
+/** English text for an issue; never contains the value. */
+function describeTokenIssue(issue) {
+	switch (issue) {
+		case "not_string": return "\"token\" must be a string";
+		case "empty": return "\"token\" is empty";
+		case "inference_key": return `This is an inference API key. A Management token starts with ${MGMT_TOKEN_PREFIX}`;
+		case "prefix": return `A Management token starts with ${MGMT_TOKEN_PREFIX}`;
+		case "too_short": return "The token is too short";
+		case "too_long": return "The token is too long";
+		case "characters": return "The token must not contain spaces or special characters";
+	}
+}
+var KEY_LIMIT_KINDS = [
+	"requests",
+	"usd",
+	"inputTokens",
+	"subscriptionInputTokens"
+];
+var KEY_LIMIT_PERIODS = [
+	"daily",
+	"weekly",
+	"monthly"
+];
+/** Wire field names of the twelve limits. */
+var KEY_LIMIT_FIELDS = {
+	requests: {
+		daily: "daily_rpd_limit",
+		weekly: "weekly_request_limit",
+		monthly: "monthly_request_limit"
+	},
+	usd: {
+		daily: "daily_usd_limit",
+		weekly: "weekly_usd_limit",
+		monthly: "monthly_usd_limit"
+	},
+	inputTokens: {
+		daily: "daily_input_token_limit",
+		weekly: "weekly_input_token_limit",
+		monthly: "monthly_input_token_limit"
+	},
+	subscriptionInputTokens: {
+		daily: "daily_subscription_input_token_limit",
+		weekly: "weekly_subscription_input_token_limit",
+		monthly: "monthly_subscription_input_token_limit"
+	}
+};
+var INT_MAX = 2147483647;
+/** What a limit may be: `integer` and the largest value per period (the smallest is 0). USD steps are 0.0001. */
+var KEY_LIMIT_RANGES = {
+	requests: {
+		integer: true,
+		max: {
+			daily: 1e7,
+			weekly: INT_MAX,
+			monthly: INT_MAX
+		}
+	},
+	usd: {
+		integer: false,
+		max: {
+			daily: 1e5,
+			weekly: 1e5,
+			monthly: 1e5
+		}
+	},
+	inputTokens: {
+		integer: true,
+		max: {
+			daily: INT_MAX,
+			weekly: INT_MAX,
+			monthly: INT_MAX
+		}
+	},
+	subscriptionInputTokens: {
+		integer: true,
+		max: {
+			daily: INT_MAX,
+			weekly: INT_MAX,
+			monthly: INT_MAX
+		}
+	}
+};
+var USD_STEP = 1e4;
+var ZDR_POLICIES = [
+	"zdr",
+	"off",
+	"unset"
+];
+var REASONING_EFFORTS = [
+	"none",
+	"minimal",
+	"low",
+	"medium",
+	"high",
+	"xhigh",
+	"max"
+];
+var RESPONSE_FORMATS = ["text", "json_object"];
+var REASONING_SUMMARIES = [
+	"auto",
+	"concise",
+	"detailed"
+];
+var VERBOSITIES = [
+	"low",
+	"medium",
+	"high"
+];
+var ROUTINGS = [
+	"auto",
+	"speed",
+	"throughput",
+	"latency",
+	"price",
+	"caching"
+];
+var SERVICE_TIERS = [
+	"auto",
+	"default",
+	"flex",
+	"priority",
+	"ultrafast"
+];
+var CACHE_TTLS = ["5m", "1h"];
+var PRESET_NAME_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$/;
+var PRESET_PROMPT_MAX_LENGTH = 12e3;
+var PRESET_BODY_LIMIT_BYTES = 16384;
+var DECIMAL = /^[+-]?\d+(?:\.\d+)?$/;
+/** A Unix timestamp below this is in seconds, at or above it in milliseconds. */
+var SECONDS_LIMIT = 1e11;
+function numeric(value) {
+	if (typeof value === "number") return Number.isFinite(value) ? value : null;
+	if (typeof value === "string" && DECIMAL.test(value.trim())) return Number(value.trim());
+	return null;
+}
+function epochMs(value) {
+	if (typeof value === "number") {
+		if (!Number.isFinite(value) || value <= 0) return null;
+		return value < SECONDS_LIMIT ? Math.round(value * 1e3) : value;
+	}
+	if (typeof value === "string" && value.trim()) {
+		const parsed = Date.parse(value);
+		return Number.isFinite(parsed) ? parsed : null;
+	}
+	return null;
+}
+function pick$1(value, allowed) {
+	if (typeof value !== "string") return null;
+	const wanted = value.trim().toLowerCase();
+	return allowed.find((item) => item === wanted) ?? null;
+}
+function text$1(value) {
+	return typeof value === "string" ? value : null;
+}
+function flag(value) {
+	return typeof value === "boolean" ? value : null;
+}
+/** The array of a list payload: `{ data: [...] }` (the API's shape), a bare array, or null for anything else. */
+function listOf(raw) {
+	if (Array.isArray(raw)) return raw;
+	if (isRecord$3(raw) && Array.isArray(raw["data"])) return raw["data"];
+	return null;
+}
+function emptyLimits() {
+	const empty = () => ({
+		daily: null,
+		weekly: null,
+		monthly: null
+	});
+	return {
+		requests: empty(),
+		usd: empty(),
+		inputTokens: empty(),
+		subscriptionInputTokens: empty()
+	};
+}
+/** One element of `GET /api-keys`, or the answer of POST/PATCH: tolerant of missing and extra fields. null: no usable id. */
+function normalizeManagedKey(raw) {
+	if (!isRecord$3(raw)) return null;
+	const rawId = raw["id"];
+	const id = typeof rawId === "number" && Number.isFinite(rawId) ? String(rawId) : typeof rawId === "string" ? rawId.trim() : "";
+	if (!id) return null;
+	const limits = emptyLimits();
+	for (const kind of KEY_LIMIT_KINDS) for (const period of KEY_LIMIT_PERIODS) {
+		const value = numeric(raw[KEY_LIMIT_FIELDS[kind][period]]);
+		limits[kind][period] = value !== null && value >= 0 ? value : null;
+	}
+	return {
+		id,
+		name: typeof raw["name"] === "string" ? raw["name"] : "",
+		status: raw["status"] === "expired" ? "expired" : "active",
+		createdAt: epochMs(raw["created_at"]),
+		expiresAt: epochMs(raw["expires_at"]),
+		limits,
+		zdrPolicy: pick$1(raw["zdr_policy"], ZDR_POLICIES)
+	};
+}
+/** `GET /api-keys`: every usable key, in the API's order, once per id. null when the payload is not a list at all. */
+function normalizeManagedKeys(raw) {
+	const items = listOf(raw);
+	if (!items) return null;
+	const seen = /* @__PURE__ */ new Set();
+	const keys = [];
+	for (const item of items) {
+		const key = normalizeManagedKey(item);
+		if (!key || seen.has(key.id)) continue;
+		seen.add(key.id);
+		keys.push(key);
+	}
+	return keys;
+}
+function readThinking(raw) {
+	if (typeof raw === "boolean") return {
+		enabled: raw,
+		budgetTokens: null
+	};
+	if (!isRecord$3(raw)) return null;
+	const budget = numeric(raw["budget_tokens"]);
+	return {
+		enabled: raw["type"] === "enabled",
+		budgetTokens: budget !== null && Number.isInteger(budget) && budget > 0 ? budget : null
+	};
+}
+function readCaching(raw) {
+	if (typeof raw === "boolean") return {
+		enabled: raw,
+		ttl: null
+	};
+	if (!isRecord$3(raw) || typeof raw["enabled"] !== "boolean") return null;
+	return {
+		enabled: raw["enabled"],
+		ttl: pick$1(raw["ttl"], CACHE_TTLS)
+	};
+}
+/** One element of `GET /model-presets` or the answer of PUT. null: no usable name. */
+function normalizeModelPreset(raw) {
+	if (!isRecord$3(raw)) return null;
+	const name = typeof raw["name"] === "string" ? raw["name"].trim().toLowerCase() : "";
+	if (!name) return null;
+	return {
+		name,
+		model: typeof raw["model"] === "string" ? raw["model"] : "",
+		systemPrompt: text$1(raw["system_prompt"]),
+		maxTokens: numeric(raw["max_tokens"]),
+		topK: numeric(raw["top_k"]),
+		temperature: numeric(raw["temperature"]),
+		topP: numeric(raw["top_p"]),
+		minP: numeric(raw["min_p"]),
+		topA: numeric(raw["top_a"]),
+		frequencyPenalty: numeric(raw["frequency_penalty"]),
+		presencePenalty: numeric(raw["presence_penalty"]),
+		repetitionPenalty: numeric(raw["repetition_penalty"]),
+		responseFormat: pick$1(raw["response_format_type"], RESPONSE_FORMATS),
+		structuredOutputs: flag(raw["structured_outputs"]),
+		reasoningEffort: pick$1(raw["reasoning_effort"], REASONING_EFFORTS),
+		reasoningSummary: pick$1(raw["reasoning_summary"], REASONING_SUMMARIES),
+		verbosity: pick$1(raw["verbosity"], VERBOSITIES),
+		routing: pick$1(raw["provider_routing_preference"], ROUTINGS),
+		serviceTier: pick$1(raw["service_tier"], SERVICE_TIERS),
+		thinking: readThinking(raw["thinking"]),
+		promptCaching: readCaching(raw["prompt_caching"]),
+		createdAt: epochMs(raw["created_at"]),
+		updatedAt: epochMs(raw["updated_at"])
+	};
+}
+/** `GET /model-presets`: every usable preset, once per name. null when the payload is not a list at all. */
+function normalizeModelPresets(raw) {
+	const items = listOf(raw);
+	if (!items) return null;
+	const seen = /* @__PURE__ */ new Set();
+	const presets = [];
+	for (const item of items) {
+		const preset = normalizeModelPreset(item);
+		if (!preset || seen.has(preset.name)) continue;
+		seen.add(preset.name);
+		presets.push(preset);
+	}
+	return presets;
+}
+/** `field: message; field: message`, at most five, for an error message. */
+function describeIssues(issues) {
+	const shown = issues.slice(0, 5).map((issue) => `${issue.field}: ${issue.message}`);
+	if (issues.length > shown.length) shown.push(`and ${issues.length - shown.length} more`);
+	return shown.join("; ");
+}
+function checked(value, issues) {
+	return issues.length === 0 ? {
+		ok: true,
+		value
+	} : {
+		ok: false,
+		issues
+	};
+}
+/** The keys of `raw` outside `allowed` and `ignored`: one `unknown_field` issue each. */
+function rejectUnknown(raw, allowed, ignored, issues) {
+	for (const key of Object.keys(raw)) {
+		if (allowed.includes(key) || ignored.includes(key)) continue;
+		issues.push({
+			field: key,
+			code: "unknown_field",
+			message: "is not a field of this request"
+		});
+	}
+}
+function checkName(value, field, issues) {
+	if (typeof value !== "string") {
+		issues.push({
+			field,
+			code: "type",
+			message: "must be a string"
+		});
+		return null;
+	}
+	const name = value.trim();
+	if (!name || name.length > 120) {
+		issues.push({
+			field,
+			code: "length",
+			message: `must be 1 to 120 characters, not blank`
+		});
+		return null;
+	}
+	return name;
+}
+function checkExpiry(value, issues) {
+	if (value === null) return null;
+	if (typeof value !== "number" || !Number.isFinite(value) || value <= 0 || !Number.isFinite(new Date(value).getTime())) {
+		issues.push({
+			field: "expiresAt",
+			code: "type",
+			message: "must be null or a time in ms since epoch"
+		});
+		return;
+	}
+	return Math.round(value);
+}
+function checkPolicy(value, allowed, issues) {
+	const policy = pick$1(value, allowed);
+	if (policy === null) {
+		issues.push({
+			field: "zdrPolicy",
+			code: "enum",
+			message: `must be one of: ${allowed.join(", ")}`
+		});
+		return;
+	}
+	return policy;
+}
+function checkLimits(raw, issues) {
+	if (!isRecord$3(raw)) {
+		issues.push({
+			field: "limits",
+			code: "type",
+			message: "must be an object"
+		});
+		return;
+	}
+	const out = {};
+	for (const key of Object.keys(raw)) {
+		const kind = KEY_LIMIT_KINDS.find((k) => k === key);
+		if (!kind) {
+			issues.push({
+				field: `limits.${key}`,
+				code: "unknown_field",
+				message: "is not a limit kind"
+			});
+			continue;
+		}
+		const periods = raw[kind];
+		if (!isRecord$3(periods)) {
+			issues.push({
+				field: `limits.${kind}`,
+				code: "type",
+				message: "must be an object"
+			});
+			continue;
+		}
+		const range = KEY_LIMIT_RANGES[kind];
+		const kept = {};
+		for (const name of Object.keys(periods)) {
+			const period = KEY_LIMIT_PERIODS.find((p) => p === name);
+			const field = `limits.${kind}.${name}`;
+			if (!period) {
+				issues.push({
+					field,
+					code: "unknown_field",
+					message: "is not a period"
+				});
+				continue;
+			}
+			const value = periods[period];
+			if (value === null) {
+				kept[period] = null;
+				continue;
+			}
+			if (typeof value !== "number" || !Number.isFinite(value)) {
+				issues.push({
+					field,
+					code: "type",
+					message: "must be null (unlimited) or a number"
+				});
+				continue;
+			}
+			if (range.integer && !Number.isInteger(value)) {
+				issues.push({
+					field,
+					code: "integer",
+					message: "must be a whole number"
+				});
+				continue;
+			}
+			const cleaned = range.integer ? value : Math.round(value * USD_STEP) / USD_STEP;
+			if (!range.integer && Math.abs(value * USD_STEP - Math.round(value * USD_STEP)) > 1e-6) {
+				issues.push({
+					field,
+					code: "step",
+					message: "must be a multiple of 0.0001"
+				});
+				continue;
+			}
+			if (cleaned < 0 || cleaned > range.max[period]) {
+				issues.push({
+					field,
+					code: "range",
+					message: `must be between 0 and ${range.max[period]}`
+				});
+				continue;
+			}
+			kept[period] = cleaned;
+		}
+		if (Object.keys(kept).length > 0) out[kind] = kept;
+	}
+	return out;
+}
+/** Fields of a ManagedKey a client may send back untouched (an edit form posts the whole key): ignored, not rejected. */
+var KEY_READ_ONLY = [
+	"id",
+	"status",
+	"createdAt"
+];
+/**
+* Checks a PATCH of a key (KeyLimitsPatch): the name trimmed, USD amounts cleaned of float noise, limits within the
+* API's ranges and steps, the zdr policy one of zdr/off/unset. Unknown fields are refused (a typo must not silently do
+* nothing); the read-only fields of a ManagedKey are ignored. An input that changes nothing is refused: the API needs at
+* least one field.
+*/
+function sanitizeKeyLimitsPatch(raw) {
+	if (!isRecord$3(raw)) return checked({}, [{
+		field: "body",
+		code: "type",
+		message: "must be a JSON object"
+	}]);
+	const issues = [];
+	rejectUnknown(raw, [
+		"name",
+		"expiresAt",
+		"zdrPolicy",
+		"limits"
+	], KEY_READ_ONLY, issues);
+	const patch = {};
+	if (raw["name"] !== void 0) {
+		const name = checkName(raw["name"], "name", issues);
+		if (name !== null) patch.name = name;
+	}
+	if (raw["expiresAt"] !== void 0) {
+		const expiresAt = checkExpiry(raw["expiresAt"], issues);
+		if (expiresAt !== void 0) patch.expiresAt = expiresAt;
+	}
+	if (raw["zdrPolicy"] !== void 0) {
+		const policy = checkPolicy(raw["zdrPolicy"], ZDR_POLICIES, issues);
+		if (policy) patch.zdrPolicy = policy;
+	}
+	if (raw["limits"] !== void 0) {
+		const limits = checkLimits(raw["limits"], issues);
+		if (limits && Object.keys(limits).length > 0) patch.limits = limits;
+	}
+	if (issues.length === 0 && Object.keys(patch).length === 0) issues.push({
+		field: "body",
+		code: "empty",
+		message: "must change at least one field"
+	});
+	return checked(patch, issues);
+}
+/** Checks a new key (KeyCreateInput). Same rules as the patch; the name is required and `unset` is not a choice. */
+function sanitizeKeyCreateInput(raw) {
+	if (!isRecord$3(raw)) return checked({ name: "" }, [{
+		field: "body",
+		code: "type",
+		message: "must be a JSON object"
+	}]);
+	const issues = [];
+	rejectUnknown(raw, [
+		"name",
+		"expiresAt",
+		"zdrPolicy",
+		"limits"
+	], [], issues);
+	const input = { name: "" };
+	if (raw["name"] === void 0) issues.push({
+		field: "name",
+		code: "required",
+		message: "is required"
+	});
+	else input.name = checkName(raw["name"], "name", issues) ?? "";
+	if (raw["expiresAt"] !== void 0) {
+		const expiresAt = checkExpiry(raw["expiresAt"], issues);
+		if (expiresAt !== void 0) input.expiresAt = expiresAt;
+	}
+	if (raw["zdrPolicy"] !== void 0) {
+		const policy = checkPolicy(raw["zdrPolicy"], ["zdr", "off"], issues);
+		if (policy === "zdr" || policy === "off") input.zdrPolicy = policy;
+	}
+	if (raw["limits"] !== void 0) {
+		const limits = checkLimits(raw["limits"], issues);
+		if (limits && Object.keys(limits).length > 0) input.limits = limits;
+	}
+	return checked(input, issues);
+}
+function limitsToWire(limits, wire) {
+	if (!limits) return;
+	for (const kind of KEY_LIMIT_KINDS) {
+		const periods = limits[kind];
+		if (!periods) continue;
+		for (const period of KEY_LIMIT_PERIODS) {
+			const value = periods[period];
+			if (value !== void 0) wire[KEY_LIMIT_FIELDS[kind][period]] = value;
+		}
+	}
+}
+/** The PATCH body of the API for a checked patch (only the fields the patch carries; null clears). */
+function keyPatchToWire(patch) {
+	const wire = {};
+	if (patch.name !== void 0) wire["name"] = patch.name;
+	if (patch.expiresAt !== void 0) wire["expires_at"] = patch.expiresAt === null ? null : new Date(patch.expiresAt).toISOString();
+	if (patch.zdrPolicy !== void 0) wire["zdr_policy"] = patch.zdrPolicy;
+	limitsToWire(patch.limits, wire);
+	return wire;
+}
+/** The POST body of the API for a checked new key. */
+function keyCreateToWire(input) {
+	const wire = { name: input.name };
+	if (input.expiresAt !== void 0) wire["expires_at"] = input.expiresAt === null ? null : new Date(input.expiresAt).toISOString();
+	if (input.zdrPolicy !== void 0) wire["zdr_policy"] = input.zdrPolicy;
+	limitsToWire(input.limits, wire);
+	return wire;
+}
+/** A NanoGPT key id: a positive integer as a string. null for anything else. */
+function checkKeyId(raw) {
+	return typeof raw === "string" && /^[1-9][0-9]{0,17}$/.test(raw) ? raw : null;
+}
+/** A preset name as the API takes it (`^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$`), lower-cased as the API returns it. */
+function checkPresetName(raw) {
+	return typeof raw === "string" && PRESET_NAME_PATTERN.test(raw) ? raw.toLowerCase() : null;
+}
+/** Every setting key: the type forces this list to stay complete. */
+var SETTING_KEYS = {
+	systemPrompt: true,
+	maxTokens: true,
+	topK: true,
+	temperature: true,
+	topP: true,
+	minP: true,
+	topA: true,
+	frequencyPenalty: true,
+	presencePenalty: true,
+	repetitionPenalty: true,
+	responseFormat: true,
+	structuredOutputs: true,
+	reasoningEffort: true,
+	reasoningSummary: true,
+	verbosity: true,
+	routing: true,
+	serviceTier: true,
+	thinking: true,
+	promptCaching: true
+};
+/** What a form may send back untouched from a ModelPreset: ignored, not rejected. */
+var PRESET_READ_ONLY = [
+	"name",
+	"createdAt",
+	"updatedAt"
+];
+function checkNumber(raw, field, rule, issues) {
+	const value = raw[field];
+	if (value === void 0 || value === null) return null;
+	if (typeof value !== "number" || !Number.isFinite(value)) {
+		issues.push({
+			field,
+			code: "type",
+			message: "must be a number or null"
+		});
+		return null;
+	}
+	if (rule.integer && !Number.isInteger(value)) {
+		issues.push({
+			field,
+			code: "integer",
+			message: "must be a whole number"
+		});
+		return null;
+	}
+	if (value < rule.min || value > rule.max) {
+		issues.push({
+			field,
+			code: "range",
+			message: `must be between ${rule.min} and ${rule.max}`
+		});
+		return null;
+	}
+	return value;
+}
+function checkEnum(raw, field, allowed, issues) {
+	const value = raw[field];
+	if (value === void 0 || value === null) return null;
+	const found = typeof value === "string" ? allowed.find((item) => item === value) ?? null : null;
+	if (found === null) issues.push({
+		field,
+		code: "enum",
+		message: `must be one of: ${allowed.join(", ")}`
+	});
+	return found;
+}
+function checkFlag(raw, field, issues) {
+	const value = raw[field];
+	if (value === void 0 || value === null) return null;
+	if (typeof value !== "boolean") {
+		issues.push({
+			field,
+			code: "type",
+			message: "must be true, false or null"
+		});
+		return null;
+	}
+	return value;
+}
+function checkThinking(raw, issues) {
+	const value = raw["thinking"];
+	if (value === void 0 || value === null) return null;
+	if (!isRecord$3(value) || typeof value["enabled"] !== "boolean") {
+		issues.push({
+			field: "thinking",
+			code: "type",
+			message: "must be null or { enabled: boolean, budgetTokens }"
+		});
+		return null;
+	}
+	const rawBudget = value["budgetTokens"];
+	let budget = null;
+	if (rawBudget !== void 0 && rawBudget !== null) {
+		if (typeof rawBudget !== "number" || !Number.isInteger(rawBudget) || rawBudget < 1 || rawBudget > 1e6) {
+			issues.push({
+				field: "thinking.budgetTokens",
+				code: "range",
+				message: "must be a whole number from 1 to 1000000"
+			});
+			return null;
+		}
+		budget = rawBudget;
+	}
+	if (budget !== null && !value["enabled"]) {
+		issues.push({
+			field: "thinking.budgetTokens",
+			code: "conflict",
+			message: "needs thinking to be enabled"
+		});
+		return null;
+	}
+	return {
+		enabled: value["enabled"],
+		budgetTokens: budget
+	};
+}
+function checkCaching(raw, issues) {
+	const value = raw["promptCaching"];
+	if (value === void 0 || value === null) return null;
+	if (!isRecord$3(value) || typeof value["enabled"] !== "boolean") {
+		issues.push({
+			field: "promptCaching",
+			code: "type",
+			message: "must be null or { enabled: boolean, ttl }"
+		});
+		return null;
+	}
+	const ttl = value["ttl"];
+	if (ttl === void 0 || ttl === null) return {
+		enabled: value["enabled"],
+		ttl: null
+	};
+	const found = typeof ttl === "string" ? CACHE_TTLS.find((item) => item === ttl) ?? null : null;
+	if (found === null) {
+		issues.push({
+			field: "promptCaching.ttl",
+			code: "enum",
+			message: `must be one of: ${CACHE_TTLS.join(", ")}`
+		});
+		return null;
+	}
+	return {
+		enabled: value["enabled"],
+		ttl: found
+	};
+}
+var SAMPLER = {
+	integer: false,
+	min: 0,
+	max: 1
+};
+var PENALTY = {
+	integer: false,
+	min: -2,
+	max: 2
+};
+/**
+* Checks what a client sends for a preset and fills every setting that was left out with null (a PUT replaces the whole
+* preset, so "left out" and null mean the same). Ranges, enums and lengths are the API's own; two rules cross fields:
+* `structuredOutputs: true` needs `responseFormat: 'json_object'`, and the flex / priority service tiers cannot go with
+* ranked routing (speed, throughput, latency, price). Unknown fields are refused; the read-only fields of a ModelPreset
+* are ignored. The serialised body must fit the API's 16 KiB.
+*/
+function sanitizePresetInput(raw) {
+	const empty = sanitizedEmpty();
+	if (!isRecord$3(raw)) return checked(empty, [{
+		field: "body",
+		code: "type",
+		message: "must be a JSON object"
+	}]);
+	const issues = [];
+	rejectUnknown(raw, ["model", ...Object.keys(SETTING_KEYS)], PRESET_READ_ONLY, issues);
+	let model = "";
+	const rawModel = raw["model"];
+	if (rawModel === void 0 || rawModel === null) issues.push({
+		field: "model",
+		code: "required",
+		message: "is required"
+	});
+	else if (typeof rawModel !== "string") issues.push({
+		field: "model",
+		code: "type",
+		message: "must be a string"
+	});
+	else {
+		model = rawModel.trim();
+		if (!model || model.length > 256) {
+			issues.push({
+				field: "model",
+				code: "length",
+				message: `must be 1 to 256 characters`
+			});
+			model = "";
+		}
+	}
+	let systemPrompt = null;
+	const rawPrompt = raw["systemPrompt"];
+	if (rawPrompt !== void 0 && rawPrompt !== null) {
+		if (typeof rawPrompt !== "string") issues.push({
+			field: "systemPrompt",
+			code: "type",
+			message: "must be a string or null"
+		});
+		else if (rawPrompt.length > 12e3) issues.push({
+			field: "systemPrompt",
+			code: "length",
+			message: `must be at most ${PRESET_PROMPT_MAX_LENGTH} characters`
+		});
+		else systemPrompt = rawPrompt;
+	}
+	const input = {
+		model,
+		systemPrompt,
+		maxTokens: checkNumber(raw, "maxTokens", {
+			integer: true,
+			min: 1,
+			max: 1e6
+		}, issues),
+		topK: checkNumber(raw, "topK", {
+			integer: true,
+			min: 0,
+			max: 1e6
+		}, issues),
+		temperature: checkNumber(raw, "temperature", {
+			integer: false,
+			min: 0,
+			max: 2
+		}, issues),
+		topP: checkNumber(raw, "topP", SAMPLER, issues),
+		minP: checkNumber(raw, "minP", SAMPLER, issues),
+		topA: checkNumber(raw, "topA", SAMPLER, issues),
+		frequencyPenalty: checkNumber(raw, "frequencyPenalty", PENALTY, issues),
+		presencePenalty: checkNumber(raw, "presencePenalty", PENALTY, issues),
+		repetitionPenalty: checkNumber(raw, "repetitionPenalty", PENALTY, issues),
+		responseFormat: checkEnum(raw, "responseFormat", RESPONSE_FORMATS, issues),
+		structuredOutputs: checkFlag(raw, "structuredOutputs", issues),
+		reasoningEffort: checkEnum(raw, "reasoningEffort", REASONING_EFFORTS, issues),
+		reasoningSummary: checkEnum(raw, "reasoningSummary", REASONING_SUMMARIES, issues),
+		verbosity: checkEnum(raw, "verbosity", VERBOSITIES, issues),
+		routing: checkEnum(raw, "routing", ROUTINGS, issues),
+		serviceTier: checkEnum(raw, "serviceTier", SERVICE_TIERS, issues),
+		thinking: checkThinking(raw, issues),
+		promptCaching: checkCaching(raw, issues)
+	};
+	if (input.structuredOutputs === true && input.responseFormat !== "json_object") issues.push({
+		field: "structuredOutputs",
+		code: "conflict",
+		message: "needs responseFormat \"json_object\""
+	});
+	const rankedRouting = input.routing === "speed" || input.routing === "throughput" || input.routing === "latency" || input.routing === "price";
+	if ((input.serviceTier === "flex" || input.serviceTier === "priority") && rankedRouting) issues.push({
+		field: "serviceTier",
+		code: "conflict",
+		message: "flex and priority cannot go with speed, throughput, latency or price routing"
+	});
+	if (issues.length === 0 && new TextEncoder().encode(JSON.stringify(presetToWire(input))).length > 16384) issues.push({
+		field: "body",
+		code: "too_large",
+		message: `must be at most ${PRESET_BODY_LIMIT_BYTES} bytes`
+	});
+	return checked(input, issues);
+}
+function sanitizedEmpty() {
+	return {
+		model: "",
+		systemPrompt: null,
+		maxTokens: null,
+		topK: null,
+		temperature: null,
+		topP: null,
+		minP: null,
+		topA: null,
+		frequencyPenalty: null,
+		presencePenalty: null,
+		repetitionPenalty: null,
+		responseFormat: null,
+		structuredOutputs: null,
+		reasoningEffort: null,
+		reasoningSummary: null,
+		verbosity: null,
+		routing: null,
+		serviceTier: null,
+		thinking: null,
+		promptCaching: null
+	};
+}
+/** The PUT body of the API for a checked preset: settings that are null are left out (the API reads them as null). */
+function presetToWire(preset) {
+	const thinking = preset.thinking;
+	const caching = preset.promptCaching;
+	const wire = {
+		model: preset.model,
+		system_prompt: preset.systemPrompt,
+		max_tokens: preset.maxTokens,
+		top_k: preset.topK,
+		temperature: preset.temperature,
+		top_p: preset.topP,
+		min_p: preset.minP,
+		top_a: preset.topA,
+		frequency_penalty: preset.frequencyPenalty,
+		presence_penalty: preset.presencePenalty,
+		repetition_penalty: preset.repetitionPenalty,
+		response_format_type: preset.responseFormat,
+		structured_outputs: preset.structuredOutputs,
+		reasoning_effort: preset.reasoningEffort,
+		reasoning_summary: preset.reasoningSummary,
+		verbosity: preset.verbosity,
+		provider_routing_preference: preset.routing,
+		service_tier: preset.serviceTier,
+		thinking: !thinking ? null : thinking.enabled && thinking.budgetTokens !== null ? {
+			type: "enabled",
+			budget_tokens: thinking.budgetTokens
+		} : thinking.enabled,
+		prompt_caching: !caching ? null : caching.ttl === null ? caching.enabled : {
+			enabled: caching.enabled,
+			ttl: caching.ttl
+		}
+	};
+	for (const key of Object.keys(wire)) if (wire[key] === null) delete wire[key];
+	return wire;
+}
+// src/server/routes/mgmt-api.ts
+var CALL_TIMEOUT_MS = 15e3;
+var MAX_DETAIL_LENGTH = 200;
+/** One call to the Management API at `config.mgmtBase`, and nowhere else. Resolves for any HTTP status; rejects with an HttpError for transport failures. */
+async function callMgmt(deps, token, request) {
+	const controller = new AbortController();
+	const timer = setTimeout(() => controller.abort(), CALL_TIMEOUT_MS);
+	timer.unref?.();
+	try {
+		const headers = {
+			accept: "application/json",
+			authorization: `Bearer ${token.reveal()}`
+		};
+		if (request.body !== void 0) headers["content-type"] = "application/json";
+		if (request.idempotencyKey) headers["idempotency-key"] = request.idempotencyKey;
+		const response = await deps.fetch(`${deps.config.mgmtBase}${request.path}`, {
+			method: request.method,
+			headers,
+			...request.body !== void 0 ? { body: JSON.stringify(request.body) } : {},
+			signal: controller.signal
+		});
+		const text = token.redact(await response.text());
+		let json = null;
+		try {
+			json = JSON.parse(text);
+		} catch {}
+		return {
+			status: response.status,
+			json
+		};
+	} catch {
+		if (controller.signal.aborted) throw new HttpError(504, "upstream_timeout", "NanoGPT did not answer in time");
+		throw new HttpError(502, "upstream_unreachable", "NanoGPT could not be reached");
+	} finally {
+		clearTimeout(timer);
+	}
+}
+/** `{ error: { code, message, request_id, details } }` of the Management API, read leniently. */
+function errorBody(json) {
+	const error = isRecord$3(json) && isRecord$3(json["error"]) ? json["error"] : {};
+	const code = typeof error["code"] === "string" ? error["code"] : null;
+	const parts = [];
+	if (Array.isArray(error["details"])) {
+		for (const item of error["details"]) if (isRecord$3(item) && typeof item["field"] === "string" && typeof item["issue"] === "string") parts.push(`${item["field"]}: ${item["issue"]}`);
+	}
+	return {
+		code,
+		detail: parts.join("; ").replace(/[\u0000-\u001f\u007f]/g, " ").slice(0, MAX_DETAIL_LENGTH)
+	};
+}
+/**
+* The HttpError for an answer a route cannot use. NanoGPT's own text is not echoed, except the `field: issue` pairs of a
+* 400 and the code of a 409. 401 and 403 never go back as such: ST's front end reads them as "log in again".
+*/
+function mgmtFailure(answer, needed) {
+	const { code, detail } = errorBody(answer.json);
+	switch (answer.status) {
+		case 400: return new HttpError(400, "invalid_request", `NanoGPT refused the request${detail ? `: ${detail}` : ""}`);
+		case 401: return new HttpError(502, "mgmt_token_invalid", "NanoGPT rejected the Management token (revoked, expired or wrong)");
+		case 403:
+			if (code === "insufficient_scope") return new HttpError(409, "mgmt_scope_missing", `The Management token lacks the ${needed ?? "required"} scope`);
+			return new HttpError(502, "upstream_error", "NanoGPT answered HTTP 403");
+		case 404: return new HttpError(404, "not_found", "NanoGPT has no such key or preset");
+		case 409: return new HttpError(409, code !== null && /^[a-z][a-z0-9_]{2,63}$/.test(code) ? code : "conflict", "NanoGPT refused the change as a conflict");
+		case 413: return new HttpError(413, "payload_too_large", "The request body is too large for NanoGPT");
+		case 429: return new HttpError(429, "rate_limited", "NanoGPT is rate limiting this token; try again later");
+		default: return new HttpError(502, "upstream_error", `NanoGPT answered HTTP ${answer.status}`);
+	}
+}
+function isScopeRefusal(answer) {
+	return answer.status === 403 && errorBody(answer.json).code === "insufficient_scope";
+}
+/**
+* Proves a token with one cheap read call (`GET /api-keys`). NanoGPT recognising the token is what counts: a 403
+* insufficient_scope also means "known token, lacks api_keys:read" (a usage-only token, say), so it is valid. Never
+* throws; trouble reaching NanoGPT leaves `valid: null`.
+*/
+async function probeToken(deps, token) {
+	const checkedAt = deps.now();
+	try {
+		const answer = await callMgmt(deps, token, {
+			method: "GET",
+			path: "/api-keys"
+		});
+		if (isOk(answer.status) || isScopeRefusal(answer)) return {
+			valid: true,
+			checkedAt,
+			error: null
+		};
+		if (answer.status === 401) return {
+			valid: false,
+			checkedAt,
+			error: "mgmt_token_invalid"
+		};
+		return {
+			valid: null,
+			checkedAt,
+			error: answer.status === 429 ? "rate_limited" : "upstream_error"
+		};
+	} catch (error) {
+		return {
+			valid: null,
+			checkedAt,
+			error: error instanceof HttpError && error.code === "upstream_timeout" ? "upstream_timeout" : "upstream_unreachable"
+		};
+	}
+}
+function statusOf(record) {
+	if (!record) return {
+		present: false,
+		valid: null,
+		checkedAt: null,
+		error: null
+	};
+	return {
+		present: true,
+		...record.check
+	};
+}
+/** The HttpError a failed check turns into when the token is not to be stored. */
+function refusedCheck(check) {
+	if (check.valid === false) return new HttpError(502, "mgmt_token_invalid", "NanoGPT rejected the Management token; nothing was stored");
+	const note = "; nothing was stored (store it anyway with force=1)";
+	if (check.error === "upstream_timeout") return new HttpError(504, "upstream_timeout", `NanoGPT did not answer in time${note}`);
+	if (check.error === "rate_limited") return new HttpError(429, "rate_limited", `NanoGPT is rate limiting this token${note}`);
+	return new HttpError(502, check.error === "upstream_error" ? "upstream_error" : "upstream_unreachable", `NanoGPT could not confirm the token${note}`);
+}
+/** Writes a check into the stored record, if that token is still the stored one (it may be replaced while a call runs). */
+function storeCheck(deps, user, token, check) {
+	const current = deps.store.mgmt.read(user.root);
+	if (current && current.token === token) deps.store.mgmt.write(user.root, {
+		token,
+		check
+	});
+}
+/** The outcome of a call that carried the stored token: written only when the state changed (a read costs no disk write). */
+function rememberCheck(deps, user, token, check) {
+	const current = deps.store.mgmt.read(user.root);
+	if (current && current.check.valid === check.valid && current.check.error === check.error) return;
+	storeCheck(deps, user, token, check);
+}
+/**
+* A call with the user's stored token. No token: 409 mgmt_token_missing. A 401 turns the stored status to invalid and
+* answers 502 mgmt_token_invalid; a success (or a scope refusal) turns it to valid. Any other status outside 2xx and
+* `options.allow` becomes the HttpError of mgmtFailure. `needed` names the scope for the error text.
+*/
+async function callStored(deps, user, needed, request, options = {}) {
+	const record = deps.store.mgmt.read(user.root);
+	if (!record) throw new HttpError(409, "mgmt_token_missing", "No Management token is stored; add one first");
+	const answer = await callMgmt(deps, new SecretValue(record.token), request);
+	if (answer.status === 401) rememberCheck(deps, user, record.token, {
+		valid: false,
+		checkedAt: deps.now(),
+		error: "mgmt_token_invalid"
+	});
+	else if (isOk(answer.status) || isScopeRefusal(answer)) rememberCheck(deps, user, record.token, {
+		valid: true,
+		checkedAt: deps.now(),
+		error: null
+	});
+	if (isOk(answer.status) || options.allow?.includes(answer.status)) return answer;
+	throw mgmtFailure(answer, needed);
+}
+// src/server/routes/mgmt.ts
+var MAX_LABEL_LENGTH = 100;
+/** The value of a checked input, or the HttpError that tells the client what to fix (413 for an oversized body). */
+function accepted(result) {
+	if (result.ok) return result.value;
+	const tooLarge = result.issues.some((issue) => issue.code === "too_large");
+	throw new HttpError(tooLarge ? 413 : 400, tooLarge ? "payload_too_large" : "invalid_request", describeIssues(result.issues));
+}
+function flagOf(value) {
+	return value === "1" || value === "true";
+}
+function badAnswer(what) {
+	return new HttpError(502, "bad_response", `NanoGPT answered with something else than ${what}`);
+}
+function keyIdOf(raw) {
+	const id = checkKeyId(raw);
+	if (id === null) throw new HttpError(400, "invalid_request", "The key id must be a positive whole number");
+	return id;
+}
+function presetNameOf(raw) {
+	const name = checkPresetName(raw);
+	if (name === null) throw new HttpError(400, "invalid_request", "The preset name is 1 to 80 letters, digits, dashes or underscores, starting with a letter or digit");
+	return name;
+}
+function presetOf(answer) {
+	const preset = normalizeModelPreset(answer.json);
+	if (!preset) throw badAnswer("a preset");
+	return preset;
+}
+var mgmtRoutes = (router, deps) => {
+	const { store, st, log } = deps;
+	router.get("/mgmt/status", route(log, async (req, res) => {
+		const user = userOf(req, deps);
+		const record = store.mgmt.read(user.root);
+		if (record && flagOf(queryText(req, "verify"))) {
+			const check = await probeToken(deps, new SecretValue(record.token));
+			if (check.valid === null) return sendJson(res, 200, statusOf({
+				...record,
+				check
+			}));
+			storeCheck(deps, user, record.token, check);
+			return sendJson(res, 200, statusOf({
+				...record,
+				check
+			}));
+		}
+		sendJson(res, 200, statusOf(record));
+	}));
+	router.put("/mgmt/token", route(log, async (req, res) => {
+		const user = userOf(req, deps);
+		const shape = checkMgmtToken(bodyObject(req)["token"]);
+		if (!shape.ok) throw new HttpError(400, "mgmt_token_malformed", describeTokenIssue(shape.issue));
+		const check = await probeToken(deps, new SecretValue(shape.token));
+		if (!flagOf(queryText(req, "force")) && check.valid !== true) throw refusedCheck(check);
+		store.mgmt.write(user.root, {
+			token: shape.token,
+			check
+		});
+		log.info(`Management token stored (${check.valid === true ? "recognised by NanoGPT" : "not verified"})`);
+		sendJson(res, 200, statusOf({
+			token: shape.token,
+			check
+		}));
+	}));
+	router.delete("/mgmt/token", route(log, (req, res) => {
+		store.mgmt.clear(userOf(req, deps).root);
+		log.info("Management token removed");
+		sendJson(res, 200, { ok: true });
+	}));
+	router.get("/mgmt/keys", route(log, async (req, res) => {
+		const keys = normalizeManagedKeys((await callStored(deps, userOf(req, deps), "api_keys:read", {
+			method: "GET",
+			path: "/api-keys"
+		})).json);
+		if (!keys) throw badAnswer("a key list");
+		sendJson(res, 200, {
+			keys,
+			fetchedAt: deps.now()
+		});
+	}));
+	router.post("/mgmt/keys", route(log, async (req, res) => {
+		const user = userOf(req, deps);
+		const input = accepted(sanitizeKeyCreateInput(req.body));
+		if (!st.available) throw new HttpError(503, "secrets_unavailable", "ST secret store is unavailable");
+		const request = {
+			method: "POST",
+			path: "/api-keys",
+			body: keyCreateToWire(input),
+			idempotencyKey: `nanovia-${randomUUID()}`
+		};
+		let answer;
+		try {
+			answer = await callStored(deps, user, "api_keys:write", request);
+		} catch (error) {
+			if (!(error instanceof HttpError && ["upstream_unreachable", "upstream_timeout"].includes(error.code))) throw error;
+			answer = await callStored(deps, user, "api_keys:write", request);
+		}
+		const key = normalizeManagedKey(answer.json);
+		const secret = isRecord$3(answer.json) && typeof answer.json["key"] === "string" ? answer.json["key"] : "";
+		if (!key || !secret) throw badAnswer("a created key");
+		let secretId;
+		try {
+			const label = `${SECRET_LABEL_PREFIX}${key.name}`.slice(0, MAX_LABEL_LENGTH);
+			secretId = st.writeSecret(user.handle, SECRET_KEY_NANOGPT, secret, label, { keepActive: true });
+		} catch {
+			log.error(`NanoGPT key ${key.id} was created but ST could not store it`);
+			throw new HttpError(500, "secrets_failed", `Key ${key.id} was created at NanoGPT but could not be stored; revoke it from the list`);
+		}
+		sendJson(res, 200, {
+			key,
+			secretId
+		});
+	}));
+	router.patch("/mgmt/keys/:id", route(log, async (req, res) => {
+		const user = userOf(req, deps);
+		const id = keyIdOf(req.params["id"]);
+		const patch = accepted(sanitizeKeyLimitsPatch(req.body));
+		const key = normalizeManagedKey((await callStored(deps, user, "api_keys:write", {
+			method: "PATCH",
+			path: `/api-keys/${id}`,
+			body: keyPatchToWire(patch)
+		})).json);
+		if (!key) throw badAnswer("a key");
+		sendJson(res, 200, { key });
+	}));
+	router.delete("/mgmt/keys/:id", route(log, async (req, res) => {
+		await callStored(deps, userOf(req, deps), "api_keys:write", {
+			method: "DELETE",
+			path: `/api-keys/${keyIdOf(req.params["id"])}`
+		});
+		sendJson(res, 200, { ok: true });
+	}));
+	router.get("/mgmt/presets", route(log, async (req, res) => {
+		const presets = normalizeModelPresets((await callStored(deps, userOf(req, deps), "model_presets:read", {
+			method: "GET",
+			path: "/model-presets"
+		})).json);
+		if (!presets) throw badAnswer("a preset list");
+		sendJson(res, 200, {
+			presets,
+			fetchedAt: deps.now()
+		});
+	}));
+	router.post("/mgmt/presets", route(log, async (req, res) => {
+		const user = userOf(req, deps);
+		const body = bodyObject(req);
+		const name = presetNameOf(body["name"]);
+		const rest = { ...body };
+		delete rest["name"];
+		const input = accepted(sanitizePresetInput(rest));
+		if ((await callStored(deps, user, "model_presets:read", {
+			method: "GET",
+			path: `/model-presets/${encodeURIComponent(name)}`
+		}, { allow: [404] })).status !== 404) throw new HttpError(409, "preset_exists", "A preset with this name exists; replace it with PUT instead");
+		sendJson(res, 200, { preset: presetOf(await callStored(deps, user, "model_presets:write", {
+			method: "PUT",
+			path: `/model-presets/${encodeURIComponent(name)}`,
+			body: presetToWire(input)
+		})) });
+	}));
+	router.put("/mgmt/presets/:name", route(log, async (req, res) => {
+		const user = userOf(req, deps);
+		const name = presetNameOf(req.params["name"]);
+		const input = accepted(sanitizePresetInput(req.body));
+		sendJson(res, 200, { preset: presetOf(await callStored(deps, user, "model_presets:write", {
+			method: "PUT",
+			path: `/model-presets/${encodeURIComponent(name)}`,
+			body: presetToWire(input)
+		})) });
+	}));
+	router.delete("/mgmt/presets/:name", route(log, async (req, res) => {
+		const user = userOf(req, deps);
+		const name = presetNameOf(req.params["name"]);
+		await callStored(deps, user, "model_presets:write", {
+			method: "DELETE",
+			path: `/model-presets/${encodeURIComponent(name)}`
+		});
+		sendJson(res, 200, { ok: true });
+	}));
+};
 // src/server/usage-log.ts
 var FILE_PATTERN = /^usage-(\d{4}-\d{2}-\d{2})\.jsonl$/;
 /** The days a log can name: from the epoch to the last instant of year 9999 (so a day is always YYYY-MM-DD). */
@@ -3838,7 +5150,8 @@ var ROUTE_MODULES = [
 	keyRoutes,
 	catalogRoutes,
 	accountRoutes,
-	spendRoutes
+	spendRoutes,
+	mgmtRoutes
 ];
 // src/server/version.ts
 var PLUGIN_VERSION = "0.0.1";
@@ -3914,6 +5227,7 @@ function defaultConfig() {
 		upstreamBase: NANOGPT_API_BASE,
 		upstreamFallbackBase: NANOGPT_API_BASE_FALLBACK,
 		siteBase: NANOGPT_SITE,
+		mgmtBase: NANOGPT_MGMT_BASE,
 		timeoutMs: DEFAULT_TIMEOUT_MS,
 		nanogptKey: null
 	};
@@ -3960,6 +5274,12 @@ function parseConfig(fileText, env) {
 		const base = cleanBase(site);
 		if (base) config.siteBase = base;
 		else warnings.push("siteBase is not an http(s) URL; default used");
+	}
+	const mgmt = pick(file["mgmtBase"], env["NANOVIA_MGMT"]);
+	if (mgmt !== void 0) {
+		const base = cleanBase(mgmt);
+		if (base) config.mgmtBase = base;
+		else warnings.push("mgmtBase is not an http(s) URL; default used");
 	}
 	if (file["timeoutMs"] !== void 0) {
 		const n = file["timeoutMs"];
