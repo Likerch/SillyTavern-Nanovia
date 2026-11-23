@@ -5,6 +5,7 @@ import type { FeatureContext } from '../../core/context';
 import { localMidnight } from '../../core/usage';
 import type { SpendResult } from '../../core/usage';
 import type { KeyInfo } from '../../shared/contracts';
+import { mediumRowsOf } from '../../host';
 import { button, chip, clear, el, field, select } from '../../ui';
 import {
     SPEND_RANGES,
@@ -14,6 +15,7 @@ import {
     formatUsd,
     keyOptionLabel,
     lookupView,
+    mediumRows,
     modelRows,
     quotaBar,
     rangeBounds,
@@ -176,13 +178,18 @@ export function renderAccountTab(root: HTMLElement, ctx: FeatureContext): () => 
         accountHost.append(balance, subscription);
     }
 
-    function breakdownTable(title: string, rows: BreakdownRow[]): HTMLElement {
+    function breakdownTable(
+        title: string,
+        rows: BreakdownRow[],
+        options: { nameColumn?: string; tokens?: boolean } = {},
+    ): HTMLElement {
+        const withTokens = options.tokens !== false;
         const head = el('tr', {}, [
-            el('th', { text: t('account.spend.col.name') }),
+            el('th', { text: options.nameColumn ?? t('account.spend.col.name') }),
             el('th', { text: t('account.spend.col.requests') }),
             el('th', { text: t('account.spend.col.real') }),
             el('th', { text: t('account.spend.col.equivalent') }),
-            el('th', { text: t('account.spend.col.tokens') }),
+            withTokens ? el('th', { text: t('account.spend.col.tokens') }) : null,
         ]);
         const body = rows.map((row) =>
             el('tr', { data: { row: row.key } }, [
@@ -190,7 +197,7 @@ export function renderAccountTab(root: HTMLElement, ctx: FeatureContext): () => 
                 el('td', { text: row.requests }),
                 el('td', { text: row.real }),
                 el('td', { class: 'nanovia-muted', text: row.equivalent }),
-                el('td', { class: 'nanovia-muted', text: row.tokens }),
+                withTokens ? el('td', { class: 'nanovia-muted', text: row.tokens }) : null,
             ]),
         );
         return el('div', { class: 'nanovia-table-block' }, [
@@ -265,6 +272,16 @@ export function renderAccountTab(root: HTMLElement, ctx: FeatureContext): () => 
                     ),
                     breakdownTable(t('account.spend.byModel'), modelRows(current.summary.byModel)),
                 );
+                // Stage 0.7: a plugin that knows media also splits the spend by kind of request; an older one sends no such list.
+                const byMedium = mediumRows(mediumRowsOf(current.summary), t);
+                if (byMedium.length > 0) {
+                    spendHost.appendChild(
+                        breakdownTable(t('account.spend.byMedium'), byMedium, {
+                            nameColumn: t('account.spend.col.medium'),
+                            tokens: false,
+                        }),
+                    );
+                }
             }
         }
     }
@@ -302,13 +319,16 @@ export function renderAccountTab(root: HTMLElement, ctx: FeatureContext): () => 
                 el('span', { class: 'nanovia-muted nanovia-recent-model', text: row.model }),
             ]),
             el('div', { class: 'nanovia-row nanovia-chips' }, [
+                row.medium ? chip(row.medium.label, row.medium.kind) : null,
                 chip(row.billing.label, row.billing.kind),
+                row.source ? chip(row.source.label, row.source.kind, row.source.title) : null,
                 row.error ? chip(row.error.label, 'error', row.error.title) : null,
             ]),
             el('div', { class: 'nanovia-recent-numbers' }, [
                 el('span', { text: `${t('account.row.cost')}: ${row.cost}` }),
                 el('span', { class: 'nanovia-muted', text: `${t('account.row.equivalent')}: ${row.equivalent}` }),
-                el('span', { class: 'nanovia-muted', text: row.tokens }),
+                row.units ? el('span', { class: 'nanovia-muted', text: row.units }) : null,
+                row.tokens ? el('span', { class: 'nanovia-muted', text: row.tokens }) : null,
                 row.cached ? el('span', { class: 'nanovia-muted', text: row.cached }) : null,
                 el('span', { class: 'nanovia-muted', text: row.latency }),
             ]),
