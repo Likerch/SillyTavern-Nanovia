@@ -202,7 +202,9 @@
 }
 
 .nanovia-hosts {
+    /* Wider than a phone: the table scrolls sideways inside its box instead of squeezing the columns. */
     width: 100%;
+    min-width: 46em;
     border-collapse: collapse;
     font-size: 0.9em;
 }
@@ -221,12 +223,11 @@
     font-weight: 600;
 }
 
-.nanovia-host-cell {
+.nanovia-host-name {
     display: flex;
     flex-wrap: wrap;
     align-items: baseline;
     gap: 2px var(--nanovia-gap-sm);
-    border-bottom: 0;
 }
 
 .nanovia-nowrap {
@@ -234,7 +235,7 @@
 }
 
 .nanovia-host-features {
-    min-width: 8em;
+    min-width: 11em;
 }
 
 .nanovia-hint {

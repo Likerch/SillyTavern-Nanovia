@@ -222,6 +222,7 @@ export function renderCatalogTab(root: HTMLElement, ctx: FeatureContext, session
                 el('span', { class: 'nanovia-muted nanovia-model-id', text: row.id }),
                 el('span', { class: 'nanovia-model-meta' }, [
                     el('span', { class: 'nanovia-model-price', text: row.price, title: t('catalog.list.priceTitle') }),
+                    el('span', { class: 'nanovia-muted nanovia-model-unit', text: t('catalog.list.priceUnit') }),
                     el('span', {
                         class: 'nanovia-model-context',
                         text: row.context,

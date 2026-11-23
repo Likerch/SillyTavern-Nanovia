@@ -223,7 +223,7 @@ export function renderDetail(host: HTMLElement, deps: DetailDeps): DetailHandle 
         if (row.overMaxPrice) flags.push(chip(t('catalog.hosts.flag.overPrice'), 'warn'));
         if (row.belowQuantization) flags.push(chip(t('catalog.hosts.flag.belowQuantization'), 'warn'));
         if (row.unknownQuantization) flags.push(chip(t('catalog.hosts.flag.unknownQuantization'), 'muted'));
-        return el('td', { class: 'nanovia-host-cell' }, [el('b', { text: row.id }), ...flags]);
+        return el('td', {}, [el('div', { class: 'nanovia-host-name' }, [el('b', { text: row.id }), ...flags])]);
     }
 
     function drawTable(table: HTMLElement): void {
