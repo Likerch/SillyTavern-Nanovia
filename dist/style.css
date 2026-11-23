@@ -470,6 +470,74 @@
     margin: 0;
     box-sizing: border-box;
 }
+
+/* Context Memory: the switch, its hint, the days field and (maybe) the Qvink warning stay together. */
+.nanovia-memory {
+    margin: 4px 0;
+}
+
+.nanovia-memory .nanovia-notice {
+    margin-top: var(--nanovia-gap-sm);
+}
+/* Tab «Diagnostics». Shared pieces (chips, buttons, notices) live in ui/style.css and features/connections. */
+
+.nanovia-doctor-head {
+    display: flex;
+    flex-direction: column;
+    gap: var(--nanovia-gap-sm);
+}
+
+.nanovia-doctor-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--nanovia-gap);
+    margin-top: var(--nanovia-gap);
+}
+
+.nanovia-doctor-group-title {
+    margin-bottom: var(--nanovia-gap-sm);
+    font-weight: bold;
+}
+
+.nanovia-check-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--nanovia-gap-sm);
+    margin-top: var(--nanovia-gap-sm);
+}
+
+.nanovia-check {
+    display: flex;
+    flex-direction: column;
+    gap: var(--nanovia-gap-sm);
+    padding: 8px 10px;
+    border: 1px solid var(--nanovia-border);
+    border-left-width: 4px;
+    border-radius: var(--nanovia-radius);
+    background: var(--nanovia-raised);
+}
+
+.nanovia-check-error {
+    border-left-color: var(--nanovia-error);
+}
+
+.nanovia-check-warn {
+    border-left-color: var(--nanovia-warn);
+}
+
+.nanovia-check-info {
+    border-left-color: var(--nanovia-info);
+}
+
+.nanovia-check-ok {
+    border-left-color: var(--nanovia-ok);
+}
+
+.nanovia-check-title,
+.nanovia-check-detail {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
 /* Tab «Keys». Shared pieces (chips, buttons, notices) live in ui/style.css and features/connections. */
 
 .nanovia-key-list {

@@ -105,6 +105,51 @@ function createHostModules(log, importer = importByUrl, origin = pageOrigin) {
 		url
 	};
 }
+// src/host/extensions.ts
+/**
+* Qvink's generate interceptor: its only global, registered when its script is loaded, so it also tells "loaded and
+* enabled" (the marker Maestro and the advice of core/advice.ts use too).
+*/
+var QVINK_INTERCEPTOR = "memory_intercept_messages";
+/** Names (ST's `third-party/<folder>`) of Qvink's repository and the folder it is usually cloned to. */
+var QVINK_NAME = /qvink|messagesummarize/i;
+/**
+* ST lists the extensions the user switched off in `extension_settings.disabledExtensions` (a switched-off extension's
+* script is not loaded after a reload, so its global is gone; until then both signs can disagree and "disabled" wins).
+* Without that list ST cannot be read: only a loaded interceptor is still a sure sign.
+*/
+function qvinkState(ctx) {
+	let disabled;
+	try {
+		disabled = ctx().extensionSettings.disabledExtensions;
+	} catch {
+		disabled = void 0;
+	}
+	const loaded = typeof globalThis[QVINK_INTERCEPTOR] === "function";
+	if (!Array.isArray(disabled)) return loaded ? "present" : "unknown";
+	if (disabled.some((name) => typeof name === "string" && QVINK_NAME.test(name))) return "disabled";
+	return loaded ? "present" : "absent";
+}
+var VERSION_TIMEOUT_MS = 5e3;
+/** ST's `pkgVersion` from `GET /version`; null when it cannot be read (an older ST, no answer, not JSON). */
+async function readStVersion(fetchImpl = (input, init) => globalThis.fetch(input, init), timeoutMs = VERSION_TIMEOUT_MS) {
+	const controller = new AbortController();
+	const timer = setTimeout(() => controller.abort(), timeoutMs);
+	try {
+		const response = await fetchImpl("/version", {
+			cache: "no-cache",
+			signal: controller.signal
+		});
+		if (!response.ok) return null;
+		const data = await response.json();
+		const version = typeof data === "object" && data !== null ? data["pkgVersion"] : null;
+		return typeof version === "string" && version.trim() ? version.trim() : null;
+	} catch {
+		return null;
+	} finally {
+		clearTimeout(timer);
+	}
+}
 // src/domain/connection.ts
 var QUANTIZATIONS = [
 	"int4",
@@ -3390,6 +3435,725 @@ function createConnectionsService(deps) {
 		}
 	};
 }
+// src/domain/doctor.ts
+/** The oldest SillyTavern Nanovia is built for. */
+var MIN_ST_VERSION = "1.19.0";
+/** Panel tab ids the fixes point at (the ids the features register). */
+var DOCTOR_TABS = {
+	connections: "connections",
+	keys: "keys",
+	routing: "routing",
+	/** The Management API tab (stage 0.6); change here if it registers another id. */
+	mgmt: "mgmt"
+};
+/** Most serious first. */
+var DOCTOR_LEVELS = [
+	"error",
+	"warn",
+	"info",
+	"ok"
+];
+/** `1.19.2`, `v1.19`, `1.19.0-beta` -> [1, 19, 2]; null when it does not start with a number. */
+function parseVersion(text) {
+	const match = /^\s*v?(\d+)(?:\.(\d+))?(?:\.(\d+))?/.exec(text);
+	if (!match) return null;
+	return [
+		Number(match[1]),
+		Number(match[2] ?? 0),
+		Number(match[3] ?? 0)
+	];
+}
+/** Negative when `a` is older than `b`, 0 when equal, positive when newer; null when either is not a version. */
+function compareVersions(a, b) {
+	const left = parseVersion(a);
+	const right = parseVersion(b);
+	if (!left || !right) return null;
+	for (let i = 0; i < 3; i++) {
+		const diff = left[i] - right[i];
+		if (diff !== 0) return diff;
+	}
+	return 0;
+}
+function summarizeChecks(checks) {
+	const summary = {
+		ok: 0,
+		info: 0,
+		warn: 0,
+		error: 0
+	};
+	for (const check of checks) summary[check.level]++;
+	return summary;
+}
+/** What the service reports when the work itself failed: a check, not an exception. */
+function failedCheck(message) {
+	return {
+		id: "doctor_failed",
+		level: "error",
+		code: "doctor_failed",
+		params: { message }
+	};
+}
+function check(code, level, options = {}) {
+	const result = {
+		id: options.scope ? `${code}:${options.scope}` : code,
+		level,
+		code
+	};
+	if (options.params) result.params = options.params;
+	if (options.fix) result.fix = options.fix;
+	return result;
+}
+function runChecks(input) {
+	const checks = [];
+	const needsPlugin = input.connections.some((c) => c.effectiveMode === "plugin");
+	environment(input, needsPlugin, checks);
+	keys(input, needsPlugin, checks);
+	catalog(input, checks);
+	const catalogUsable = input.catalog.loaded && input.catalog.count > 0;
+	const paygo = [];
+	for (const connection of input.connections) if (connectionChecks(input, connection, catalogUsable, checks)) paygo.push(connection.config.name);
+	account(input, paygo, checks);
+	if (input.mgmtToken === false) checks.push(check("mgmt_token_missing", "info", { fix: {
+		action: "open-tab",
+		target: DOCTOR_TABS.mgmt
+	} }));
+	return checks;
+}
+/** The plugin, SillyTavern itself and Connection Manager. */
+function environment(input, needsPlugin, checks) {
+	const { plugin } = input;
+	if (plugin.checked) {
+		if (!plugin.up) checks.push(check("plugin_down", "warn", {
+			params: { reason: plugin.errorCode ?? "unreachable" },
+			fix: { action: "refresh" }
+		}));
+		else {
+			let healthy = true;
+			if (plugin.proxy && !plugin.proxy.up) {
+				healthy = false;
+				checks.push(check("proxy_down", needsPlugin ? "error" : "warn", {
+					params: { port: plugin.proxy.port },
+					fix: { action: "refresh" }
+				}));
+			}
+			if (plugin.secrets === false) {
+				healthy = false;
+				checks.push(check("secrets_unavailable", "warn"));
+			}
+			if (healthy) checks.push(check("plugin_ok", "ok", { params: {
+				port: plugin.proxy?.port ?? 0,
+				version: plugin.version ?? ""
+			} }));
+		}
+	}
+	if (input.stVersion !== null) {
+		const order = compareVersions(input.stVersion, MIN_ST_VERSION);
+		if (order !== null) checks.push(order < 0 ? check("st_version_old", "warn", { params: {
+			version: input.stVersion,
+			required: MIN_ST_VERSION
+		} }) : check("st_version_ok", "ok", { params: { version: input.stVersion } }));
+	}
+	if (!input.connectionManager) checks.push(check("connection_manager_missing", "error"));
+}
+/** The plugin's NanoGPT keys. */
+function keys(input, needsPlugin, checks) {
+	const list = input.keys;
+	if (list === null) return;
+	if (list.length === 0) {
+		if (input.plugin.secrets === false) return;
+		checks.push(check("no_keys", needsPlugin ? "error" : "info", { fix: {
+			action: "open-tab",
+			target: DOCTOR_TABS.keys
+		} }));
+		return;
+	}
+	let rejected = 0;
+	let passed = 0;
+	for (const key of list) {
+		if (key.check === null) continue;
+		if (key.check.ok) {
+			passed++;
+			continue;
+		}
+		rejected++;
+		checks.push(check("key_rejected", "error", {
+			scope: key.id,
+			params: {
+				label: key.label.trim() || key.masked,
+				reason: key.check.error ?? ""
+			},
+			fix: {
+				action: "check-key",
+				target: key.id
+			}
+		}));
+	}
+	if (rejected === 0) checks.push(check("keys_ok", "ok", { params: {
+		count: list.length,
+		passed
+	} }));
+}
+/** The model catalog as a whole. */
+function catalog(input, checks) {
+	const { catalog: status, now } = input;
+	const fix = {
+		action: "refresh",
+		target: "catalog"
+	};
+	if (!status.loaded || status.count === 0) {
+		const level = status.error !== null || status.loaded ? "warn" : "info";
+		checks.push(check("catalog_empty", level, {
+			params: { reason: status.error ?? "" },
+			fix
+		}));
+		return;
+	}
+	const old = status.fetchedAt !== null && now - status.fetchedAt > 864e5;
+	if (status.source === "stale" || old) {
+		checks.push(check("catalog_stale", "warn", { fix }));
+		return;
+	}
+	checks.push(check("catalog_ok", "ok", { params: { count: status.count } }));
+}
+/**
+* Everything about one connection. Returns whether it is billed pay-as-you-go (for the balance warning).
+*/
+function connectionChecks(input, entry, catalogUsable, checks) {
+	const { config } = entry;
+	const { plugin } = input;
+	const scope = config.id;
+	const base = {
+		name: config.name,
+		model: config.modelId
+	};
+	const first = checks.length;
+	const pluginDown = plugin.checked && !plugin.up;
+	const openConnections = {
+		action: "open-tab",
+		target: DOCTOR_TABS.connections
+	};
+	if (catalogUsable && entry.model === null) checks.push(check("model_unknown_or_paused", "warn", {
+		scope,
+		params: base,
+		fix: openConnections
+	}));
+	const noDirectKey = entry.effectiveMode === "direct" && !entry.hasDirectKey;
+	const waitsForPlugin = config.mode === "plugin" && pluginDown;
+	if (noDirectKey) checks.push(check("direct_without_key", "error", {
+		scope,
+		params: base,
+		fix: openConnections
+	}));
+	if (waitsForPlugin) checks.push(check("plugin_mode_but_down", "error", {
+		scope,
+		params: base,
+		fix: entry.hasDirectKey ? {
+			action: "switch-direct",
+			target: scope
+		} : openConnections
+	}));
+	if (input.connectionManager) {
+		const repair = {
+			action: "repair-profile",
+			target: scope
+		};
+		switch (entry.profileState) {
+			case "missing":
+			case "none":
+				checks.push(check("profile_missing", "warn", {
+					scope,
+					params: {
+						...base,
+						state: entry.profileState
+					},
+					fix: repair
+				}));
+				break;
+			case "drifted":
+				checks.push(check("profile_drifted", "warn", {
+					scope,
+					params: base,
+					fix: repair
+				}));
+				break;
+			case "blocked": if (!noDirectKey && !waitsForPlugin) checks.push(check("profile_blocked", "warn", {
+				scope,
+				params: base,
+				fix: entry.effectiveMode === "plugin" ? { action: "refresh" } : openConnections
+			}));
+		}
+	}
+	if (entry.orphan) checks.push(check("profile_orphan", "warn", {
+		scope,
+		params: base,
+		fix: openConnections
+	}));
+	if (entry.pending) checks.push(check("profile_pending", plugin.checked && plugin.up ? "warn" : "info", {
+		scope,
+		params: base,
+		fix: { action: "refresh" }
+	}));
+	const impact = analyzeBilling(config, entry.model, entry.providerSelection);
+	if (input.account?.subscriptionActive === true && config.billing !== "paygo" && impact.outcome === "paygo") {
+		const why = impact.reasons.find((reason) => reason.code === "routing.explicit") ?? impact.reasons.find((reason) => reason.code === "model.notIncluded") ?? impact.reasons.find((reason) => reason.code === "billing.modelNotCoverable");
+		checks.push(check("leaves_subscription", "warn", {
+			scope,
+			params: {
+				...base,
+				reason: why?.code ?? "",
+				fields: String(why?.params?.["fields"] ?? "")
+			},
+			fix: {
+				action: "open-tab",
+				target: DOCTOR_TABS.routing
+			}
+		}));
+	}
+	if (config.memory.enabled) {
+		checks.push(check("memory_on", "info", {
+			scope,
+			params: base
+		}));
+		if (input.qvink === "present") checks.push(check("memory_overlaps_qvink", "warn", {
+			scope,
+			params: base,
+			fix: openConnections
+		}));
+	}
+	const always = entry.advice.find((issue) => issue.code === "reasoning.alwaysOn");
+	if (always) checks.push(check("reasoning_always_on_for_background", "info", {
+		scope,
+		params: {
+			...base,
+			efforts: String(always.params?.["efforts"] ?? "")
+		}
+	}));
+	if (!checks.slice(first).some((item) => item.level === "warn" || item.level === "error")) checks.push(check("connection_ok", "ok", {
+		scope,
+		params: base
+	}));
+	const everythingPaygo = input.account !== null && !input.account.subscriptionActive;
+	return config.billing === "paygo" || impact.outcome === "paygo" || everythingPaygo;
+}
+/** Balance and subscription quota. `paygoNames`: the connections that are billed per token. */
+function account(input, paygoNames, checks) {
+	const info = input.account;
+	if (info === null) return;
+	if (info.usdBalance !== null && info.usdBalance < 1 && paygoNames.length > 0) checks.push(check("low_balance", "warn", { params: {
+		balance: info.usdBalance.toFixed(2),
+		names: paygoNames.join(", ")
+	} }));
+	if (!info.subscriptionActive) return;
+	for (const window of ["daily", "weekly"]) {
+		const used = window === "daily" ? info.dailyUsed : info.weeklyUsed;
+		if (used !== null && used >= .9) checks.push(check("subscription_quota_high", "warn", {
+			scope: window,
+			params: {
+				window,
+				percent: Math.round(used * 100)
+			}
+		}));
+	}
+}
+function efforts(model) {
+	return model.reasoningEfforts.map((effort) => effort.trim().toLowerCase()).filter(Boolean);
+}
+/**
+* false for a model that always reasons: it lists efforts and 'none' is not one of them, so the lowest level is the
+* quietest the connection can make it (planReasoning then hides the text but the tokens are still spent).
+*/
+function canDisableReasoning(model) {
+	const list = efforts(model);
+	return list.length === 0 || list.includes("none");
+}
+/** The lowest effort a model lists, in the ladder's order; '' when it lists none. */
+function lowestEffort(model) {
+	const order = [
+		"none",
+		"minimal",
+		"low",
+		"medium",
+		"high",
+		"xhigh",
+		"max"
+	];
+	const known = efforts(model).map((effort) => order.indexOf(effort)).filter((index) => index >= 0);
+	return known.length ? order[Math.min(...known)] ?? "" : "";
+}
+var PRIVATE_CATEGORY = /(?:^|[^a-z])(?:private|tee)(?:[^a-z]|$)/i;
+/** `:thinking` style variants exist to reason; they are not a quiet choice even when the catalog lists no efforts. */
+var THINKING_VARIANT = /:thinking\b/i;
+/**
+* Models good for background work: they reason only when asked (no effort dial, or 'none' among the efforts), support
+* structured output, are not on the private/TEE shelf and are not a `:thinking` variant. Cheapest first (prompt +
+* completion price per 1M tokens), then by id. Empty for an empty catalog.
+*/
+function suggestBackgroundModels(models, limit = 5) {
+	const price = (model) => model.pricing.prompt + model.pricing.completion;
+	return models.filter((model) => model.capabilities.structuredOutput && canDisableReasoning(model) && !(model.category !== null && PRIVATE_CATEGORY.test(model.category)) && !THINKING_VARIANT.test(model.id) && Number.isFinite(price(model))).sort((a, b) => price(a) - price(b) || a.pricing.completion - b.pricing.completion || (a.id < b.id ? -1 : 1)).slice(0, Math.max(0, limit)).map((model) => model.id);
+}
+/** Whether Qvink Memory is loaded: it registers its generate interceptor as a global (the way Maestro detects it). */
+function qvinkInstalled() {
+	return typeof globalThis["memory_intercept_messages"] === "function";
+}
+/**
+* The findings for using `input.connection` as a background connection. `ok` is true when none of them is a warning
+* (information notes alone keep it true).
+*/
+function backgroundAdvice(input) {
+	const { connection, model } = input;
+	const issues = [];
+	if (connection.mode === "plugin" && input.pluginDown) issues.push({
+		code: "route.pluginDown",
+		severity: "warn"
+	});
+	if (model === null) issues.push({
+		code: "model.unknown",
+		severity: "info",
+		params: {
+			model: connection.modelId,
+			catalogLoaded: input.catalogLoaded
+		}
+	});
+	else if (!canDisableReasoning(model)) issues.push({
+		code: "reasoning.alwaysOn",
+		severity: "warn",
+		params: {
+			model: model.id,
+			efforts: efforts(model).join(", "),
+			lowest: lowestEffort(model)
+		}
+	});
+	const { policy, effort } = connection.reasoning;
+	const modelReasons = model === null || model.capabilities.reasoning;
+	const fixedOn = policy === "fixed" && effort !== null && effort !== "none";
+	const defaultOn = model !== null && model.capabilities.reasoning && (policy === "default" || policy === "fixed" && effort === null);
+	if (modelReasons && (fixedOn || defaultOn)) issues.push({
+		code: "reasoning.policyOn",
+		severity: "warn",
+		params: {
+			policy,
+			effort: effort ?? ""
+		}
+	});
+	if (model !== null && connection.billing === "auto" && model.subscription.included) {
+		const impact = analyzeBilling(connection, model, input.providerSelection);
+		const explicit = impact.reasons.find((reason) => reason.code === "routing.explicit");
+		if (explicit && impact.outcome === "paygo") issues.push({
+			code: "billing.bypassesSubscription",
+			severity: "warn",
+			params: {
+				model: model.id,
+				fields: String(explicit.params?.["fields"] ?? "")
+			}
+		});
+	}
+	if (connection.memory.enabled && input.qvinkInstalled) issues.push({
+		code: "memory.overlapsQvink",
+		severity: "info"
+	});
+	return {
+		ok: !issues.some((issue) => issue.severity === "warn"),
+		issues,
+		suggestedModels: suggestBackgroundModels(input.catalog)
+	};
+}
+/** ST's version is asked again after this long (a failed read is retried sooner). */
+var VERSION_TTL_MS = 6e5;
+var VERSION_RETRY_MS = 6e4;
+function createDoctorService(deps) {
+	const { connections, plugin, profiles, account, log } = deps;
+	const now = deps.now ?? Date.now;
+	const readVersion = deps.stVersion ?? (() => readStVersion());
+	const qvink = deps.qvink ?? (() => qvinkState(deps.host.ctx));
+	const mgmtToken = deps.mgmtToken ?? (() => null);
+	let keys = null;
+	const keyChecks = /* @__PURE__ */ new Map();
+	let version = null;
+	let last = null;
+	let inflight = null;
+	const listeners = /* @__PURE__ */ new Set();
+	function changed() {
+		for (const listener of [...listeners]) try {
+			listener();
+		} catch (error) {
+			log.error("doctor listener failed", error);
+		}
+	}
+	function accountInput() {
+		const snapshot = account.detail().snapshot;
+		if (snapshot === null) return null;
+		const brief = briefOf(snapshot);
+		return {
+			usdBalance: snapshot.usdBalance,
+			subscriptionActive: snapshot.subscription?.active === true,
+			dailyUsed: brief.subscription?.dailyUsed ?? null,
+			weeklyUsed: brief.subscription?.weeklyUsed ?? null
+		};
+	}
+	function snapshot() {
+		const catalog = deps.catalog();
+		const catalogStatus = catalog.status();
+		const state = qvink();
+		const checked = connections.checked();
+		const up = connections.pluginUp();
+		const status = connections.pluginStatus();
+		const pluginDown = checked && !up;
+		const list = connections.list().map((entry) => {
+			const modelId = entry.config.modelId;
+			const model = catalog.model(modelId);
+			const providerSelection = catalog.providers(modelId)?.supportsProviderSelection ?? null;
+			return {
+				config: entry.config,
+				effectiveMode: entry.effectiveMode,
+				profileState: entry.profileState,
+				orphan: entry.orphan,
+				pending: entry.pending,
+				hasDirectKey: entry.hasDirectKey,
+				model,
+				providerSelection,
+				advice: backgroundAdvice({
+					connection: entry.config,
+					model,
+					catalog: [],
+					catalogLoaded: catalogStatus.loaded,
+					pluginDown,
+					providerSelection,
+					qvinkInstalled: state === "present"
+				}).issues
+			};
+		});
+		const keyList = keys === null ? null : keys.map((key) => {
+			const done = keyChecks.get(key.id);
+			return {
+				id: key.id,
+				label: key.label,
+				masked: key.masked,
+				check: done ? {
+					ok: done.check.ok,
+					error: done.check.error
+				} : null
+			};
+		});
+		return {
+			now: now(),
+			plugin: {
+				checked,
+				up,
+				errorCode: connections.pluginError()?.code ?? null,
+				version: status?.version ?? null,
+				proxy: up && status ? {
+					up: status.proxy.up,
+					port: status.proxy.port
+				} : null,
+				secrets: up && status ? status.secrets : null
+			},
+			stVersion: version?.value ?? null,
+			connectionManager: profiles.available(),
+			connections: list,
+			keys: keyList,
+			catalog: {
+				loaded: catalogStatus.loaded,
+				count: catalog.models().length,
+				fetchedAt: catalogStatus.fetchedAt,
+				source: catalogStatus.source,
+				error: catalogStatus.error
+			},
+			qvink: state,
+			mgmtToken: mgmtToken(),
+			account: accountInput()
+		};
+	}
+	function evaluate() {
+		let checks;
+		try {
+			checks = runChecks(snapshot());
+		} catch (error) {
+			log.error("the doctor failed", error);
+			checks = [failedCheck(error instanceof Error ? error.message : String(error))];
+		}
+		return {
+			at: now(),
+			checks,
+			summary: summarizeChecks(checks)
+		};
+	}
+	/** Runs a step; a failure is logged and the step's part stays "not known". */
+	async function attempt(what, step) {
+		try {
+			await step();
+		} catch (error) {
+			log.warn(`doctor: ${what} failed`, error);
+		}
+	}
+	async function loadVersion(force) {
+		const age = version === null ? Infinity : now() - version.at;
+		const ttl = version?.value ? VERSION_TTL_MS : VERSION_RETRY_MS;
+		if (!force && age < ttl) return;
+		version = {
+			value: await readVersion(),
+			at: now()
+		};
+	}
+	async function loadKeys() {
+		const result = await plugin.listKeys();
+		keys = result.ok ? result.data : null;
+		if (keys) {
+			const ids = new Set(keys.map((key) => key.id));
+			for (const id of keyChecks.keys()) if (!ids.has(id)) keyChecks.delete(id);
+		}
+	}
+	async function checkKey(id) {
+		const result = await plugin.checkKey(id);
+		if (!result.ok) return false;
+		keyChecks.set(id, {
+			check: result.data,
+			at: now()
+		});
+		return true;
+	}
+	async function checkKeys(force) {
+		const stale = (keys ?? []).filter((key) => {
+			const done = keyChecks.get(key.id);
+			return force || !done || now() - done.at > 3e5;
+		});
+		await Promise.all(stale.map((key) => attempt(`the check of key ${key.id}`, () => checkKey(key.id))));
+	}
+	async function doRun(options) {
+		const force = options.refresh === true;
+		try {
+			if (force || !connections.checked()) await attempt("the refresh", () => connections.refresh());
+			const up = connections.pluginUp();
+			await Promise.all([
+				attempt("the version read", () => loadVersion(force)),
+				attempt("the key list", async () => {
+					if (up) {
+						await loadKeys();
+						await checkKeys(force);
+					} else keys = null;
+				}),
+				attempt("the account", () => account.refresh({ force })),
+				attempt("the catalog", () => deps.catalog().refresh(false))
+			]);
+		} catch (error) {
+			log.error("the doctor run failed", error);
+		}
+		last = evaluate();
+		return last;
+	}
+	function fromOp(result) {
+		if (result.ok) return { ok: true };
+		return result.error.params ? {
+			ok: false,
+			code: result.error.code,
+			params: result.error.params
+		} : {
+			ok: false,
+			code: result.error.code
+		};
+	}
+	async function applyFix(fix) {
+		const target = fix.target ?? "";
+		try {
+			let result;
+			switch (fix.action) {
+				case "refresh":
+					if (fix.target === "catalog") await deps.catalog().refresh(true);
+					else await connections.refresh();
+					result = { ok: true };
+					break;
+				case "repair-profile":
+					if (!target) return {
+						ok: false,
+						code: "missing_target"
+					};
+					result = fromOp(await connections.repairProfile(target));
+					break;
+				case "switch-direct":
+					if (!target) return {
+						ok: false,
+						code: "missing_target"
+					};
+					result = fromOp(await connections.switchToDirect(target));
+					break;
+				case "check-key": {
+					if (!target) return {
+						ok: false,
+						code: "missing_target"
+					};
+					const done = await plugin.checkKey(target);
+					if (!done.ok) return {
+						ok: false,
+						code: "plugin_error",
+						params: {
+							message: done.error.message,
+							status: 0
+						}
+					};
+					keyChecks.set(target, {
+						check: done.data,
+						at: now()
+					});
+					result = { ok: true };
+					break;
+				}
+				case "open-tab": {
+					const panel = deps.panel();
+					if (!panel?.open) return {
+						ok: false,
+						code: "no_panel"
+					};
+					panel.open(target || void 0);
+					return { ok: true };
+				}
+			}
+			if (!inflight) {
+				last = evaluate();
+				changed();
+			}
+			return result;
+		} catch (error) {
+			log.error(`doctor: the fix ${fix.action} failed`, error);
+			return {
+				ok: false,
+				code: "unexpected",
+				params: { message: error instanceof Error ? error.message : "" }
+			};
+		}
+	}
+	return {
+		report: () => last,
+		running: () => inflight !== null,
+		run(options = {}) {
+			if (inflight) return inflight;
+			const task = Promise.resolve().then(() => doRun(options)).finally(() => {
+				inflight = null;
+				changed();
+			});
+			inflight = task;
+			changed();
+			return task;
+		},
+		evaluate,
+		brief() {
+			const report = evaluate();
+			return {
+				errors: report.summary.error,
+				warnings: report.summary.warn,
+				checks: report.checks.map((item) => ({
+					id: item.id,
+					level: item.level,
+					code: item.code
+				}))
+			};
+		},
+		applyFix,
+		onChange(listener) {
+			listeners.add(listener);
+			return () => void listeners.delete(listener);
+		}
+	};
+}
 // src/core/catalog.ts
 /** A store that knows nothing: the default until a real one is wired in. */
 function createEmptyCatalogStore() {
@@ -5399,6 +6163,12 @@ var CONNECTIONS_STRINGS = {
 		"connections.effort.max": "Max",
 		"connections.form.hideThoughts": "Leave the reasoning text out of the reply",
 		"connections.form.webSearch": "Web search (adds :online, billed separately)",
+		"connections.form.memory": "NanoGPT Context Memory",
+		"connections.form.memoryHint": "Adds :memory to the model so NanoGPT keeps the context of the chat on its side. Billed separately from the subscription; off by default.",
+		"connections.form.memoryDays": "Keep for N days",
+		"connections.form.memoryDaysPlaceholder": "default",
+		"connections.form.memoryDaysHint": "Leave empty for NanoGPT’s own default (:memory). A whole number from 1 to 365 adds :memory-N.",
+		"connections.form.memoryQvink": "Qvink Memory is on and also keeps a summary of your chats. Both together mean paying for two summaries that can contradict each other; keep one of them.",
 		"connections.form.note": "Note",
 		"connections.form.save": "Save",
 		"connections.form.cancel": "Cancel",
@@ -5418,6 +6188,7 @@ var CONNECTIONS_STRINGS = {
 		"connections.issue.key_write_failed": "SillyTavern did not accept the key ({message}).",
 		"connections.issue.not_found": "This connection no longer exists.",
 		"connections.issue.invalid": "The {field} is required.",
+		"connections.issue.invalid_memory_days": "Days of Context Memory must be a whole number from 1 to 365, or empty for the default.",
 		"connections.issue.not_on_plugin": "The plugin does not have this connection.",
 		"connections.issue.saved_locally": "Saved here; it will be sent to the plugin when it answers.",
 		"connections.issue.profile_unavailable": "Connection Manager is not installed or is disabled, so no profile was written.",
@@ -5525,6 +6296,12 @@ var CONNECTIONS_STRINGS = {
 		"connections.effort.max": "Максимальный",
 		"connections.form.hideThoughts": "Не включать текст рассуждений в ответ",
 		"connections.form.webSearch": "Веб-поиск (добавляет :online, оплачивается отдельно)",
+		"connections.form.memory": "Контекстная память NanoGPT",
+		"connections.form.memoryHint": "Добавляет :memory к модели: NanoGPT хранит контекст чата у себя. Оплачивается отдельно от подписки; по умолчанию выключена.",
+		"connections.form.memoryDays": "Хранить N дней",
+		"connections.form.memoryDaysPlaceholder": "по умолчанию",
+		"connections.form.memoryDaysHint": "Пустое поле — срок NanoGPT по умолчанию (:memory). Целое число от 1 до 365 добавляет :memory-N.",
+		"connections.form.memoryQvink": "Qvink Memory включена и тоже ведёт краткое изложение ваших чатов. Вместе это два пересказа, которые могут противоречить друг другу, и вы платите за оба; оставьте что-то одно.",
 		"connections.form.note": "Заметка",
 		"connections.form.save": "Сохранить",
 		"connections.form.cancel": "Отмена",
@@ -5544,6 +6321,7 @@ var CONNECTIONS_STRINGS = {
 		"connections.issue.key_write_failed": "SillyTavern не принял ключ ({message}).",
 		"connections.issue.not_found": "Такого подключения уже нет.",
 		"connections.issue.invalid": "Поле «{field}» обязательно.",
+		"connections.issue.invalid_memory_days": "Срок хранения контекстной памяти — целое число дней от 1 до 365; пустое поле означает значение по умолчанию.",
 		"connections.issue.not_on_plugin": "В плагине нет этого подключения.",
 		"connections.issue.saved_locally": "Сохранено здесь; уйдёт в плагин, когда он ответит.",
 		"connections.issue.profile_unavailable": "Connection Manager не установлен или выключен, поэтому профиль не записан.",
@@ -5591,6 +6369,8 @@ function emptyForm() {
 		reasoningEffort: "",
 		hideThoughts: false,
 		webSearch: false,
+		memoryEnabled: false,
+		memoryDays: "",
 		note: "",
 		directKey: ""
 	};
@@ -5607,18 +6387,39 @@ function formFromConfig(config) {
 		reasoningEffort: config.reasoning.effort ?? "",
 		hideThoughts: config.reasoning.hideThoughts,
 		webSearch: config.webSearch,
+		memoryEnabled: config.memory.enabled,
+		memoryDays: config.memory.expirationDays === null ? "" : String(config.memory.expirationDays),
 		note: config.note,
 		directKey: ""
 	};
 }
-/** The part of a ConnectionConfig the form controls. Everything else (routing, memory …) is left to be. */
+/** What was typed into "keep for N days": empty means the default; anything but a whole number in range is no answer. */
+function memoryDaysOf(text) {
+	const trimmed = text.trim();
+	if (trimmed === "") return {
+		ok: true,
+		days: null
+	};
+	if (!/^\d{1,4}$/.test(trimmed)) return { ok: false };
+	const days = Number(trimmed);
+	return days >= 1 && days <= 365 ? {
+		ok: true,
+		days
+	} : { ok: false };
+}
+/** The part of a ConnectionConfig the form controls. Everything else (routing …) is left to be. */
 function patchFromForm(form) {
+	const days = memoryDaysOf(form.memoryDays);
 	const patch = {
 		name: form.name.trim(),
 		modelId: form.modelId.trim(),
 		mode: form.mode,
 		billing: form.billing,
 		webSearch: form.webSearch,
+		memory: {
+			enabled: form.memoryEnabled,
+			expirationDays: days.ok ? days.days : null
+		},
 		note: form.note,
 		reasoning: {
 			policy: form.reasoningPolicy,
@@ -5656,7 +6457,24 @@ function validateForm(form, ctx) {
 		field: "directKey",
 		code: "required"
 	});
+	if (form.memoryEnabled && !memoryDaysOf(form.memoryDays).ok) issues.push({
+		field: "memoryDays",
+		code: "invalid"
+	});
 	return issues;
+}
+/** A form issue as the operation issue the tab words (`connections.issue.<code>`). */
+function formIssue(issue) {
+	if (issue.field === "directKey") return { code: "direct_key_required" };
+	if (issue.field === "memoryDays") return { code: "invalid_memory_days" };
+	return {
+		code: "invalid",
+		params: { field: issue.field }
+	};
+}
+/** Whether to warn that Qvink Memory also summarises the chat (only while it is loaded and on). */
+function warnsQvinkOverlap(state) {
+	return state === "present";
 }
 /** The chips of one connection card, in display order. */
 function chipsFor(entry, pluginUp, t) {
@@ -5908,7 +6726,7 @@ function renderConnectionForm(deps) {
 		label: t("connections.form.webSearch"),
 		checked: form.webSearch,
 		onChange: (checked) => void (form.webSearch = checked)
-	}), field(t("connections.form.note"), textArea({
+	}), renderMemory(deps), field(t("connections.form.note"), textArea({
 		value: form.note,
 		rows: 2,
 		label: t("connections.form.note"),
@@ -5932,6 +6750,39 @@ function renderConnectionForm(deps) {
 		class: "nanovia-form",
 		on: { submit: (event) => event.preventDefault() }
 	}, children);
+}
+/**
+* NanoGPT Context Memory: the switch, how long NanoGPT keeps the context, a hint that it is billed separately (and off by
+* default) and, while Qvink Memory is on too, the warning that both summarise the same chat.
+*/
+function renderMemory(deps) {
+	const { ctx, form } = deps;
+	const t = ctx.t;
+	const days = textInput({
+		value: form.memoryDays,
+		label: t("connections.form.memoryDays"),
+		placeholder: t("connections.form.memoryDaysPlaceholder"),
+		maxLength: 3,
+		disabled: !form.memoryEnabled,
+		onInput: (value) => void (form.memoryDays = value)
+	});
+	const box = el("div", { class: "nanovia-memory" }, [
+		toggle({
+			label: t("connections.form.memory"),
+			checked: form.memoryEnabled,
+			onChange: (checked) => {
+				form.memoryEnabled = checked;
+				days.disabled = !checked;
+			}
+		}),
+		hintLine(t("connections.form.memoryHint")),
+		field(t("connections.form.memoryDays"), days, t("connections.form.memoryDaysHint"))
+	]);
+	if (warnsQvinkOverlap(qvinkState(ctx.host.ctx))) box.appendChild(el("div", {
+		class: "nanovia-notice nanovia-notice-warn",
+		text: t("connections.form.memoryQvink")
+	}));
+	return box;
 }
 /** The key select (keys the plugin knows) and the small «add a key» form under it. */
 function renderKeyPicker(deps, pluginUp) {
@@ -6169,10 +7020,7 @@ function renderConnectionsTab(root, ctx) {
 		};
 		const first = validateForm(form, formCtx)[0];
 		if (first) {
-			notify("error", issueText(first.field === "directKey" ? { code: "direct_key_required" } : {
-				code: "invalid",
-				params: { field: first.field }
-			}, t));
+			notify("error", issueText(formIssue(first), t));
 			return;
 		}
 		if (report(await ctx.connections.save({
@@ -6252,6 +7100,563 @@ var connectionsFeature = {
 			titleKey: "connections.tab",
 			order: 100,
 			render: (root, tabCtx) => renderConnectionsTab(root, tabCtx)
+		});
+	}
+};
+// src/core/billing-view.ts
+/** `order, sort` (the `fields` parameter of a reason) as a list of labels in the interface language. */
+function fieldList(value, t) {
+	return value.split(",").map((part) => part.trim()).filter((part) => part.length > 0).map((name) => labelOrName(`billing.field.${name}`, name, t)).join(", ");
+}
+function labelOrName(key, fallback, t) {
+	const text = t(key);
+	return text === key ? fallback : text;
+}
+/** Label of one routing setting by its RoutingConfig name (`order` -> "Provider order"). */
+function routingFieldLabel(name, t) {
+	return labelOrName(`billing.field.${name}`, name, t);
+}
+function paramsOf(source, t) {
+	const params = { markup: 5 };
+	for (const [key, value] of Object.entries(source ?? {})) params[key] = typeof value === "boolean" ? String(value) : value;
+	if (typeof params["fields"] === "string") params["fields"] = fieldList(params["fields"], t);
+	for (const key of ["requested", "applied"]) {
+		const effort = params[key];
+		if (typeof effort === "string") params[key] = labelOrName(`billing.effort.${effort}`, effort, t);
+	}
+	return params;
+}
+function textOf(prefix, item, t) {
+	const key = `${prefix}.${item.code}`;
+	const text = t(key, paramsOf(item.params, t));
+	return text === key ? item.code : text;
+}
+/** One reason of `BillingImpact.reasons` as a sentence. */
+function billingReasonText(reason, t) {
+	return textOf("billing.reason", reason, t);
+}
+/** One warning of `UpstreamPlan.warnings` as a sentence. */
+function planWarningText(warning, t) {
+	return textOf("plan.warning", warning, t);
+}
+/** "Subscription" / "Pay as you go" / "Unknown". */
+function billingOutcomeLabel(outcome, t) {
+	return t(`billing.outcome.${outcome}`);
+}
+/** Names of the settings the proxy strips in subscription-safe mode, as labels. */
+function strippedLabels(stripped, t) {
+	return stripped.map((name) => routingFieldLabel(name, t));
+}
+var BILLING_STRINGS = {
+	en: {
+		"billing.outcome.subscription": "Subscription",
+		"billing.outcome.paygo": "Pay as you go",
+		"billing.outcome.unknown": "Not known",
+		"billing.reason.billing.forced": "This connection is set to pay as you go: every request is billed per token.",
+		"billing.reason.model.notIncluded": "{model} is not included in the subscription, so it is billed per token.",
+		"billing.reason.billing.modelNotCoverable": "Subscription only cannot be kept: {model} is outside the subscription.",
+		"billing.reason.routing.explicit": "Explicit routing ({fields}) is billed pay as you go with about {markup}% markup and leaves the subscription.",
+		"billing.reason.routing.unsupportedByModel": "This model runs on a fixed route: the routing settings ({fields}) are ignored, so they change nothing.",
+		"billing.reason.routing.zdrOnly": "Zero data retention only narrows the platform’s own routing; the billing stays as it is.",
+		"billing.reason.search.billedSeparately": "Web search (:online) is billed separately.",
+		"billing.reason.memory.billedSeparately": "Context Memory is billed separately.",
+		"billing.reason.subscription.multiplier": "This model counts {value}× of the input tokens against the subscription quota.",
+		"plan.warning.reasoning.modelUnknown": "The model is not in the catalog, so the reasoning effort is sent as asked, unchecked.",
+		"plan.warning.reasoning.cannotDisable": "{model} always reasons (efforts: {efforts}). Nanovia sends the lowest effort and hides the thoughts.",
+		"plan.warning.reasoning.effortAdjusted": "The model does not offer the effort \"{requested}\"; \"{applied}\" is sent instead.",
+		"plan.warning.routing.preferenceNeedsSort": "A preferred latency or throughput does nothing without a sort. Pick a sort.",
+		"plan.warning.routing.onlyAndOrder": "\"Only these providers\" already limits the candidates; the provider order is redundant.",
+		"billing.effort.none": "none",
+		"billing.effort.minimal": "minimal",
+		"billing.effort.low": "low",
+		"billing.effort.medium": "medium",
+		"billing.effort.high": "high",
+		"billing.effort.xhigh": "extra high",
+		"billing.effort.max": "max",
+		"billing.field.order": "provider order",
+		"billing.field.only": "only these providers",
+		"billing.field.ignore": "ignored providers",
+		"billing.field.sort": "sort",
+		"billing.field.quantizations": "precision allowlist",
+		"billing.field.minQuantization": "minimum precision",
+		"billing.field.maxPrice": "price cap",
+		"billing.field.allowFallbacks": "no fallbacks",
+		"billing.field.requireParameters": "require parameters",
+		"billing.field.preferredMaxLatency": "preferred latency",
+		"billing.field.preferredMinThroughput": "preferred throughput",
+		"billing.field.cachingRoute": "caching route"
+	},
+	ru: {
+		"billing.outcome.subscription": "Подписка",
+		"billing.outcome.paygo": "Оплата за токены",
+		"billing.outcome.unknown": "Неизвестно",
+		"billing.reason.billing.forced": "Подключение настроено на оплату за токены: каждый запрос оплачивается отдельно.",
+		"billing.reason.model.notIncluded": "{model} не входит в подписку, поэтому оплачивается за токены.",
+		"billing.reason.billing.modelNotCoverable": "Режим «только подписка» не удержать: {model} вне подписки.",
+		"billing.reason.routing.explicit": "Явная маршрутизация ({fields}) оплачивается за токены с наценкой около {markup}% и уводит запрос из подписки.",
+		"billing.reason.routing.unsupportedByModel": "Модель работает по фиксированному маршруту: настройки маршрутизации ({fields}) игнорируются и ни на что не влияют.",
+		"billing.reason.routing.zdrOnly": "Нулевое хранение данных лишь сужает собственный выбор платформы; оплата не меняется.",
+		"billing.reason.search.billedSeparately": "Веб-поиск (:online) оплачивается отдельно.",
+		"billing.reason.memory.billedSeparately": "Context Memory оплачивается отдельно.",
+		"billing.reason.subscription.multiplier": "Эта модель списывает {value}× входных токенов с квоты подписки.",
+		"plan.warning.reasoning.modelUnknown": "Модели нет в каталоге, поэтому уровень рассуждений отправляется как запрошен, без проверки.",
+		"plan.warning.reasoning.cannotDisable": "{model} рассуждает всегда (уровни: {efforts}). Nanovia отправит самый низкий уровень и скроет мысли.",
+		"plan.warning.reasoning.effortAdjusted": "Модель не поддерживает уровень «{requested}»; вместо него отправляется «{applied}».",
+		"plan.warning.routing.preferenceNeedsSort": "Желаемая задержка или скорость ничего не делают без сортировки. Выберите сортировку.",
+		"plan.warning.routing.onlyAndOrder": "«Только эти провайдеры» уже ограничивает выбор; порядок провайдеров лишний.",
+		"billing.effort.none": "нет",
+		"billing.effort.minimal": "минимальный",
+		"billing.effort.low": "низкий",
+		"billing.effort.medium": "средний",
+		"billing.effort.high": "высокий",
+		"billing.effort.xhigh": "очень высокий",
+		"billing.effort.max": "максимальный",
+		"billing.field.order": "порядок провайдеров",
+		"billing.field.only": "только эти провайдеры",
+		"billing.field.ignore": "исключённые провайдеры",
+		"billing.field.sort": "сортировка",
+		"billing.field.quantizations": "список точностей",
+		"billing.field.minQuantization": "минимальная точность",
+		"billing.field.maxPrice": "потолок цены",
+		"billing.field.allowFallbacks": "без запасных вариантов",
+		"billing.field.requireParameters": "требовать параметры",
+		"billing.field.preferredMaxLatency": "желаемая задержка",
+		"billing.field.preferredMinThroughput": "желаемая скорость",
+		"billing.field.cachingRoute": "маршрут с кешем"
+	}
+};
+// src/features/doctor/strings.ts
+var DOCTOR_STRINGS = {
+	en: {
+		"doctor.tab": "Diagnostics",
+		"doctor.hint": "Looks over the plugin, SillyTavern, the keys, the catalog and every connection, and says what to fix.",
+		"doctor.run": "Run checks",
+		"doctor.running": "Checking…",
+		"doctor.headline.error": "Something needs fixing",
+		"doctor.headline.warn": "Worth a look",
+		"doctor.headline.info": "Nothing is broken; a few notes",
+		"doctor.headline.ok": "Everything looks fine",
+		"doctor.group.error": "Errors",
+		"doctor.group.warn": "Warnings",
+		"doctor.group.info": "Notes",
+		"doctor.group.ok": "In order",
+		"doctor.level.error": "Error",
+		"doctor.level.warn": "Warning",
+		"doctor.level.info": "Note",
+		"doctor.level.ok": "OK",
+		"doctor.noReason": "no reason given",
+		"doctor.notice.fixed": "Done.",
+		"doctor.fix.refresh": "Refresh",
+		"doctor.fix.refreshCatalog": "Reload the catalog",
+		"doctor.fix.repair-profile": "Repair the profile",
+		"doctor.fix.switch-direct": "Switch to direct mode",
+		"doctor.fix.check-key": "Check the key again",
+		"doctor.fix.open-tab": "Open \"{tab}\"",
+		"doctor.fix.error.missing_target": "The fix has nothing to act on.",
+		"doctor.fix.error.no_panel": "The panel cannot be opened from here.",
+		"doctor.fix.error.unexpected": "The fix failed unexpectedly. Details are in the browser console.",
+		"doctor.fix.error.unknown": "The fix did not work ({code}).",
+		"doctor.reason.not_installed": "SillyTavern does not know the Nanovia plugin: it is not installed or not enabled.",
+		"doctor.reason.unreachable": "There was no answer from the SillyTavern server.",
+		"doctor.reason.timeout": "The plugin did not answer in time.",
+		"doctor.reason.forbidden": "SillyTavern refused the request (session or CSRF check). Reload the page.",
+		"doctor.reason.other": "The plugin sent an unexpected answer ({code}).",
+		"doctor.catalog.notLoaded": "It has not been loaded yet.",
+		"doctor.catalog.failed": "The last load failed: {reason}.",
+		"doctor.window.daily": "daily",
+		"doctor.window.weekly": "weekly",
+		"doctor.check.plugin_ok.title": "The plugin is running",
+		"doctor.check.plugin_ok.detail": "Port {port}, version {version}. The proxy listens and the key store is reachable.",
+		"doctor.check.plugin_down.title": "The plugin is not answering",
+		"doctor.check.plugin_down.detail": "{reason} Connections in \"automatic\" mode go straight to NanoGPT meanwhile; connections that insist on the plugin wait for it.",
+		"doctor.check.proxy_down.title": "The plugin proxy is not listening",
+		"doctor.check.proxy_down.detail": "The plugin answers, but nothing listens on port {port}. Connections that go through the plugin cannot reach NanoGPT until it does. Check that the port is free and restart SillyTavern.",
+		"doctor.check.secrets_unavailable.title": "The plugin cannot reach SillyTavern’s secret store",
+		"doctor.check.secrets_unavailable.detail": "It works in a degraded mode: it cannot list your NanoGPT keys or issue proxy tokens. This usually means a SillyTavern version the plugin does not know; update SillyTavern or the plugin.",
+		"doctor.check.st_version_ok.title": "SillyTavern {version}",
+		"doctor.check.st_version_ok.detail": "This version is supported.",
+		"doctor.check.st_version_old.title": "SillyTavern is older than {required}",
+		"doctor.check.st_version_old.detail": "You run {version}. Nanovia is built for SillyTavern {required} or newer; the request hook and Connection Manager requests may not work. Update SillyTavern.",
+		"doctor.check.connection_manager_missing.title": "Connection Manager is not available",
+		"doctor.check.connection_manager_missing.detail": "Nanovia connections show up in SillyTavern as Connection Manager profiles. Enable the built-in Connection Manager extension and reload the page.",
+		"doctor.check.keys_ok.title": "The NanoGPT keys are in place",
+		"doctor.check.keys_ok.detail": "{count} key(s) on file; {passed} confirmed by a balance check.",
+		"doctor.check.no_keys.title": "There is no NanoGPT key",
+		"doctor.check.no_keys.detail": "The plugin has no NanoGPT key to call NanoGPT with. Add one in the Keys tab.",
+		"doctor.check.key_rejected.title": "The key \"{label}\" did not pass the check",
+		"doctor.check.key_rejected.detail": "NanoGPT answered: {reason}. If the key was revoked or mistyped, replace it in the Keys tab; otherwise check again in a moment.",
+		"doctor.check.catalog_ok.title": "The model catalog is loaded",
+		"doctor.check.catalog_ok.detail": "{count} models are known.",
+		"doctor.check.catalog_empty.title": "The model catalog is empty",
+		"doctor.check.catalog_empty.detail": "Without it Nanovia cannot check models, prices or what a setting does to your subscription. {reason}",
+		"doctor.check.catalog_stale.title": "The model catalog is out of date",
+		"doctor.check.catalog_stale.detail": "NanoGPT could not be reached, or the list was last refreshed more than a day ago. Prices and which models are available may have changed.",
+		"doctor.check.connection_ok.title": "\"{name}\": no problems",
+		"doctor.check.connection_ok.detail": "Model {model}; the settings, the profile and the billing look fine.",
+		"doctor.check.model_unknown_or_paused.title": "The model of \"{name}\" is not in the catalog",
+		"doctor.check.model_unknown_or_paused.detail": "{model} is not listed: NanoGPT may have paused or removed it, or the id has a typo. Requests may fail. Check the model id in the Connections tab.",
+		"doctor.check.profile_missing.title": "No Connection Manager profile for \"{name}\"",
+		"doctor.check.profile_missing.detail": "The connection will not show up in SillyTavern’s list of connections until its profile exists.",
+		"doctor.check.profile_drifted.title": "The profile of \"{name}\" was changed",
+		"doctor.check.profile_drifted.detail": "Its name, model or address no longer matches the connection, for example it was edited in Connection Manager. Repair it so SillyTavern uses the connection’s settings again.",
+		"doctor.check.profile_blocked.title": "The profile of \"{name}\" cannot be created",
+		"doctor.check.profile_blocked.detail": "A profile needs a proxy token (plugin mode) or your NanoGPT key (direct mode), and neither is available yet.",
+		"doctor.check.profile_orphan.title": "\"{name}\" is not on the plugin",
+		"doctor.check.profile_orphan.detail": "The plugin does not have this connection although its mode needs it there. Send it to the plugin from the Connections tab, or delete it.",
+		"doctor.check.profile_pending.title": "\"{name}\" is waiting for the plugin",
+		"doctor.check.profile_pending.detail": "It was edited while the plugin did not answer and has not reached it yet. It is sent on the next refresh.",
+		"doctor.check.direct_without_key.title": "\"{name}\" has no key for direct mode",
+		"doctor.check.direct_without_key.detail": "Direct mode needs your NanoGPT key, entered once in the connection’s form. Without it requests cannot be signed.",
+		"doctor.check.plugin_mode_but_down.title": "\"{name}\" needs the plugin, which is not answering",
+		"doctor.check.plugin_mode_but_down.detail": "This connection goes through the plugin only, so it does not work now. Switch it to direct mode or start the plugin.",
+		"doctor.check.leaves_subscription.title": "\"{name}\" takes requests off the subscription",
+		"doctor.check.leaves_subscription.detail": "{reason} This costs money beyond your subscription.",
+		"doctor.check.memory_on.title": "Context Memory is on for \"{name}\"",
+		"doctor.check.memory_on.detail": "NanoGPT bills it separately from the subscription. It is off by default; turn it off in the connection’s form if you did not mean to use it.",
+		"doctor.check.memory_overlaps_qvink.title": "Context Memory and Qvink Memory both summarise \"{name}\"",
+		"doctor.check.memory_overlaps_qvink.detail": "Both keep a summary of the same chat: you pay twice and the two can contradict each other. Keep one of them.",
+		"doctor.check.reasoning_always_on_for_background.title": "{model} always reasons",
+		"doctor.check.reasoning_always_on_for_background.detail": "If \"{name}\" is used for background tasks (summaries, extraction, JSON), every call spends reasoning tokens. For such work pick a model that reasons only on request.",
+		"doctor.check.mgmt_token_missing.title": "No Management API token",
+		"doctor.check.mgmt_token_missing.detail": "The features that use NanoGPT’s Management API are off until you add the token.",
+		"doctor.check.low_balance.title": "Low balance: ${balance}",
+		"doctor.check.low_balance.detail": "Connections billed per token ({names}) draw on this balance. Top it up on the NanoGPT site before it runs out.",
+		"doctor.check.subscription_quota_high.title": "The {window} subscription quota is {percent}% used",
+		"doctor.check.subscription_quota_high.detail": "When it runs out NanoGPT bills requests per token until it resets. Slow down, or expect pay-as-you-go charges.",
+		"doctor.check.doctor_failed.title": "The checks could not be completed",
+		"doctor.check.doctor_failed.detail": "{message}"
+	},
+	ru: {
+		"doctor.tab": "Диагностика",
+		"doctor.hint": "Смотрит плагин, SillyTavern, ключи, каталог и каждое подключение и подсказывает, что исправить.",
+		"doctor.run": "Запустить проверки",
+		"doctor.running": "Проверяю…",
+		"doctor.headline.error": "Кое-что нужно исправить",
+		"doctor.headline.warn": "Стоит взглянуть",
+		"doctor.headline.info": "Ничего не сломано; есть пара заметок",
+		"doctor.headline.ok": "Всё в порядке",
+		"doctor.group.error": "Ошибки",
+		"doctor.group.warn": "Предупреждения",
+		"doctor.group.info": "Заметки",
+		"doctor.group.ok": "В порядке",
+		"doctor.level.error": "Ошибка",
+		"doctor.level.warn": "Предупреждение",
+		"doctor.level.info": "Заметка",
+		"doctor.level.ok": "Норма",
+		"doctor.noReason": "причина не указана",
+		"doctor.notice.fixed": "Готово.",
+		"doctor.fix.refresh": "Обновить",
+		"doctor.fix.refreshCatalog": "Обновить каталог",
+		"doctor.fix.repair-profile": "Починить профиль",
+		"doctor.fix.switch-direct": "Перейти на прямой режим",
+		"doctor.fix.check-key": "Проверить ключ ещё раз",
+		"doctor.fix.open-tab": "Открыть «{tab}»",
+		"doctor.fix.error.missing_target": "У исправления нет цели.",
+		"doctor.fix.error.no_panel": "Отсюда панель открыть нельзя.",
+		"doctor.fix.error.unexpected": "Исправление не удалось. Подробности в консоли браузера.",
+		"doctor.fix.error.unknown": "Исправление не сработало ({code}).",
+		"doctor.reason.not_installed": "SillyTavern не знает плагин Nanovia: он не установлен или не включён.",
+		"doctor.reason.unreachable": "Сервер SillyTavern не ответил.",
+		"doctor.reason.timeout": "Плагин не ответил вовремя.",
+		"doctor.reason.forbidden": "SillyTavern отклонил запрос (проверка сессии или CSRF). Перезагрузите страницу.",
+		"doctor.reason.other": "Плагин прислал неожиданный ответ ({code}).",
+		"doctor.catalog.notLoaded": "Он ещё не загружен.",
+		"doctor.catalog.failed": "Последняя загрузка не удалась: {reason}.",
+		"doctor.window.daily": "за день",
+		"doctor.window.weekly": "за неделю",
+		"doctor.check.plugin_ok.title": "Плагин работает",
+		"doctor.check.plugin_ok.detail": "Порт {port}, версия {version}. Прокси слушает порт, хранилище ключей доступно.",
+		"doctor.check.plugin_down.title": "Плагин не отвечает",
+		"doctor.check.plugin_down.detail": "{reason} Подключения в режиме «автоматически» пока идут напрямую в NanoGPT; подключения, которым нужен плагин, ждут его.",
+		"doctor.check.proxy_down.title": "Прокси плагина не слушает порт",
+		"doctor.check.proxy_down.detail": "Плагин отвечает, но порт {port} никто не слушает. Подключения через плагин не достучатся до NanoGPT, пока это так. Проверьте, что порт свободен, и перезапустите SillyTavern.",
+		"doctor.check.secrets_unavailable.title": "Плагин не видит хранилище секретов SillyTavern",
+		"doctor.check.secrets_unavailable.detail": "Он работает в урезанном режиме: не может показать ключи NanoGPT и выпускать токены прокси. Обычно это значит, что плагин не знает эту версию SillyTavern; обновите SillyTavern или плагин.",
+		"doctor.check.st_version_ok.title": "SillyTavern {version}",
+		"doctor.check.st_version_ok.detail": "Эта версия поддерживается.",
+		"doctor.check.st_version_old.title": "SillyTavern старше {required}",
+		"doctor.check.st_version_old.detail": "У вас {version}. Nanovia рассчитана на SillyTavern {required} и новее; перехват запросов и запросы через Connection Manager могут не работать. Обновите SillyTavern.",
+		"doctor.check.connection_manager_missing.title": "Connection Manager недоступен",
+		"doctor.check.connection_manager_missing.detail": "Подключения Nanovia появляются в SillyTavern как профили Connection Manager. Включите встроенное расширение Connection Manager и перезагрузите страницу.",
+		"doctor.check.keys_ok.title": "Ключи NanoGPT на месте",
+		"doctor.check.keys_ok.detail": "Ключей: {count}; подтверждено проверкой баланса: {passed}.",
+		"doctor.check.no_keys.title": "Нет ключа NanoGPT",
+		"doctor.check.no_keys.detail": "У плагина нет ключа NanoGPT, чтобы обращаться к NanoGPT. Добавьте его на вкладке «Ключи».",
+		"doctor.check.key_rejected.title": "Ключ «{label}» не прошёл проверку",
+		"doctor.check.key_rejected.detail": "NanoGPT ответил: {reason}. Если ключ отозван или введён с ошибкой, замените его на вкладке «Ключи»; если нет, проверьте ещё раз чуть позже.",
+		"doctor.check.catalog_ok.title": "Каталог моделей загружен",
+		"doctor.check.catalog_ok.detail": "Известно моделей: {count}.",
+		"doctor.check.catalog_empty.title": "Каталог моделей пуст",
+		"doctor.check.catalog_empty.detail": "Без него Nanovia не может проверить модели, цены и то, как настройка влияет на подписку. {reason}",
+		"doctor.check.catalog_stale.title": "Каталог моделей устарел",
+		"doctor.check.catalog_stale.detail": "NanoGPT не отвечал, либо список обновлялся больше суток назад. Цены и набор доступных моделей могли измениться.",
+		"doctor.check.connection_ok.title": "«{name}»: без замечаний",
+		"doctor.check.connection_ok.detail": "Модель {model}; настройки, профиль и тариф в порядке.",
+		"doctor.check.model_unknown_or_paused.title": "Модели подключения «{name}» нет в каталоге",
+		"doctor.check.model_unknown_or_paused.detail": "{model} нет в списке: NanoGPT могла приостановить или убрать её, либо в идентификаторе опечатка. Запросы могут не проходить. Проверьте идентификатор модели на вкладке «Подключения».",
+		"doctor.check.profile_missing.title": "У «{name}» нет профиля Connection Manager",
+		"doctor.check.profile_missing.detail": "Подключение не появится в списке подключений SillyTavern, пока у него нет профиля.",
+		"doctor.check.profile_drifted.title": "Профиль «{name}» изменили",
+		"doctor.check.profile_drifted.detail": "Его название, модель или адрес больше не совпадают с подключением, например, его правили в Connection Manager. Почините профиль, чтобы SillyTavern снова использовала настройки подключения.",
+		"doctor.check.profile_blocked.title": "Профиль «{name}» не создать",
+		"doctor.check.profile_blocked.detail": "Для профиля нужен токен прокси (режим плагина) или ваш ключ NanoGPT (прямой режим), а ни того ни другого пока нет.",
+		"doctor.check.profile_orphan.title": "«{name}» нет в плагине",
+		"doctor.check.profile_orphan.detail": "В плагине нет этого подключения, хотя его режим этого требует. Отправьте его в плагин на вкладке «Подключения» или удалите.",
+		"doctor.check.profile_pending.title": "«{name}» ждёт плагин",
+		"doctor.check.profile_pending.detail": "Его изменили, пока плагин не отвечал, и изменения ещё не дошли до плагина. Они уйдут при следующем обновлении.",
+		"doctor.check.direct_without_key.title": "У «{name}» нет ключа для прямого режима",
+		"doctor.check.direct_without_key.detail": "Для прямого режима нужен ваш ключ NanoGPT, он вводится один раз в форме подключения. Без него запросы не подписать.",
+		"doctor.check.plugin_mode_but_down.title": "«{name}» нужен плагин, а он не отвечает",
+		"doctor.check.plugin_mode_but_down.detail": "Это подключение работает только через плагин, поэтому сейчас оно не работает. Переключите его на прямой режим или запустите плагин.",
+		"doctor.check.leaves_subscription.title": "«{name}» уводит запросы из подписки",
+		"doctor.check.leaves_subscription.detail": "{reason} Это стоит денег сверх подписки.",
+		"doctor.check.memory_on.title": "Для «{name}» включена контекстная память",
+		"doctor.check.memory_on.detail": "NanoGPT оплачивает её отдельно от подписки. По умолчанию она выключена; если вы не хотели её включать, выключите её в форме подключения.",
+		"doctor.check.memory_overlaps_qvink.title": "Контекстная память и Qvink Memory обе пересказывают «{name}»",
+		"doctor.check.memory_overlaps_qvink.detail": "Обе ведут краткое изложение одного и того же чата: вы платите дважды, а пересказы могут противоречить друг другу. Оставьте что-то одно.",
+		"doctor.check.reasoning_always_on_for_background.title": "{model} рассуждает всегда",
+		"doctor.check.reasoning_always_on_for_background.detail": "Если «{name}» используется для фоновых задач (пересказы, извлечение, JSON), каждый вызов тратит токены на рассуждения. Для такой работы возьмите модель, которая рассуждает только по запросу.",
+		"doctor.check.mgmt_token_missing.title": "Нет токена Management API",
+		"doctor.check.mgmt_token_missing.detail": "Возможности, которым нужен Management API NanoGPT, выключены, пока вы не добавите токен.",
+		"doctor.check.low_balance.title": "Мало денег на балансе: ${balance}",
+		"doctor.check.low_balance.detail": "Подключения с оплатой за токены ({names}) списывают деньги с этого баланса. Пополните его на сайте NanoGPT, пока он не кончился.",
+		"doctor.check.subscription_quota_high.title": "Квота подписки {window} израсходована на {percent}%",
+		"doctor.check.subscription_quota_high.detail": "Когда она кончится, NanoGPT будет брать плату за токены до сброса. Сбавьте темп или ожидайте оплату по факту.",
+		"doctor.check.doctor_failed.title": "Проверки не удалось завершить",
+		"doctor.check.doctor_failed.detail": "{message}"
+	}
+};
+// src/features/doctor/view-model.ts
+var LEVEL_CHIP = {
+	error: "error",
+	warn: "warn",
+	info: "info",
+	ok: "ok"
+};
+var PLUGIN_REASONS = [
+	"not_installed",
+	"unreachable",
+	"timeout",
+	"forbidden"
+];
+/** The params of a check as the text wants them: codes turned into words, nothing left as a bare key. */
+function checkParams(check, t) {
+	const params = {};
+	for (const [key, value] of Object.entries(check.params ?? {})) params[key] = typeof value === "boolean" ? String(value) : value;
+	const text = (key) => String(params[key] ?? "");
+	switch (check.code) {
+		case "plugin_down": {
+			const reason = text("reason");
+			params["reason"] = PLUGIN_REASONS.includes(reason) ? t(`doctor.reason.${reason}`) : t("doctor.reason.other", { code: reason });
+			break;
+		}
+		case "catalog_empty":
+			params["reason"] = text("reason") ? t("doctor.catalog.failed", { reason: text("reason") }) : t("doctor.catalog.notLoaded");
+			break;
+		case "key_rejected":
+			if (!text("reason")) params["reason"] = t("doctor.noReason");
+			break;
+		case "leaves_subscription":
+			params["reason"] = text("reason") ? billingReasonText({
+				code: text("reason"),
+				params: {
+					fields: text("fields"),
+					model: text("model")
+				}
+			}, t) : t("doctor.noReason");
+			break;
+		case "subscription_quota_high": params["window"] = t(`doctor.window.${text("window")}`);
+	}
+	return params;
+}
+/** What a fix button says: "Refresh", "Repair the profile", "Open "Keys"". */
+function fixLabel(fix, t, has) {
+	switch (fix.action) {
+		case "refresh": return t(fix.target === "catalog" ? "doctor.fix.refreshCatalog" : "doctor.fix.refresh");
+		case "open-tab": {
+			const target = fix.target ?? "";
+			return t("doctor.fix.open-tab", { tab: target && has(`${target}.tab`) ? t(`${target}.tab`) : target });
+		}
+		default: return t(`doctor.fix.${fix.action}`);
+	}
+}
+/** One finding as a row: title, explanation and the fix button, in the interface language. */
+function checkRow(check, t, has) {
+	const params = checkParams(check, t);
+	const titleKey = `doctor.check.${check.code}.title`;
+	const detailKey = `doctor.check.${check.code}.detail`;
+	return {
+		id: check.id,
+		code: check.code,
+		level: check.level,
+		title: has(titleKey) ? t(titleKey, params) : check.code,
+		detail: has(detailKey) ? t(detailKey, params) : "",
+		fix: check.fix ? {
+			fix: check.fix,
+			label: fixLabel(check.fix, t, has)
+		} : null
+	};
+}
+/** The findings by level, each group in the order the checks were made. */
+function groupChecks(checks, t, has) {
+	const groups = {
+		error: [],
+		warn: [],
+		info: [],
+		ok: []
+	};
+	for (const check of checks) groups[check.level].push(checkRow(check, t, has));
+	return groups;
+}
+/** One sentence about the whole result. */
+function headline(summary, t) {
+	for (const level of DOCTOR_LEVELS) if (summary[level] > 0) return t(`doctor.headline.${level}`);
+	return t("doctor.headline.ok");
+}
+/** "Errors: 2", "Warnings: 1" … for the levels that have something. */
+function summaryChips(summary, t) {
+	return DOCTOR_LEVELS.filter((level) => summary[level] > 0).map((level) => ({
+		level,
+		label: `${t(`doctor.group.${level}`)}: ${summary[level]}`
+	}));
+}
+/** The sentence about a fix that did not work: ours, then the connections' own, then a general one. */
+function fixFailureText(result, t, has) {
+	const params = {
+		code: result.code,
+		...result.params ?? {}
+	};
+	for (const key of [`doctor.fix.error.${result.code}`, `connections.issue.${result.code}`]) if (has(key)) return t(key, params);
+	return t("doctor.fix.error.unknown", params);
+}
+// src/features/doctor/view.ts
+function renderDoctorTab(root, ctx) {
+	const { t, doctor } = ctx;
+	const has = (key) => ctx.i18n.has(key);
+	let disposed = false;
+	const headHost = el("div", { class: "nanovia-doctor-head" });
+	const noticeHost = el("div", {
+		class: "nanovia-notice-host",
+		attrs: { "aria-live": "polite" }
+	});
+	const bodyHost = el("div", { class: "nanovia-doctor-body" });
+	root.append(headHost, noticeHost, bodyHost);
+	function notify(kind, text) {
+		clear(noticeHost);
+		noticeHost.appendChild(el("div", {
+			class: ["nanovia-notice", `nanovia-notice-${kind}`],
+			text
+		}));
+	}
+	function drawHead() {
+		clear(headHost);
+		const report = doctor.report();
+		const running = doctor.running();
+		const row = el("div", { class: "nanovia-row" });
+		if (report) {
+			row.appendChild(el("b", { text: headline(report.summary, t) }));
+			for (const spec of summaryChips(report.summary, t)) row.appendChild(chip(spec.label, LEVEL_CHIP[spec.level]));
+		}
+		if (running) row.appendChild(el("span", {
+			class: "nanovia-muted",
+			text: t("doctor.running")
+		}));
+		row.appendChild(button({
+			label: t("doctor.run"),
+			icon: "stethoscope",
+			kind: "primary",
+			disabled: running,
+			onClick: async () => {
+				clear(noticeHost);
+				await doctor.run({ refresh: true });
+			}
+		}));
+		headHost.append(row, el("div", {
+			class: "nanovia-muted nanovia-doctor-hint",
+			text: t("doctor.hint")
+		}));
+	}
+	function drawRow(row) {
+		const fix = row.fix;
+		return el("div", {
+			class: ["nanovia-check", `nanovia-check-${row.level}`],
+			data: {
+				check: row.id,
+				code: row.code
+			}
+		}, [
+			el("div", { class: "nanovia-row nanovia-check-head" }, [chip(t(`doctor.level.${row.level}`), LEVEL_CHIP[row.level]), el("b", {
+				class: "nanovia-check-title",
+				text: row.title
+			})]),
+			row.detail ? el("div", {
+				class: "nanovia-muted nanovia-check-detail",
+				text: row.detail
+			}) : null,
+			fix ? el("div", { class: "nanovia-row nanovia-check-actions" }, [button({
+				label: fix.label,
+				onClick: async () => {
+					const result = await doctor.applyFix(fix.fix);
+					if (disposed) return;
+					if (!result.ok) notify("error", fixFailureText(result, t, has));
+					else if (fix.fix.action !== "open-tab") notify("ok", t("doctor.notice.fixed"));
+				}
+			})]) : null
+		]);
+	}
+	function drawGroup(level, rows) {
+		if (rows.length === 0) return null;
+		const title = `${t(`doctor.group.${level}`)} (${rows.length})`;
+		if (level === "ok") return el("details", { class: "nanovia-details nanovia-doctor-group nanovia-doctor-ok" }, [el("summary", { text: title }), el("div", { class: "nanovia-check-list" }, rows.map(drawRow))]);
+		return el("section", { class: ["nanovia-doctor-group", `nanovia-doctor-${level}`] }, [el("div", {
+			class: "nanovia-doctor-group-title",
+			text: title
+		}), el("div", { class: "nanovia-check-list" }, rows.map(drawRow))]);
+	}
+	function drawBody() {
+		clear(bodyHost);
+		const report = doctor.report();
+		if (!report) {
+			if (doctor.running()) bodyHost.appendChild(el("div", {
+				class: "nanovia-muted",
+				text: t("doctor.running")
+			}));
+			return;
+		}
+		const groups = groupChecks(report.checks, t, has);
+		for (const level of DOCTOR_LEVELS) {
+			const group = drawGroup(level, groups[level]);
+			if (group) bodyHost.appendChild(group);
+		}
+	}
+	function draw() {
+		drawHead();
+		drawBody();
+	}
+	const off = doctor.onChange(() => {
+		if (!disposed) draw();
+	});
+	draw();
+	doctor.run();
+	return () => {
+		disposed = true;
+		off();
+	};
+}
+// src/features/doctor/index.ts
+var DOCTOR_FEATURE_ID = "doctor";
+var DOCTOR_TAB_ID = "doctor";
+/** Tab «Diagnostics»: checks the whole setup and offers a one-click fix for what it finds. */
+var doctorFeature = {
+	id: DOCTOR_FEATURE_ID,
+	init(ctx) {
+		ctx.i18n.register(BILLING_STRINGS);
+		ctx.i18n.register(DOCTOR_STRINGS);
+		return ctx.panel.registerTab({
+			id: DOCTOR_TAB_ID,
+			titleKey: "doctor.tab",
+			order: 500,
+			render: (root, tabCtx) => renderDoctorTab(root, tabCtx)
 		});
 	}
 };
@@ -6658,128 +8063,6 @@ var keysFeature = {
 			order: 300,
 			render: (root, tabCtx) => renderKeysTab(root, tabCtx)
 		});
-	}
-};
-// src/core/billing-view.ts
-/** `order, sort` (the `fields` parameter of a reason) as a list of labels in the interface language. */
-function fieldList(value, t) {
-	return value.split(",").map((part) => part.trim()).filter((part) => part.length > 0).map((name) => labelOrName(`billing.field.${name}`, name, t)).join(", ");
-}
-function labelOrName(key, fallback, t) {
-	const text = t(key);
-	return text === key ? fallback : text;
-}
-/** Label of one routing setting by its RoutingConfig name (`order` -> "Provider order"). */
-function routingFieldLabel(name, t) {
-	return labelOrName(`billing.field.${name}`, name, t);
-}
-function paramsOf(source, t) {
-	const params = { markup: 5 };
-	for (const [key, value] of Object.entries(source ?? {})) params[key] = typeof value === "boolean" ? String(value) : value;
-	if (typeof params["fields"] === "string") params["fields"] = fieldList(params["fields"], t);
-	for (const key of ["requested", "applied"]) {
-		const effort = params[key];
-		if (typeof effort === "string") params[key] = labelOrName(`billing.effort.${effort}`, effort, t);
-	}
-	return params;
-}
-function textOf(prefix, item, t) {
-	const key = `${prefix}.${item.code}`;
-	const text = t(key, paramsOf(item.params, t));
-	return text === key ? item.code : text;
-}
-/** One reason of `BillingImpact.reasons` as a sentence. */
-function billingReasonText(reason, t) {
-	return textOf("billing.reason", reason, t);
-}
-/** One warning of `UpstreamPlan.warnings` as a sentence. */
-function planWarningText(warning, t) {
-	return textOf("plan.warning", warning, t);
-}
-/** "Subscription" / "Pay as you go" / "Unknown". */
-function billingOutcomeLabel(outcome, t) {
-	return t(`billing.outcome.${outcome}`);
-}
-/** Names of the settings the proxy strips in subscription-safe mode, as labels. */
-function strippedLabels(stripped, t) {
-	return stripped.map((name) => routingFieldLabel(name, t));
-}
-var BILLING_STRINGS = {
-	en: {
-		"billing.outcome.subscription": "Subscription",
-		"billing.outcome.paygo": "Pay as you go",
-		"billing.outcome.unknown": "Not known",
-		"billing.reason.billing.forced": "This connection is set to pay as you go: every request is billed per token.",
-		"billing.reason.model.notIncluded": "{model} is not included in the subscription, so it is billed per token.",
-		"billing.reason.billing.modelNotCoverable": "Subscription only cannot be kept: {model} is outside the subscription.",
-		"billing.reason.routing.explicit": "Explicit routing ({fields}) is billed pay as you go with about {markup}% markup and leaves the subscription.",
-		"billing.reason.routing.unsupportedByModel": "This model runs on a fixed route: the routing settings ({fields}) are ignored, so they change nothing.",
-		"billing.reason.routing.zdrOnly": "Zero data retention only narrows the platform’s own routing; the billing stays as it is.",
-		"billing.reason.search.billedSeparately": "Web search (:online) is billed separately.",
-		"billing.reason.memory.billedSeparately": "Context Memory is billed separately.",
-		"billing.reason.subscription.multiplier": "This model counts {value}× of the input tokens against the subscription quota.",
-		"plan.warning.reasoning.modelUnknown": "The model is not in the catalog, so the reasoning effort is sent as asked, unchecked.",
-		"plan.warning.reasoning.cannotDisable": "{model} always reasons (efforts: {efforts}). Nanovia sends the lowest effort and hides the thoughts.",
-		"plan.warning.reasoning.effortAdjusted": "The model does not offer the effort \"{requested}\"; \"{applied}\" is sent instead.",
-		"plan.warning.routing.preferenceNeedsSort": "A preferred latency or throughput does nothing without a sort. Pick a sort.",
-		"plan.warning.routing.onlyAndOrder": "\"Only these providers\" already limits the candidates; the provider order is redundant.",
-		"billing.effort.none": "none",
-		"billing.effort.minimal": "minimal",
-		"billing.effort.low": "low",
-		"billing.effort.medium": "medium",
-		"billing.effort.high": "high",
-		"billing.effort.xhigh": "extra high",
-		"billing.effort.max": "max",
-		"billing.field.order": "provider order",
-		"billing.field.only": "only these providers",
-		"billing.field.ignore": "ignored providers",
-		"billing.field.sort": "sort",
-		"billing.field.quantizations": "precision allowlist",
-		"billing.field.minQuantization": "minimum precision",
-		"billing.field.maxPrice": "price cap",
-		"billing.field.allowFallbacks": "no fallbacks",
-		"billing.field.requireParameters": "require parameters",
-		"billing.field.preferredMaxLatency": "preferred latency",
-		"billing.field.preferredMinThroughput": "preferred throughput",
-		"billing.field.cachingRoute": "caching route"
-	},
-	ru: {
-		"billing.outcome.subscription": "Подписка",
-		"billing.outcome.paygo": "Оплата за токены",
-		"billing.outcome.unknown": "Неизвестно",
-		"billing.reason.billing.forced": "Подключение настроено на оплату за токены: каждый запрос оплачивается отдельно.",
-		"billing.reason.model.notIncluded": "{model} не входит в подписку, поэтому оплачивается за токены.",
-		"billing.reason.billing.modelNotCoverable": "Режим «только подписка» не удержать: {model} вне подписки.",
-		"billing.reason.routing.explicit": "Явная маршрутизация ({fields}) оплачивается за токены с наценкой около {markup}% и уводит запрос из подписки.",
-		"billing.reason.routing.unsupportedByModel": "Модель работает по фиксированному маршруту: настройки маршрутизации ({fields}) игнорируются и ни на что не влияют.",
-		"billing.reason.routing.zdrOnly": "Нулевое хранение данных лишь сужает собственный выбор платформы; оплата не меняется.",
-		"billing.reason.search.billedSeparately": "Веб-поиск (:online) оплачивается отдельно.",
-		"billing.reason.memory.billedSeparately": "Context Memory оплачивается отдельно.",
-		"billing.reason.subscription.multiplier": "Эта модель списывает {value}× входных токенов с квоты подписки.",
-		"plan.warning.reasoning.modelUnknown": "Модели нет в каталоге, поэтому уровень рассуждений отправляется как запрошен, без проверки.",
-		"plan.warning.reasoning.cannotDisable": "{model} рассуждает всегда (уровни: {efforts}). Nanovia отправит самый низкий уровень и скроет мысли.",
-		"plan.warning.reasoning.effortAdjusted": "Модель не поддерживает уровень «{requested}»; вместо него отправляется «{applied}».",
-		"plan.warning.routing.preferenceNeedsSort": "Желаемая задержка или скорость ничего не делают без сортировки. Выберите сортировку.",
-		"plan.warning.routing.onlyAndOrder": "«Только эти провайдеры» уже ограничивает выбор; порядок провайдеров лишний.",
-		"billing.effort.none": "нет",
-		"billing.effort.minimal": "минимальный",
-		"billing.effort.low": "низкий",
-		"billing.effort.medium": "средний",
-		"billing.effort.high": "высокий",
-		"billing.effort.xhigh": "очень высокий",
-		"billing.effort.max": "максимальный",
-		"billing.field.order": "порядок провайдеров",
-		"billing.field.only": "только эти провайдеры",
-		"billing.field.ignore": "исключённые провайдеры",
-		"billing.field.sort": "сортировка",
-		"billing.field.quantizations": "список точностей",
-		"billing.field.minQuantization": "минимальная точность",
-		"billing.field.maxPrice": "потолок цены",
-		"billing.field.allowFallbacks": "без запасных вариантов",
-		"billing.field.requireParameters": "требовать параметры",
-		"billing.field.preferredMaxLatency": "желаемая задержка",
-		"billing.field.preferredMinThroughput": "желаемая скорость",
-		"billing.field.cachingRoute": "маршрут с кешем"
 	}
 };
 // src/features/routing/strings.ts
@@ -8056,111 +9339,9 @@ var FEATURES = [
 		}
 	},
 	keysFeature,
-	accountFeature
+	accountFeature,
+	doctorFeature
 ];
-function efforts(model) {
-	return model.reasoningEfforts.map((effort) => effort.trim().toLowerCase()).filter(Boolean);
-}
-/**
-* false for a model that always reasons: it lists efforts and 'none' is not one of them, so the lowest level is the
-* quietest the connection can make it (planReasoning then hides the text but the tokens are still spent).
-*/
-function canDisableReasoning(model) {
-	const list = efforts(model);
-	return list.length === 0 || list.includes("none");
-}
-/** The lowest effort a model lists, in the ladder's order; '' when it lists none. */
-function lowestEffort(model) {
-	const order = [
-		"none",
-		"minimal",
-		"low",
-		"medium",
-		"high",
-		"xhigh",
-		"max"
-	];
-	const known = efforts(model).map((effort) => order.indexOf(effort)).filter((index) => index >= 0);
-	return known.length ? order[Math.min(...known)] ?? "" : "";
-}
-var PRIVATE_CATEGORY = /(?:^|[^a-z])(?:private|tee)(?:[^a-z]|$)/i;
-/** `:thinking` style variants exist to reason; they are not a quiet choice even when the catalog lists no efforts. */
-var THINKING_VARIANT = /:thinking\b/i;
-/**
-* Models good for background work: they reason only when asked (no effort dial, or 'none' among the efforts), support
-* structured output, are not on the private/TEE shelf and are not a `:thinking` variant. Cheapest first (prompt +
-* completion price per 1M tokens), then by id. Empty for an empty catalog.
-*/
-function suggestBackgroundModels(models, limit = 5) {
-	const price = (model) => model.pricing.prompt + model.pricing.completion;
-	return models.filter((model) => model.capabilities.structuredOutput && canDisableReasoning(model) && !(model.category !== null && PRIVATE_CATEGORY.test(model.category)) && !THINKING_VARIANT.test(model.id) && Number.isFinite(price(model))).sort((a, b) => price(a) - price(b) || a.pricing.completion - b.pricing.completion || (a.id < b.id ? -1 : 1)).slice(0, Math.max(0, limit)).map((model) => model.id);
-}
-/** Whether Qvink Memory is loaded: it registers its generate interceptor as a global (the way Maestro detects it). */
-function qvinkInstalled() {
-	return typeof globalThis["memory_intercept_messages"] === "function";
-}
-/**
-* The findings for using `input.connection` as a background connection. `ok` is true when none of them is a warning
-* (information notes alone keep it true).
-*/
-function backgroundAdvice(input) {
-	const { connection, model } = input;
-	const issues = [];
-	if (connection.mode === "plugin" && input.pluginDown) issues.push({
-		code: "route.pluginDown",
-		severity: "warn"
-	});
-	if (model === null) issues.push({
-		code: "model.unknown",
-		severity: "info",
-		params: {
-			model: connection.modelId,
-			catalogLoaded: input.catalogLoaded
-		}
-	});
-	else if (!canDisableReasoning(model)) issues.push({
-		code: "reasoning.alwaysOn",
-		severity: "warn",
-		params: {
-			model: model.id,
-			efforts: efforts(model).join(", "),
-			lowest: lowestEffort(model)
-		}
-	});
-	const { policy, effort } = connection.reasoning;
-	const modelReasons = model === null || model.capabilities.reasoning;
-	const fixedOn = policy === "fixed" && effort !== null && effort !== "none";
-	const defaultOn = model !== null && model.capabilities.reasoning && (policy === "default" || policy === "fixed" && effort === null);
-	if (modelReasons && (fixedOn || defaultOn)) issues.push({
-		code: "reasoning.policyOn",
-		severity: "warn",
-		params: {
-			policy,
-			effort: effort ?? ""
-		}
-	});
-	if (model !== null && connection.billing === "auto" && model.subscription.included) {
-		const impact = analyzeBilling(connection, model, input.providerSelection);
-		const explicit = impact.reasons.find((reason) => reason.code === "routing.explicit");
-		if (explicit && impact.outcome === "paygo") issues.push({
-			code: "billing.bypassesSubscription",
-			severity: "warn",
-			params: {
-				model: model.id,
-				fields: String(explicit.params?.["fields"] ?? "")
-			}
-		});
-	}
-	if (connection.memory.enabled && input.qvinkInstalled) issues.push({
-		code: "memory.overlapsQvink",
-		severity: "info"
-	});
-	return {
-		ok: !issues.some((issue) => issue.severity === "warn"),
-		issues,
-		suggestedModels: suggestBackgroundModels(input.catalog)
-	};
-}
 // src/app/api.ts
 function capabilitiesOf(model) {
 	if (!model) return null;
@@ -8174,7 +9355,7 @@ function capabilitiesOf(model) {
 	};
 }
 function createApiPublisher(deps) {
-	const { connections, profiles, settings, catalog, usage, account, panel, log } = deps;
+	const { connections, profiles, settings, catalog, usage, account, doctor, panel, log } = deps;
 	const qvinkInstalled$1 = deps.qvinkInstalled ?? qvinkInstalled;
 	/** The connection a Connection Manager profile belongs to: by the id we stored, then by a proxy URL it carries. */
 	function connectionIdOf(profileId) {
@@ -8231,6 +9412,7 @@ function createApiPublisher(deps) {
 		if (usage) list.push("usage");
 		if (account) list.push("account");
 		list.push("advice");
+		if (doctor) list.push("doctor");
 		if (panel) list.push("panel");
 		return [...new Set(list)];
 	}
@@ -8252,6 +9434,7 @@ function createApiPublisher(deps) {
 		snapshot: () => account.snapshot(),
 		refresh: () => account.refresh()
 	};
+	if (doctor) api.doctor = () => doctor.brief();
 	if (panel) api.openPanel = (tab) => {
 		try {
 			panel.open(typeof tab === "string" && tab ? tab : void 0);
@@ -8339,6 +9522,16 @@ async function startNanovia(options = {}) {
 		getLastTab: () => settings.get().lastTab,
 		setLastTab: (id) => settings.set("lastTab", id)
 	});
+	const doctor = createDoctorService({
+		connections,
+		plugin,
+		profiles,
+		account,
+		catalog: () => ctx.catalog,
+		panel: () => panel,
+		host,
+		log: log.scope("doctor")
+	});
 	Object.assign(ctx, {
 		version: NANOVIA_VERSION,
 		host,
@@ -8348,6 +9541,7 @@ async function startNanovia(options = {}) {
 		catalog,
 		usage,
 		account,
+		doctor,
 		profiles,
 		secrets,
 		registerRequestHook: (hook) => requests.register(hook),
@@ -8401,6 +9595,7 @@ async function startNanovia(options = {}) {
 		catalog,
 		usage,
 		account,
+		doctor,
 		panel: { open: (tab) => panel.open(tab) },
 		log: log.scope("api")
 	});
