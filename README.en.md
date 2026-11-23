@@ -4,7 +4,11 @@
 
 NanoGPT as a first-class, OpenRouter-like provider in SillyTavern: per-connection routing, subscription vs pay-as-you-go awareness, a model catalog, usage and cost, and a bridge to Maestro and the other extensions. Targets ST 1.19.x.
 
-> Status: scaffold. Done so far: the contracts between the parts, the connection model (`src/domain/connection.ts`), `docs/ARCHITECTURE.md`, and the development tooling (mock NanoGPT, local stand, deploy scripts). The panel, the plugin and the later stages follow the plan below.
+> Status: 0.6.0, stages 0.1–0.6 are done (plugin and proxy, connections, routing and billing, catalog, account and usage, Management API, diagnostics). Next: media (0.7) and an image provider for NAI Studio (0.8). Checked against the mock and live against the real NanoGPT (requests, streaming, balance, subscription).
+
+## The panel
+
+Tabs: **Connections** (the connection form, model picker over the catalog), **Catalog** (prices, context, capabilities, "in subscription", hosts and routing hints), **Routing** (every `provider` field and which of them move a request off the subscription), **Keys** (several NanoGPT keys), **Management** (Management API: keys with limits, model presets), **Account** (balance, subscription quota, usage: real cost apart from the pay-as-you-go equivalent), **Diagnostics** (checks of the whole setup with one-click fixes), **General**.
 
 ## What it is
 
@@ -47,6 +51,7 @@ npm run mock           # mock NanoGPT at http://127.0.0.1:5300/api/v1
 npm run build          # dist/ and server/index.js
 npm run stand          # local ST 1.19 without Docker + mock + extension + plugin (http://127.0.0.1:8130)
 npm run stand:stop
+npm run test:live      # live check against the real NanoGPT (needs NANOVIA_LIVE_KEY; the key is never stored)
 npm run deploy:local   # copy the build into a local ST (st-local-docker)
 ```
 
@@ -57,16 +62,16 @@ npm run deploy:local   # copy the build into a local ST (st-local-docker)
 
 ## Stages
 
-| Stage | Version | Content                                                                                                | Status      |
-| ----- | ------- | ------------------------------------------------------------------------------------------------------ | ----------- |
-| 1     | 0.1.0   | skeleton, plugin + proxy (pass-through), connections <-> profiles, modes, mock                         | in progress |
-| 2     | 0.2.0   | routing (all provider fields), billing impact + subscription-safe mode, reasoning policy, several keys | planned     |
-| 3     | 0.3.0   | catalog, host statistics, routing hints                                                                | planned     |
-| 4     | 0.4.0   | balance, subscription, usage and cost, cache, OpenRouter-style response shim                           | planned     |
-| 5     | 0.5.0   | full `NANOVIA_API`, Maestro and neighbour integrations                                                 | planned     |
-| 6     | 0.6.0   | Management API, web search, Context Memory, Doctor                                                     | planned     |
-| 7     | 0.7.0   | media                                                                                                  | planned     |
-| 8     | 0.8.0   | NAI Studio image provider                                                                              | planned     |
+| Stage | Version | Content                                                                                                | Status  |
+| ----- | ------- | ------------------------------------------------------------------------------------------------------ | ------- |
+| 1     | 0.1.0   | skeleton, plugin + proxy, connections <-> profiles, modes, mock                                        | done    |
+| 2     | 0.2.0   | routing (all provider fields), billing impact + subscription-safe mode, reasoning policy, several keys | done    |
+| 3     | 0.3.0   | catalog, host statistics, routing hints                                                                | done    |
+| 4     | 0.4.0   | balance, subscription, usage and cost, cache, OpenRouter-style response shim                           | done    |
+| 5     | 0.5.0   | full `NANOVIA_API`, Maestro and neighbour integrations                                                 | done    |
+| 6     | 0.6.0   | Management API, web search, Context Memory, Doctor                                                     | done    |
+| 7     | 0.7.0   | media                                                                                                  | planned |
+| 8     | 0.8.0   | NAI Studio image provider                                                                              | planned |
 
 Changelog: [`CHANGELOG.md`](CHANGELOG.md) (Russian).
 
