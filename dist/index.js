@@ -1,46 +1,109 @@
 // package.json
 var version = "0.0.1";
-// src/core/bus.ts
-/**
-* Nanovia's internal event bus. Handlers run in registration order; one failing handler does not stop the others, and
-* one removed while an emit is under way is not called by it.
-*/
-var EventBus = class {
-	log;
-	handlers = /* @__PURE__ */ new Map();
-	constructor(log) {
-		this.log = log;
+// src/host/events.ts
+function createHostEvents(ctx, log) {
+	const registrations = /* @__PURE__ */ new Set();
+	function name(key) {
+		const types = ctx().eventTypes ?? {};
+		if (!Object.prototype.hasOwnProperty.call(types, key)) return void 0;
+		const value = types[key];
+		return typeof value === "string" ? value : void 0;
 	}
-	on(event, handler) {
-		let set = this.handlers.get(event);
-		if (!set) {
-			set = /* @__PURE__ */ new Set();
-			this.handlers.set(event, set);
-		}
-		set.add(handler);
-		return () => {
-			set.delete(handler);
-		};
+	function resolve(event) {
+		return name(event) ?? event;
 	}
-	async emit(event, payload) {
-		const set = this.handlers.get(event);
-		if (!set) return;
-		for (const handler of [...set]) {
-			if (!set.has(handler)) continue;
-			try {
-				await handler(payload);
+	return {
+		on(event, handler) {
+			const raw = resolve(event);
+			let active = true;
+			const listener = (...args) => {
+				if (!active) return void 0;
+				try {
+					const result = handler(...args);
+					if (result instanceof Promise) return result.catch((error) => log.error(`listener for ${raw} failed`, error));
+					return result;
+				} catch (error) {
+					log.error(`listener for ${raw} failed`, error);
+					return;
+				}
+			};
+			const registration = {
+				event: raw,
+				listener
+			};
+			ctx().eventSource.on(raw, listener);
+			registrations.add(registration);
+			return () => {
+				if (!active) return;
+				active = false;
+				registrations.delete(registration);
+				ctx().eventSource.removeListener(raw, listener);
+			};
+		},
+		emit(event, ...args) {
+			return ctx().eventSource.emit(resolve(event), ...args);
+		},
+		name,
+		dispose() {
+			const source = ctx().eventSource;
+			for (const registration of [...registrations]) try {
+				source.removeListener(registration.event, registration.listener);
 			} catch (error) {
-				this.log.error(`bus handler for ${String(event)} failed`, error);
+				log.warn(`could not remove ${registration.event} listener`, error);
 			}
+			registrations.clear();
 		}
-	}
-	/** Drops every handler (app stop). */
-	clear() {
-		this.handlers.clear();
-	}
+	};
+}
+// src/host/modules.ts
+/** Module paths, relative to the ST web root (public/). */
+var ST_MODULE_PATHS = {
+	secrets: "/scripts/secrets.js",
+	script: "/script.js"
 };
-function createBus(log) {
-	return new EventBus(log);
+var importByUrl = async (url) => await import(
+	/* @vite-ignore */
+	url
+);
+function pageOrigin() {
+	return window.location.origin;
+}
+/**
+* @param importer replaced in tests; the default is a native dynamic import.
+* @param origin page origin (window.location.origin).
+*/
+function createHostModules(log, importer = importByUrl, origin = pageOrigin) {
+	const cache = /* @__PURE__ */ new Map();
+	function url(path) {
+		const base = origin();
+		const normalized = path.startsWith("/") ? path : path.startsWith("scripts/") ? `/${path}` : `/scripts/${path}`;
+		const resolved = new URL(normalized, base);
+		if (resolved.origin !== new URL(base).origin) throw new Error(`refusing to import a module from another origin: ${path}`);
+		return resolved.href;
+	}
+	function load(path) {
+		let href;
+		try {
+			href = url(path);
+		} catch (error) {
+			return Promise.reject(error instanceof Error ? error : new Error(String(error)));
+		}
+		const cached = cache.get(href);
+		if (cached) return cached;
+		const pending = importer(href).catch((error) => {
+			cache.delete(href);
+			log.warn(`could not import ST module ${path}`, error);
+			throw error;
+		});
+		cache.set(href, pending);
+		return pending;
+	}
+	return {
+		secrets: () => load(ST_MODULE_PATHS.secrets),
+		script: () => load(ST_MODULE_PATHS.script),
+		load,
+		url
+	};
 }
 // src/domain/connection.ts
 var QUANTIZATIONS = [
@@ -147,7 +210,7 @@ function createConnection(input, id, now) {
 }
 /** Applies a patch (already typed or raw) over a connection; unknown or invalid fields are ignored. */
 function mergeConnection(base, patch, now) {
-	const p = isRecord$5(patch) ? patch : {};
+	const p = isRecord$6(patch) ? patch : {};
 	const next = {
 		...base,
 		routing: {
@@ -168,9 +231,9 @@ function mergeConnection(base, patch, now) {
 	if (typeof p["webSearch"] === "boolean") next.webSearch = p["webSearch"];
 	if (typeof p["stripNeutralSamplers"] === "boolean") next.stripNeutralSamplers = p["stripNeutralSamplers"];
 	if (typeof p["note"] === "string") next.note = clip(p["note"], 1e3);
-	if (isRecord$5(p["routing"])) next.routing = mergeRouting(next.routing, p["routing"]);
-	if (isRecord$5(p["reasoning"])) next.reasoning = mergeReasoning(next.reasoning, p["reasoning"]);
-	if (isRecord$5(p["memory"])) {
+	if (isRecord$6(p["routing"])) next.routing = mergeRouting(next.routing, p["routing"]);
+	if (isRecord$6(p["reasoning"])) next.reasoning = mergeReasoning(next.reasoning, p["reasoning"]);
+	if (isRecord$6(p["memory"])) {
 		const m = p["memory"];
 		if (typeof m["enabled"] === "boolean") next.memory.enabled = m["enabled"];
 		if (m["expirationDays"] === null) next.memory.expirationDays = null;
@@ -185,7 +248,7 @@ function mergeConnection(base, patch, now) {
 * model). Everything else falls back to defaults, so a hand-edited file never crashes the plugin.
 */
 function normalizeConnection(raw, now) {
-	if (!isRecord$5(raw)) return null;
+	if (!isRecord$6(raw)) return null;
 	const id = raw["id"];
 	const name = raw["name"];
 	const modelId = raw["modelId"];
@@ -210,7 +273,7 @@ function mergeRouting(base, p) {
 	if (Array.isArray(p["quantizations"])) next.quantizations = [...new Set(p["quantizations"].filter((q) => isOneOf(QUANTIZATIONS, q)))];
 	if (p["minQuantization"] === null) next.minQuantization = null;
 	else if (isOneOf(QUANTIZATIONS, p["minQuantization"])) next.minQuantization = p["minQuantization"];
-	if (isRecord$5(p["maxPrice"])) {
+	if (isRecord$6(p["maxPrice"])) {
 		const mp = p["maxPrice"];
 		if (mp["prompt"] === null || isPrice(mp["prompt"])) next.maxPrice.prompt = mp["prompt"];
 		if (mp["completion"] === null || isPrice(mp["completion"])) next.maxPrice.completion = mp["completion"];
@@ -244,7 +307,7 @@ function ids(list) {
 	}
 	return out;
 }
-function isRecord$5(value) {
+function isRecord$6(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function isNumber(value) {
@@ -262,111 +325,6 @@ function clip(value, max) {
 }
 function clamp(value, min, max) {
 	return Math.min(max, Math.max(min, value));
-}
-// src/host/events.ts
-function createHostEvents(ctx, log) {
-	const registrations = /* @__PURE__ */ new Set();
-	function name(key) {
-		const types = ctx().eventTypes ?? {};
-		if (!Object.prototype.hasOwnProperty.call(types, key)) return void 0;
-		const value = types[key];
-		return typeof value === "string" ? value : void 0;
-	}
-	function resolve(event) {
-		return name(event) ?? event;
-	}
-	return {
-		on(event, handler) {
-			const raw = resolve(event);
-			let active = true;
-			const listener = (...args) => {
-				if (!active) return void 0;
-				try {
-					const result = handler(...args);
-					if (result instanceof Promise) return result.catch((error) => log.error(`listener for ${raw} failed`, error));
-					return result;
-				} catch (error) {
-					log.error(`listener for ${raw} failed`, error);
-					return;
-				}
-			};
-			const registration = {
-				event: raw,
-				listener
-			};
-			ctx().eventSource.on(raw, listener);
-			registrations.add(registration);
-			return () => {
-				if (!active) return;
-				active = false;
-				registrations.delete(registration);
-				ctx().eventSource.removeListener(raw, listener);
-			};
-		},
-		emit(event, ...args) {
-			return ctx().eventSource.emit(resolve(event), ...args);
-		},
-		name,
-		dispose() {
-			const source = ctx().eventSource;
-			for (const registration of [...registrations]) try {
-				source.removeListener(registration.event, registration.listener);
-			} catch (error) {
-				log.warn(`could not remove ${registration.event} listener`, error);
-			}
-			registrations.clear();
-		}
-	};
-}
-// src/host/modules.ts
-/** Module paths, relative to the ST web root (public/). */
-var ST_MODULE_PATHS = {
-	secrets: "/scripts/secrets.js",
-	script: "/script.js"
-};
-var importByUrl = async (url) => await import(
-	/* @vite-ignore */
-	url
-);
-function pageOrigin() {
-	return window.location.origin;
-}
-/**
-* @param importer replaced in tests; the default is a native dynamic import.
-* @param origin page origin (window.location.origin).
-*/
-function createHostModules(log, importer = importByUrl, origin = pageOrigin) {
-	const cache = /* @__PURE__ */ new Map();
-	function url(path) {
-		const base = origin();
-		const normalized = path.startsWith("/") ? path : path.startsWith("scripts/") ? `/${path}` : `/scripts/${path}`;
-		const resolved = new URL(normalized, base);
-		if (resolved.origin !== new URL(base).origin) throw new Error(`refusing to import a module from another origin: ${path}`);
-		return resolved.href;
-	}
-	function load(path) {
-		let href;
-		try {
-			href = url(path);
-		} catch (error) {
-			return Promise.reject(error instanceof Error ? error : new Error(String(error)));
-		}
-		const cached = cache.get(href);
-		if (cached) return cached;
-		const pending = importer(href).catch((error) => {
-			cache.delete(href);
-			log.warn(`could not import ST module ${path}`, error);
-			throw error;
-		});
-		cache.set(href, pending);
-		return pending;
-	}
-	return {
-		secrets: () => load(ST_MODULE_PATHS.secrets),
-		script: () => load(ST_MODULE_PATHS.script),
-		load,
-		url
-	};
 }
 // src/shared/constants.ts
 /** Global of the public API (docs/ARCHITECTURE.md §9). Members are only ever added; `version` stays 1. */
@@ -406,13 +364,13 @@ function isPluginDown(error) {
 var DEFAULT_TTL_MS = 5e3;
 var DEFAULT_TIMEOUT_MS = 1e4;
 var CHECK_TIMEOUT_MS = 3e4;
-function isRecord$4(value) {
+function isRecord$5(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function str(value) {
 	return typeof value === "string" ? value : null;
 }
-function invalid(what) {
+function invalid$1(what) {
 	return {
 		ok: false,
 		error: {
@@ -425,7 +383,7 @@ function invalid(what) {
 /** A connection of the wire as the browser uses it; null when it is not one. */
 function parseConnectionView(raw, now = Date.now()) {
 	const config = normalizeConnection(raw, now);
-	if (!config || !isRecord$4(raw)) return null;
+	if (!config || !isRecord$5(raw)) return null;
 	const proxyUrl = str(raw["proxyUrl"]);
 	const directUrl = str(raw["directUrl"]);
 	if (proxyUrl === null || directUrl === null) return null;
@@ -438,7 +396,7 @@ function parseConnectionView(raw, now = Date.now()) {
 	};
 }
 function parseStatus(raw) {
-	if (!isRecord$4(raw) || !isRecord$4(raw["proxy"])) return null;
+	if (!isRecord$5(raw) || !isRecord$5(raw["proxy"])) return null;
 	const proxy = raw["proxy"];
 	const version = str(raw["version"]);
 	const host = str(proxy["host"]);
@@ -457,7 +415,7 @@ function parseStatus(raw) {
 	};
 }
 function parseKey(raw) {
-	if (!isRecord$4(raw)) return null;
+	if (!isRecord$5(raw)) return null;
 	const id = str(raw["id"]);
 	if (!id) return null;
 	return {
@@ -468,7 +426,7 @@ function parseKey(raw) {
 	};
 }
 function parseKeyCheck(raw) {
-	if (!isRecord$4(raw) || typeof raw["ok"] !== "boolean") return null;
+	if (!isRecord$5(raw) || typeof raw["ok"] !== "boolean") return null;
 	return {
 		ok: raw["ok"],
 		usdBalance: str(raw["usdBalance"]),
@@ -537,7 +495,7 @@ function createPluginClient(deps) {
 				parsedOk = false;
 			}
 			if (!response.ok) {
-				const wire = isRecord$4(json) && isRecord$4(json["error"]) ? json["error"] : null;
+				const wire = isRecord$5(json) && isRecord$5(json["error"]) ? json["error"] : null;
 				const code = wire ? str(wire["code"]) : null;
 				const message = (wire ? str(wire["message"]) : null) ?? `HTTP ${response.status}`;
 				let resolved = code ?? `http_${response.status}`;
@@ -556,7 +514,7 @@ function createPluginClient(deps) {
 				};
 			}
 			noteAnswered();
-			if (!parsedOk) return invalid("response (not JSON)");
+			if (!parsedOk) return invalid$1("response (not JSON)");
 			return {
 				ok: true,
 				data: json
@@ -578,15 +536,16 @@ function createPluginClient(deps) {
 	function map(result, read, what) {
 		if (!result.ok) return result;
 		const value = read(result.data);
-		return value === null ? invalid(what) : {
+		return value === null ? invalid$1(what) : {
 			ok: true,
 			data: value
 		};
 	}
 	function viewOf(data) {
-		return isRecord$4(data) ? parseConnectionView(data["connection"], now()) : null;
+		return isRecord$5(data) ? parseConnectionView(data["connection"], now()) : null;
 	}
 	const client = {
+		request: (method, path, body, timeoutMs) => call(method, path, body, timeoutMs),
 		async status() {
 			const result = map(await call("GET", "/status"), parseStatus, "status");
 			if (result.ok) {
@@ -609,7 +568,7 @@ function createPluginClient(deps) {
 		},
 		async listConnections() {
 			return map(await call("GET", "/connections"), (data) => {
-				if (!isRecord$4(data) || !Array.isArray(data["connections"])) return null;
+				if (!isRecord$5(data) || !Array.isArray(data["connections"])) return null;
 				const views = [];
 				for (const item of data["connections"]) {
 					const view = parseConnectionView(item, now());
@@ -637,7 +596,7 @@ function createPluginClient(deps) {
 		},
 		async listKeys() {
 			return map(await call("GET", "/keys"), (data) => {
-				if (!isRecord$4(data) || !Array.isArray(data["keys"])) return null;
+				if (!isRecord$5(data) || !Array.isArray(data["keys"])) return null;
 				return data["keys"].map(parseKey).filter((key) => key !== null);
 			}, "key list");
 		},
@@ -645,7 +604,7 @@ function createPluginClient(deps) {
 			return map(await call("POST", "/keys", {
 				label,
 				value
-			}), (data) => isRecord$4(data) ? parseKey(data["key"]) : null, "key");
+			}), (data) => isRecord$5(data) ? parseKey(data["key"]) : null, "key");
 		},
 		async deleteKey(id) {
 			const result = await call("DELETE", `/keys/${encodeURIComponent(id)}`);
@@ -659,6 +618,258 @@ function createPluginClient(deps) {
 		}
 	};
 	return client;
+}
+// src/domain/usage.ts
+/** Rounds a USD amount to 1e-9 so sums of floats print cleanly (`0.1 + 0.2`). */
+function roundUsd(value) {
+	return Math.round(value * 1e9) / 1e9;
+}
+/**
+* Sums records with `range.from <= at < range.to` in total, per day (`dayOf` names the day, so the zone is the
+* caller's), per connection and per model. Real cost and pay-as-you-go equivalent stay separate; unknown values count as
+* 0; every record counts as a request, a subscription one with cost 0. Pure and deterministic: days ascend, the other
+* lists go by real cost, equivalent, requests (descending) and then name.
+*/
+function summarizeUsage(records, range, dayOf, filter = {}) {
+	const total = emptyTotals$1();
+	const days = /* @__PURE__ */ new Map();
+	const connections = /* @__PURE__ */ new Map();
+	const models = /* @__PURE__ */ new Map();
+	for (const record of records) {
+		if (!(record.at >= range.from && record.at < range.to)) continue;
+		if (filter.connectionId !== void 0 && record.connectionId !== filter.connectionId) continue;
+		addRecord(total, record);
+		addRecord(bucket(days, dayOf(record.at)), record);
+		addRecord(bucket(connections, record.connectionId), record);
+		addRecord(bucket(models, record.model), record);
+	}
+	const byDay = [...days].map(([day, totals]) => ({
+		day,
+		...finish(totals)
+	})).sort((a, b) => compareText(a.day, b.day));
+	const byConnection = [...connections].map(([connectionId, totals]) => ({
+		connectionId,
+		...finish(totals)
+	})).sort((a, b) => byWeight(a, b) || compareText(a.connectionId ?? "", b.connectionId ?? ""));
+	const byModel = [...models].map(([model, totals]) => ({
+		model,
+		...finish(totals)
+	})).sort((a, b) => byWeight(a, b) || compareText(a.model, b.model));
+	return {
+		from: range.from,
+		to: range.to,
+		total: finish(total),
+		byDay,
+		byConnection,
+		byModel
+	};
+}
+function emptyTotals$1() {
+	return {
+		requests: 0,
+		costUsd: 0,
+		equivalentUsd: 0,
+		promptTokens: 0,
+		completionTokens: 0,
+		cachedTokens: 0
+	};
+}
+function bucket(map, key) {
+	let totals = map.get(key);
+	if (!totals) {
+		totals = emptyTotals$1();
+		map.set(key, totals);
+	}
+	return totals;
+}
+function addRecord(totals, record) {
+	totals.requests += 1;
+	totals.costUsd += amount(record.costUsd);
+	totals.equivalentUsd += amount(record.equivalentUsd);
+	totals.promptTokens += amount(record.promptTokens);
+	totals.completionTokens += amount(record.completionTokens);
+	totals.cachedTokens += amount(record.cachedTokens);
+}
+function finish(totals) {
+	return {
+		...totals,
+		costUsd: roundUsd(totals.costUsd),
+		equivalentUsd: roundUsd(totals.equivalentUsd)
+	};
+}
+/** A stored number counts when it is finite and not negative; anything else (null, NaN, a negative) counts as 0. */
+function amount(value) {
+	return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : 0;
+}
+function byWeight(a, b) {
+	return b.costUsd - a.costUsd || b.equivalentUsd - a.equivalentUsd || b.requests - a.requests;
+}
+function compareText(a, b) {
+	return a < b ? -1 : a > b ? 1 : 0;
+}
+function isRecord$4(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+// src/host/plugin-account.ts
+/** NanoGPT answers within 15 s on the plugin's side; the browser waits a little longer than that. */
+var NANOGPT_TIMEOUT_MS = 2e4;
+var SPEND_TIMEOUT_MS = 15e3;
+function invalid(what) {
+	return {
+		ok: false,
+		error: {
+			code: "invalid_response",
+			message: `unexpected ${what}`,
+			status: null
+		}
+	};
+}
+var DECIMAL = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/;
+/** A finite number from a JSON number or a decimal string; null otherwise. */
+function numberOf(value) {
+	if (typeof value === "number") return Number.isFinite(value) ? value : null;
+	if (typeof value === "string" && DECIMAL.test(value.trim())) {
+		const n = Number(value.trim());
+		return Number.isFinite(n) ? n : null;
+	}
+	return null;
+}
+function countOf(value) {
+	const n = numberOf(value);
+	return n !== null && n > 0 ? n : 0;
+}
+function parseBalance(raw, now) {
+	if (!isRecord$4(raw)) return null;
+	return {
+		usdBalance: numberOf(raw["usdBalance"]),
+		nanoBalance: numberOf(raw["nanoBalance"]),
+		fetchedAt: numberOf(raw["fetchedAt"]) ?? now
+	};
+}
+function parseWindow(raw) {
+	const window = isRecord$4(raw) ? raw : {};
+	return {
+		used: numberOf(window["used"]),
+		limit: numberOf(window["limit"]),
+		resetsAt: numberOf(window["resetsAt"])
+	};
+}
+function parseSubscriptionUsage(raw) {
+	if (!isRecord$4(raw) || typeof raw["active"] !== "boolean") return null;
+	const mode = raw["recommendedMode"];
+	return {
+		active: raw["active"],
+		daily: parseWindow(raw["daily"]),
+		weekly: parseWindow(raw["weekly"]),
+		recommendedMode: mode === "subscription" || mode === "paygo" ? mode : null
+	};
+}
+function parseSubscriptionState(raw, now) {
+	if (!isRecord$4(raw)) return null;
+	const subscription = raw["subscription"];
+	if (subscription !== null && subscription !== void 0 && parseSubscriptionUsage(subscription) === null) return null;
+	return {
+		subscription: subscription ? parseSubscriptionUsage(subscription) : null,
+		fetchedAt: numberOf(raw["fetchedAt"]) ?? now
+	};
+}
+function parseTotals(raw) {
+	if (!isRecord$4(raw) || numberOf(raw["requests"]) === null) return null;
+	return {
+		requests: countOf(raw["requests"]),
+		costUsd: countOf(raw["costUsd"]),
+		equivalentUsd: countOf(raw["equivalentUsd"]),
+		promptTokens: countOf(raw["promptTokens"]),
+		completionTokens: countOf(raw["completionTokens"]),
+		cachedTokens: countOf(raw["cachedTokens"])
+	};
+}
+/** The rows of a breakdown list; a row that cannot be read is dropped, a list that is not a list is empty. */
+function rows(raw, read) {
+	if (!Array.isArray(raw)) return [];
+	const out = [];
+	for (const item of raw) {
+		const totals = parseTotals(item);
+		if (!totals || !isRecord$4(item)) continue;
+		const row = read(item, totals);
+		if (row) out.push(row);
+	}
+	return out;
+}
+function parseSpend(raw) {
+	if (!isRecord$4(raw)) return null;
+	const from = numberOf(raw["from"]);
+	const to = numberOf(raw["to"]);
+	const total = parseTotals(raw["total"]);
+	if (from === null || to === null || total === null) return null;
+	return {
+		from,
+		to,
+		total,
+		byDay: rows(raw["byDay"], (item, totals) => typeof item["day"] === "string" ? {
+			day: item["day"],
+			...totals
+		} : null),
+		byConnection: rows(raw["byConnection"], (item, totals) => ({
+			connectionId: typeof item["connectionId"] === "string" ? item["connectionId"] : null,
+			...totals
+		})),
+		byModel: rows(raw["byModel"], (item, totals) => typeof item["model"] === "string" ? {
+			model: item["model"],
+			...totals
+		} : null)
+	};
+}
+function parseLookup(raw) {
+	if (!isRecord$4(raw) || typeof raw["requestId"] !== "string" || typeof raw["ready"] !== "boolean") return null;
+	const cost = numberOf(raw["costUsd"]);
+	return {
+		requestId: raw["requestId"],
+		ready: raw["ready"],
+		costUsd: raw["ready"] && cost !== null && cost >= 0 ? cost : null
+	};
+}
+function map(result, read, what) {
+	if (!result.ok) return result;
+	const value = read(result.data);
+	return value === null ? invalid(what) : {
+		ok: true,
+		data: value
+	};
+}
+function query(params) {
+	const parts = [];
+	for (const [name, value] of Object.entries(params)) {
+		if (value === null || value === void 0 || value === "") continue;
+		parts.push(`${name}=${encodeURIComponent(String(value))}`);
+	}
+	return parts.length ? `?${parts.join("&")}` : "";
+}
+function createPluginAccount(deps) {
+	const { client } = deps;
+	const now = deps.now ?? Date.now;
+	return {
+		async balance(keyId) {
+			const path = `/account/balance${query({ keyId })}`;
+			return map(await client.request("GET", path, void 0, NANOGPT_TIMEOUT_MS), (d) => parseBalance(d, now()), "balance");
+		},
+		async subscription(keyId) {
+			const path = `/account/subscription${query({ keyId })}`;
+			return map(await client.request("GET", path, void 0, NANOGPT_TIMEOUT_MS), (d) => parseSubscriptionState(d, now()), "subscription");
+		},
+		async spend(range, connectionId) {
+			const path = `/spend${query({
+				from: range.from,
+				to: range.to,
+				connectionId
+			})}`;
+			return map(await client.request("GET", path, void 0, SPEND_TIMEOUT_MS), parseSpend, "spend summary");
+		},
+		async lookup(requestId, keyId) {
+			const path = `/lookup/${encodeURIComponent(requestId)}${query({ keyId })}`;
+			return map(await client.request("POST", path, {}, NANOGPT_TIMEOUT_MS), parseLookup, "cost lookup");
+		}
+	};
 }
 // src/host/targets.ts
 var PROXY_PATH = /^\/c\/([a-z0-9]{6,16})\/v1\/?$/;
@@ -1341,6 +1552,223 @@ function createHost(log) {
 			events.dispose();
 		}
 	};
+}
+/** A balance as a decimal string: at most 8 decimals, trailing zeros trimmed down to two. */
+function decimalString(value) {
+	const [whole = "0", fraction = ""] = value.toFixed(8).replace(/0+$/, "").split(".");
+	return `${whole}.${fraction.padEnd(2, "0")}`;
+}
+function fraction(window) {
+	if (window.used === null || window.limit === null || !(window.limit > 0)) return null;
+	return Math.min(1, Math.max(0, window.used / window.limit));
+}
+/** The short view for cards and meters: balance as text, quota windows as used/limit fractions. */
+function briefOf(snapshot) {
+	const sub = snapshot.subscription;
+	const daily = sub?.active ? fraction(sub.daily) : null;
+	const weekly = sub?.active ? fraction(sub.weekly) : null;
+	return {
+		usdBalance: snapshot.usdBalance === null ? null : decimalString(snapshot.usdBalance),
+		subscription: daily === null && weekly === null ? null : {
+			dailyUsed: daily,
+			weeklyUsed: weekly
+		},
+		fetchedAt: snapshot.fetchedAt
+	};
+}
+function stateOfError(error) {
+	if (error.code === "not_installed") return "needs_plugin";
+	if (isPluginDown(error) || error.code === "forbidden") return "plugin_down";
+	if (error.code === "no_key") return "no_key";
+	return "error";
+}
+function createAccountStore(deps) {
+	const { account, connections, log } = deps;
+	const now = deps.now ?? Date.now;
+	const ttl = deps.ttlMs ?? 6e4;
+	const retry = deps.retryMs ?? 1e4;
+	let keyId = null;
+	/** Bumped when the key changes, so an answer for the previous key is dropped. */
+	let generation = 0;
+	let balance = null;
+	let subscription = null;
+	let subscriptionKnown = false;
+	let state = "idle";
+	let error = null;
+	let subscriptionError = null;
+	let stale = false;
+	let freshAt = null;
+	let failedAt = null;
+	let inflight = null;
+	const listeners = /* @__PURE__ */ new Set();
+	function snapshotOf() {
+		if (balance === null && !subscriptionKnown) return null;
+		return {
+			usdBalance: balance?.usdBalance ?? null,
+			nanoBalance: balance?.nanoBalance ?? null,
+			fetchedAt: balance?.fetchedAt ?? freshAt ?? now(),
+			subscription
+		};
+	}
+	function briefNow() {
+		const snap = snapshotOf();
+		return snap ? briefOf(snap) : null;
+	}
+	function changed() {
+		for (const listener of [...listeners]) try {
+			listener();
+		} catch (err) {
+			log.error("account listener failed", err);
+		}
+	}
+	function pluginKnownDown() {
+		return connections.checked() && !connections.pluginUp();
+	}
+	async function load() {
+		const mine = generation;
+		const asked = keyId;
+		const [bal, sub] = await Promise.all([account.balance(asked), account.subscription(asked)]);
+		if (mine !== generation) return;
+		if (bal.ok) balance = bal.data;
+		if (sub.ok) {
+			subscription = sub.data.subscription;
+			subscriptionKnown = true;
+			subscriptionError = null;
+		} else subscriptionError = sub.error;
+		if (bal.ok) {
+			state = "ok";
+			error = null;
+			stale = false;
+			freshAt = now();
+			failedAt = null;
+		} else {
+			error = bal.error;
+			state = stateOfError(bal.error);
+			stale = snapshotOf() !== null;
+			failedAt = now();
+			log.debug(`account refresh failed: ${bal.error.code}`);
+		}
+	}
+	function refresh(options) {
+		const force = options?.force === true;
+		if (inflight) return inflight.then(briefNow);
+		if (!force) {
+			if (freshAt !== null && !stale && now() - freshAt < ttl) return Promise.resolve(briefNow());
+			if (failedAt !== null && now() - failedAt < retry) return Promise.resolve(briefNow());
+			if (pluginKnownDown()) {
+				error = connections.pluginError() ?? {
+					code: "unreachable",
+					message: "the plugin is not answering",
+					status: null
+				};
+				state = stateOfError(error);
+				stale = snapshotOf() !== null;
+				changed();
+				return Promise.resolve(briefNow());
+			}
+		}
+		const mine = generation;
+		const run = load().catch((err) => {
+			log.error("account refresh failed", err);
+			if (mine !== generation) return;
+			error = {
+				code: "unreachable",
+				message: "the account could not be read",
+				status: null
+			};
+			state = "error";
+			stale = snapshotOf() !== null;
+			failedAt = now();
+		}).finally(() => {
+			if (inflight === run) inflight = null;
+			changed();
+		});
+		inflight = run;
+		changed();
+		return run.then(briefNow);
+	}
+	return {
+		snapshot: briefNow,
+		detail() {
+			const snap = snapshotOf();
+			return {
+				state,
+				snapshot: snap,
+				brief: snap ? briefOf(snap) : null,
+				stale,
+				error,
+				subscriptionError,
+				keyId,
+				fetching: inflight !== null
+			};
+		},
+		refresh,
+		lookup: (requestId) => account.lookup(requestId, keyId),
+		keyId: () => keyId,
+		selectKey(next) {
+			const wanted = next || null;
+			if (wanted === keyId) return;
+			keyId = wanted;
+			generation++;
+			balance = null;
+			subscription = null;
+			subscriptionKnown = false;
+			state = "idle";
+			error = null;
+			subscriptionError = null;
+			stale = false;
+			freshAt = null;
+			failedAt = null;
+			inflight = null;
+			changed();
+		},
+		onChange(listener) {
+			listeners.add(listener);
+			return () => void listeners.delete(listener);
+		}
+	};
+}
+// src/core/bus.ts
+/**
+* Nanovia's internal event bus. Handlers run in registration order; one failing handler does not stop the others, and
+* one removed while an emit is under way is not called by it.
+*/
+var EventBus = class {
+	log;
+	handlers = /* @__PURE__ */ new Map();
+	constructor(log) {
+		this.log = log;
+	}
+	on(event, handler) {
+		let set = this.handlers.get(event);
+		if (!set) {
+			set = /* @__PURE__ */ new Set();
+			this.handlers.set(event, set);
+		}
+		set.add(handler);
+		return () => {
+			set.delete(handler);
+		};
+	}
+	async emit(event, payload) {
+		const set = this.handlers.get(event);
+		if (!set) return;
+		for (const handler of [...set]) {
+			if (!set.has(handler)) continue;
+			try {
+				await handler(payload);
+			} catch (error) {
+				this.log.error(`bus handler for ${String(event)} failed`, error);
+			}
+		}
+	}
+	/** Drops every handler (app stop). */
+	clear() {
+		this.handlers.clear();
+	}
+};
+function createBus(log) {
+	return new EventBus(log);
 }
 // src/core/connections.ts
 /** auto = the plugin when it answers, otherwise direct. */
@@ -2088,259 +2516,481 @@ var Settings = class {
 		return root;
 	}
 };
-// src/features/connections/strings.ts
-var CONNECTIONS_STRINGS = {
+function emptyTotals() {
+	return {
+		requests: 0,
+		costUsd: 0,
+		equivalentUsd: 0,
+		promptTokens: 0,
+		completionTokens: 0,
+		cachedTokens: 0
+	};
+}
+function addTotals(a, b) {
+	return {
+		requests: a.requests + b.requests,
+		costUsd: roundUsd(a.costUsd + b.costUsd),
+		equivalentUsd: roundUsd(a.equivalentUsd + b.equivalentUsd),
+		promptTokens: a.promptTokens + b.promptTokens,
+		completionTokens: a.completionTokens + b.completionTokens,
+		cachedTokens: a.cachedTokens + b.cachedTokens
+	};
+}
+/** Local midnight of the day `at` falls in. */
+function localMidnight(at) {
+	const date = new Date(at);
+	return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+}
+/** The UTC day name the plugin uses in `byDay` (`YYYY-MM-DD`). */
+function utcDay(at) {
+	return new Date(Number.isFinite(at) ? at : 0).toISOString().slice(0, 10);
+}
+function weight(a, b) {
+	return b.costUsd - a.costUsd || b.equivalentUsd - a.equivalentUsd || b.requests - a.requests;
+}
+function text(a, b) {
+	return a < b ? -1 : a > b ? 1 : 0;
+}
+function mergeRows(a, b, keyOf) {
+	const merged = /* @__PURE__ */ new Map();
+	for (const row of [...a, ...b]) {
+		const key = keyOf(row);
+		const existing = merged.get(key);
+		merged.set(key, existing ? {
+			...existing,
+			...addTotals(existing, row)
+		} : { ...row });
+	}
+	return [...merged.values()];
+}
+/** Two summaries of disjoint sets of records as one (the plugin's log and the browser's own records). */
+function mergeSummaries(a, b) {
+	const byDay = mergeRows(a.byDay, b.byDay, (row) => row.day).sort((x, y) => text(x.day, y.day));
+	const byConnection = mergeRows(a.byConnection, b.byConnection, (row) => row.connectionId ?? "").sort((x, y) => weight(x, y) || text(x.connectionId ?? "", y.connectionId ?? ""));
+	const byModel = mergeRows(a.byModel, b.byModel, (row) => row.model).sort((x, y) => weight(x, y) || text(x.model, y.model));
+	return {
+		from: Math.min(a.from, b.from),
+		to: Math.max(a.to, b.to),
+		total: addTotals(a.total, b.total),
+		byDay,
+		byConnection,
+		byModel
+	};
+}
+function recordTotals(record) {
+	return summarizeUsage([record], {
+		from: -Infinity,
+		to: Infinity
+	}, () => "").total;
+}
+function looksLikeRecord(value) {
+	if (typeof value !== "object" || value === null) return false;
+	const record = value;
+	return typeof record["at"] === "number" && Number.isFinite(record["at"]) && typeof record["model"] === "string";
+}
+function createUsageStore(deps) {
+	const { bus, account, connections, log } = deps;
+	const now = deps.now ?? Date.now;
+	const ringSize = deps.ringSize ?? 300;
+	const pollMs = deps.pollMs ?? 3e4;
+	const staleMs = deps.staleMs ?? 6e4;
+	const startOfDay = deps.startOfDay ?? localMidnight;
+	/** Oldest first (by `at`); recent() reads it from the end. */
+	const ring = [];
+	const ids = /* @__PURE__ */ new Set();
+	const recordListeners = /* @__PURE__ */ new Set();
+	const changeListeners = /* @__PURE__ */ new Set();
+	let book = freshBook(startOfDay(now()));
+	let pluginToday = null;
+	let fetchedAt = null;
+	let stale = false;
+	let error = null;
+	let attemptedAt = null;
+	let inflight = null;
+	let watchers = 0;
+	let timer = null;
+	function freshBook(start) {
+		return {
+			start,
+			browser: emptyTotals(),
+			pluginRecords: emptyTotals()
+		};
+	}
+	function today0() {
+		const midnight = startOfDay(now());
+		if (book.start !== midnight) book = freshBook(midnight);
+		return midnight;
+	}
+	function pluginKnownDown() {
+		return connections.checked() && !connections.pluginUp();
+	}
+	function downError() {
+		return connections.pluginError() ?? {
+			code: "unreachable",
+			message: "the plugin is not answering",
+			status: null
+		};
+	}
+	function changed() {
+		for (const listener of [...changeListeners]) try {
+			listener();
+		} catch (err) {
+			log.error("usage listener failed", err);
+		}
+	}
+	function accept(record, origin) {
+		if (!looksLikeRecord(record)) return false;
+		if (record.requestId !== null && record.requestId !== void 0 && ids.has(record.requestId)) return false;
+		let index = ring.length;
+		while (index > 0 && ring[index - 1].record.at > record.at) index--;
+		ring.splice(index, 0, {
+			record,
+			origin
+		});
+		if (record.requestId) ids.add(record.requestId);
+		while (ring.length > ringSize) {
+			const gone = ring.shift();
+			if (gone?.record.requestId) ids.delete(gone.record.requestId);
+		}
+		const midnight = today0();
+		if (startOfDay(record.at) === midnight) {
+			const key = origin === "browser" ? "browser" : "pluginRecords";
+			book[key] = addTotals(book[key], recordTotals(record));
+		}
+		return true;
+	}
+	function announce(record) {
+		for (const listener of [...recordListeners]) try {
+			listener(record);
+		} catch (err) {
+			log.error("usage record listener failed", err);
+		}
+	}
+	const offBus = bus.on("usage:record", (event) => {
+		if (accept(event.record, "browser")) {
+			announce(event.record);
+			changed();
+		}
+	});
+	async function doRefresh() {
+		attemptedAt = now();
+		if (pluginKnownDown()) {
+			error = downError();
+			stale = pluginToday !== null;
+			changed();
+			return;
+		}
+		const start = startOfDay(attemptedAt);
+		const result = await account.spend({
+			from: start,
+			to: attemptedAt + 1
+		});
+		if (result.ok) {
+			pluginToday = {
+				start,
+				total: result.data.total
+			};
+			fetchedAt = now();
+			stale = false;
+			error = null;
+		} else {
+			error = result.error;
+			stale = true;
+			log.debug(`usage refresh failed: ${result.error.code}`);
+		}
+		changed();
+	}
+	function refresh() {
+		if (inflight) return inflight;
+		inflight = doRefresh().catch((err) => {
+			log.error("usage refresh failed", err);
+		}).finally(() => {
+			inflight = null;
+		});
+		return inflight;
+	}
+	/** Stale-while-revalidate for `today()`: at most one call a minute, none while polling or while the plugin is down. */
+	function revalidate() {
+		if (inflight || timer !== null || pluginKnownDown()) return;
+		if (attemptedAt !== null && now() - attemptedAt < staleMs) return;
+		refresh();
+	}
+	function localSummary(range, connectionId, withPlugin) {
+		return summarizeUsage(ring.filter((entry) => withPlugin || entry.origin === "browser").map((entry) => entry.record), range, utcDay, connectionId === null ? {} : { connectionId });
+	}
+	return {
+		today() {
+			const midnight = today0();
+			revalidate();
+			return addTotals(pluginToday !== null && pluginToday.start === midnight ? pluginToday.total : book.pluginRecords, book.browser);
+		},
+		recent(limit = 50) {
+			const n = Math.max(0, Math.min(Math.floor(limit), ring.length));
+			const out = [];
+			for (let i = ring.length - 1; i >= 0 && out.length < n; i--) out.push({ ...ring[i].record });
+			return out;
+		},
+		onRecord(listener) {
+			recordListeners.add(listener);
+			return () => void recordListeners.delete(listener);
+		},
+		onChange(listener) {
+			changeListeners.add(listener);
+			return () => void changeListeners.delete(listener);
+		},
+		state() {
+			const midnight = today0();
+			return {
+				pluginLoaded: pluginToday !== null && pluginToday.start === midnight,
+				fetchedAt,
+				stale,
+				error
+			};
+		},
+		refresh,
+		async summary(range, connectionId = null) {
+			if (pluginKnownDown()) return {
+				summary: localSummary(range, connectionId, true),
+				plugin: false,
+				error: downError()
+			};
+			try {
+				const result = await account.spend(range, connectionId);
+				if (result.ok) return {
+					summary: mergeSummaries(result.data, localSummary(range, connectionId, false)),
+					plugin: true,
+					error: null
+				};
+				return {
+					summary: localSummary(range, connectionId, true),
+					plugin: false,
+					error: result.error
+				};
+			} catch (err) {
+				log.error("usage summary failed", err);
+				return {
+					summary: localSummary(range, connectionId, true),
+					plugin: false,
+					error: {
+						code: "unreachable",
+						message: "the summary could not be read",
+						status: null
+					}
+				};
+			}
+		},
+		watch() {
+			watchers++;
+			if (watchers === 1) {
+				refresh();
+				timer = setInterval(() => {
+					if (!pluginKnownDown()) refresh();
+				}, pollMs);
+			}
+			let released = false;
+			return () => {
+				if (released) return;
+				released = true;
+				watchers--;
+				if (watchers === 0 && timer !== null) {
+					clearInterval(timer);
+					timer = null;
+				}
+			};
+		},
+		ingest(records) {
+			let added = false;
+			for (const record of records) if (accept(record, "plugin")) {
+				announce(record);
+				added = true;
+			}
+			if (added) changed();
+		},
+		dispose() {
+			offBus();
+			if (timer !== null) clearInterval(timer);
+			timer = null;
+			watchers = 0;
+			recordListeners.clear();
+			changeListeners.clear();
+		}
+	};
+}
+// src/features/account/strings.ts
+var ACCOUNT_STRINGS = {
 	en: {
-		"connections.tab": "Connections",
-		"connections.status.checking": "Checking the plugin…",
-		"connections.status.up": "Plugin is running",
-		"connections.status.upDetail": "port {port} · version {version}",
-		"connections.status.proxyDown": "The plugin answers, but its proxy is not listening on port {port}. Plugin-mode connections will not work until it does.",
-		"connections.status.down": "Plugin is not answering",
-		"connections.status.reason.not_installed": "SillyTavern does not know the Nanovia plugin: it is not installed or not enabled.",
-		"connections.status.reason.unreachable": "There was no answer from the SillyTavern server.",
-		"connections.status.reason.timeout": "The plugin did not answer in time.",
-		"connections.status.reason.forbidden": "SillyTavern refused the request (session or CSRF check). Reload the page.",
-		"connections.status.reason.other": "The plugin sent an unexpected answer ({code}).",
-		"connections.status.installHint": "To use plugin mode, copy the plugin folder to plugins/nanovia inside your SillyTavern folder, set enableServerPlugins: true in config.yaml and restart the server. Until then connections can work in direct mode.",
-		"connections.refresh": "Refresh",
-		"connections.new": "New connection",
-		"connections.empty": "No connections yet. A connection is a named bundle (model, key, billing, reasoning) that shows up in SillyTavern as a Connection Manager profile.",
-		"connections.chip.mode.plugin": "Plugin",
-		"connections.chip.mode.direct": "Direct",
-		"connections.chip.mode.autoPlugin": "Auto → plugin",
-		"connections.chip.mode.autoDirect": "Auto → direct",
-		"connections.chip.billing.auto": "Billing: auto",
-		"connections.chip.billing.subscription": "Subscription only",
-		"connections.chip.billing.paygo": "Pay as you go",
-		"connections.chip.profile.linked": "Profile linked",
-		"connections.chip.profile.drifted": "Profile differs",
-		"connections.chip.profile.missing": "Profile missing",
-		"connections.chip.profile.none": "No profile",
-		"connections.chip.profile.blocked": "Profile blocked",
-		"connections.chip.profile.unavailable": "No Connection Manager",
-		"connections.chip.pending": "Waiting for the plugin",
-		"connections.chip.orphan": "Not on the plugin",
-		"connections.chip.noKey": "No direct key",
-		"connections.chip.noKey.hint": "Direct mode needs your NanoGPT key. Edit the connection and enter it once.",
-		"connections.chip.pending.hint": "Edited while the plugin was down; it will be sent when the plugin answers.",
-		"connections.chip.orphan.hint": "The plugin does not have this connection. Send it to the plugin or delete it.",
-		"connections.chip.profile.blocked.hint": "A profile needs a proxy token (plugin mode) or a key (direct mode).",
-		"connections.action.edit": "Edit",
-		"connections.action.delete": "Delete",
-		"connections.action.rotate": "New token",
-		"connections.action.rotate.hint": "Issues a new proxy token and updates the profile.",
-		"connections.action.switchDirect": "Switch to direct mode",
-		"connections.action.switchDirect.hint": "Connects straight to NanoGPT while the plugin is down.",
-		"connections.action.repairProfile": "Create profile",
-		"connections.action.repairProfile.fix": "Repair profile",
-		"connections.action.sendToPlugin": "Send to plugin",
-		"connections.confirm.title": "Delete connection",
-		"connections.confirm.delete": "Delete the connection \"{name}\", its Connection Manager profile and its stored key?",
-		"connections.form.titleNew": "New connection",
-		"connections.form.titleEdit": "Edit connection",
-		"connections.form.name": "Name",
-		"connections.form.nameHint": "Shown in the list and in the profile name (\"Nanovia · …\").",
-		"connections.form.model": "Model id",
-		"connections.form.modelHint": "NanoGPT model id, for example deepseek/deepseek-v4. Variants such as :thinking are part of the id.",
-		"connections.form.mode": "How it connects",
-		"connections.mode.auto": "Automatic",
-		"connections.mode.plugin": "Through the plugin",
-		"connections.mode.direct": "Direct to NanoGPT",
-		"connections.mode.auto.hint": "Through the plugin while it answers, directly otherwise.",
-		"connections.mode.plugin.hint": "Through the local Nanovia proxy: routing, billing safety and usage tracking work.",
-		"connections.mode.direct.hint": "Straight from the browser to NanoGPT. Needs your NanoGPT key, entered once.",
-		"connections.form.key": "NanoGPT key",
-		"connections.form.keyActive": "The active key",
-		"connections.form.keyHint": "Which of the keys the plugin knows this connection uses.",
-		"connections.form.keysUnavailable": "The key list needs the plugin.",
-		"connections.key.add": "Add a key",
-		"connections.key.name": "Key name",
-		"connections.key.value": "Paste the key here",
-		"connections.key.save": "Save key",
-		"connections.key.hint": "The key goes to the plugin and is never shown again.",
-		"connections.key.added": "Key added.",
-		"connections.form.directKey": "NanoGPT key",
-		"connections.form.directKeyHint": "Written to SillyTavern's secret store once; Nanovia keeps only its id.",
-		"connections.form.directKeyOnFile": "A key is on file. Type a new one only to replace it.",
-		"connections.form.billing": "Billing",
-		"connections.billing.auto": "Automatic",
-		"connections.billing.subscription": "Subscription only",
-		"connections.billing.paygo": "Pay as you go",
-		"connections.billing.auto.hint": "Any setting is allowed; Nanovia warns when a setting takes a request out of your subscription.",
-		"connections.billing.subscription.hint": "Settings that would bill outside the subscription are blocked or removed.",
-		"connections.billing.paygo.hint": "Always billed pay-as-you-go, whatever the model offers.",
-		"connections.form.reasoning": "Reasoning",
-		"connections.reasoning.follow": "Follow the request",
-		"connections.reasoning.fixed": "Fixed effort",
-		"connections.reasoning.off": "Off",
-		"connections.reasoning.default": "Model default",
-		"connections.reasoning.follow.hint": "Takes the effort SillyTavern asked for and translates it to what the model supports.",
-		"connections.reasoning.fixed.hint": "Always the effort below.",
-		"connections.reasoning.off.hint": "No reasoning when the model allows it; the lowest effort, text hidden, when it always reasons.",
-		"connections.reasoning.default.hint": "Sends nothing: the model decides.",
-		"connections.form.effort": "Reasoning effort",
-		"connections.effort.none": "None",
-		"connections.effort.minimal": "Minimal",
-		"connections.effort.low": "Low",
-		"connections.effort.medium": "Medium",
-		"connections.effort.high": "High",
-		"connections.effort.xhigh": "Extra high",
-		"connections.effort.max": "Max",
-		"connections.form.hideThoughts": "Leave the reasoning text out of the reply",
-		"connections.form.webSearch": "Web search (adds :online, billed separately)",
-		"connections.form.note": "Note",
-		"connections.form.save": "Save",
-		"connections.form.cancel": "Cancel",
-		"connections.form.offline": "The plugin is not answering. Plugin-mode settings are saved here and sent when it is back.",
-		"connections.field.name": "name",
-		"connections.field.modelId": "model id",
-		"connections.notice.saved": "Connection saved.",
-		"connections.notice.deleted": "Connection deleted.",
-		"connections.notice.rotated": "New token issued and the profile updated.",
-		"connections.notice.profile": "Profile updated.",
-		"connections.notice.sent": "Sent to the plugin.",
-		"connections.notice.switched": "Switched to direct mode.",
-		"connections.notice.refreshed": "Refreshed.",
-		"connections.issue.plugin_down": "The plugin is not answering. Choose direct mode, or start the plugin and try again.",
-		"connections.issue.plugin_error": "The plugin refused the request: {message}",
-		"connections.issue.direct_key_required": "Enter your NanoGPT key: direct mode needs it once.",
-		"connections.issue.key_write_failed": "SillyTavern did not accept the key ({message}).",
-		"connections.issue.not_found": "This connection no longer exists.",
-		"connections.issue.invalid": "The {field} is required.",
-		"connections.issue.not_on_plugin": "The plugin does not have this connection.",
-		"connections.issue.saved_locally": "Saved here; it will be sent to the plugin when it answers.",
-		"connections.issue.profile_unavailable": "Connection Manager is not installed or is disabled, so no profile was written.",
-		"connections.issue.profile_needs_token": "No proxy token yet, so the profile was not written.",
-		"connections.issue.profile_needs_key": "No NanoGPT key on file, so the profile was not written.",
-		"connections.issue.profile_failed": "The profile could not be written.",
-		"connections.issue.key_not_removed": "The stored key could not be removed from SillyTavern; delete it there if you like."
+		"account.tab": "Account",
+		"account.duration.lessMinute": "< 1 min",
+		"account.unit.day": "d",
+		"account.unit.hour": "h",
+		"account.unit.minute": "min",
+		"account.refresh": "Refresh",
+		"account.key.label": "NanoGPT key",
+		"account.key.activeOption": "Active key",
+		"account.key.active": "active",
+		"account.keys.open": "Open the Keys tab",
+		"account.state.idle": "Reading the account…",
+		"account.state.needsPlugin": "Balance and subscription are read by the Nanovia plugin: the browser cannot read the stored keys. Install the plugin to see them here. Requests made by this browser are still counted below.",
+		"account.state.pluginDown": "The Nanovia plugin is not answering, so the balance and the subscription cannot be read.",
+		"account.state.pluginDownStale": "The Nanovia plugin is not answering. The numbers below are the last ones it gave.",
+		"account.state.noKey": "The plugin has no NanoGPT key to ask with. Add one in the Keys tab.",
+		"account.state.subscriptionFailed": "The subscription quota could not be read; the balance is up to date.",
+		"account.error.key_rejected": "NanoGPT rejected the key. Check it in the Keys tab.",
+		"account.error.rate_limited": "NanoGPT is limiting requests for this key. Try again in a minute.",
+		"account.error.upstream_error": "NanoGPT answered with an error. Try again later.",
+		"account.error.upstream_unreachable": "NanoGPT could not be reached from the server.",
+		"account.error.upstream_timeout": "NanoGPT did not answer in time.",
+		"account.error.other": "The account could not be read ({code}).",
+		"account.updated": "Updated {time}",
+		"account.updated.stale": "the last refresh failed",
+		"account.balance.title": "Balance",
+		"account.balance.usd": "USD",
+		"account.balance.nano": "XNO",
+		"account.balance.none": "No balance data yet.",
+		"account.subscription.title": "Subscription",
+		"account.subscription.none": "No active subscription: requests are pay-as-you-go.",
+		"account.subscription.unknown": "No subscription data yet.",
+		"account.quota.daily": "Daily quota (input tokens)",
+		"account.quota.weekly": "Weekly quota (input tokens)",
+		"account.quota.noData": "no data",
+		"account.quota.noLimit": "{used} tokens used, no limit reported",
+		"account.quota.value": "{used} of {limit} tokens ({percent}%)",
+		"account.quota.resets": "resets in {in} (at {at})",
+		"account.quota.resetDue": "reset is due",
+		"account.recommended.subscription": "NanoGPT recommends: subscription",
+		"account.recommended.paygo": "NanoGPT recommends: pay-as-you-go",
+		"account.recommended.paygo.hint": "A quota is used up: subscription models are billed pay-as-you-go until it resets.",
+		"account.spend.title": "Spend",
+		"account.spend.note": "Real cost is what NanoGPT charged (zero when the subscription covered the request). The pay-as-you-go equivalent is informational: what the same requests would cost without a subscription. It never counts toward any spending cap.",
+		"account.spend.noPlugin": "Without the plugin these numbers cover only the requests this browser has seen since the page was opened.",
+		"account.spend.pluginDown": "The plugin is not answering: these numbers cover only the requests this browser has seen since the page was opened.",
+		"account.spend.loading": "Loading…",
+		"account.spend.real": "Real cost",
+		"account.spend.equivalent": "Equivalent (informational)",
+		"account.spend.requests": "{count} requests",
+		"account.spend.tokens": "{prompt} in · {completion} out",
+		"account.spend.details": "Details for",
+		"account.spend.byConnection": "By connection",
+		"account.spend.byModel": "By model",
+		"account.spend.col.name": "Name",
+		"account.spend.col.requests": "Requests",
+		"account.spend.col.real": "Real",
+		"account.spend.col.equivalent": "Equiv.",
+		"account.spend.col.tokens": "Tokens",
+		"account.spend.empty": "No requests in this period.",
+		"account.range.today": "Today",
+		"account.range.week": "Last 7 days",
+		"account.range.month": "Last 30 days",
+		"account.row.noConnection": "outside Nanovia",
+		"account.recent.title": "Recent requests",
+		"account.recent.note": "The list shows the requests this browser has seen since the page was opened. Requests made through the plugin are counted in the totals above.",
+		"account.recent.empty": "No requests seen yet.",
+		"account.recent.check": "Check exact cost",
+		"account.recent.check.hint": "Asks NanoGPT for the exact charge of this request. It can take a few minutes to appear.",
+		"account.recent.check.needsPlugin": "Needs the Nanovia plugin.",
+		"account.recent.noId": "no request id",
+		"account.row.cost": "Cost",
+		"account.row.equivalent": "Equivalent",
+		"account.row.tokens": "{prompt} → {completion} tokens",
+		"account.row.cached": "{percent}% cached",
+		"account.row.error": "error",
+		"account.row.errorStatus": "HTTP {status}",
+		"account.billing.subscription": "subscription",
+		"account.billing.paygo": "pay-as-you-go",
+		"account.billing.unknown": "unknown",
+		"account.lookup.cost": "Exact cost: {cost}",
+		"account.lookup.notReady": "Not ready yet, try again later.",
+		"account.lookup.noUsd": "NanoGPT has the charge, but not in dollars.",
+		"account.lookup.pluginDown": "The plugin is not answering.",
+		"account.lookup.noKey": "The plugin has no NanoGPT key. Add one in the Keys tab.",
+		"account.lookup.error": "Could not check ({code})."
 	},
 	ru: {
-		"connections.tab": "Подключения",
-		"connections.status.checking": "Проверяю плагин…",
-		"connections.status.up": "Плагин работает",
-		"connections.status.upDetail": "порт {port} · версия {version}",
-		"connections.status.proxyDown": "Плагин отвечает, но его прокси не слушает порт {port}. Подключения через плагин не заработают, пока это так.",
-		"connections.status.down": "Плагин не отвечает",
-		"connections.status.reason.not_installed": "SillyTavern не знает плагин Nanovia: он не установлен или не включён.",
-		"connections.status.reason.unreachable": "Сервер SillyTavern не ответил.",
-		"connections.status.reason.timeout": "Плагин не ответил вовремя.",
-		"connections.status.reason.forbidden": "SillyTavern отклонил запрос (проверка сессии или CSRF). Перезагрузите страницу.",
-		"connections.status.reason.other": "Плагин прислал неожиданный ответ ({code}).",
-		"connections.status.installHint": "Чтобы работать через плагин, скопируйте папку плагина в plugins/nanovia внутри папки SillyTavern, включите enableServerPlugins: true в config.yaml и перезапустите сервер. Пока этого нет, подключения могут работать напрямую.",
-		"connections.refresh": "Обновить",
-		"connections.new": "Новое подключение",
-		"connections.empty": "Подключений пока нет. Подключение — это именованный набор (модель, ключ, тариф, рассуждения), который появляется в SillyTavern как профиль Connection Manager.",
-		"connections.chip.mode.plugin": "Плагин",
-		"connections.chip.mode.direct": "Напрямую",
-		"connections.chip.mode.autoPlugin": "Авто → плагин",
-		"connections.chip.mode.autoDirect": "Авто → напрямую",
-		"connections.chip.billing.auto": "Тариф: авто",
-		"connections.chip.billing.subscription": "Только подписка",
-		"connections.chip.billing.paygo": "Оплата по факту",
-		"connections.chip.profile.linked": "Профиль связан",
-		"connections.chip.profile.drifted": "Профиль отличается",
-		"connections.chip.profile.missing": "Профиль пропал",
-		"connections.chip.profile.none": "Нет профиля",
-		"connections.chip.profile.blocked": "Профиль не создать",
-		"connections.chip.profile.unavailable": "Нет Connection Manager",
-		"connections.chip.pending": "Ждёт плагин",
-		"connections.chip.orphan": "Нет в плагине",
-		"connections.chip.noKey": "Нет ключа",
-		"connections.chip.noKey.hint": "Для прямого режима нужен ваш ключ NanoGPT. Откройте подключение и введите его один раз.",
-		"connections.chip.pending.hint": "Изменено, пока плагин не отвечал; уйдёт в плагин, когда он ответит.",
-		"connections.chip.orphan.hint": "В плагине нет этого подключения. Отправьте его в плагин или удалите.",
-		"connections.chip.profile.blocked.hint": "Для профиля нужен токен прокси (режим плагина) или ключ (прямой режим).",
-		"connections.action.edit": "Изменить",
-		"connections.action.delete": "Удалить",
-		"connections.action.rotate": "Новый токен",
-		"connections.action.rotate.hint": "Выпускает новый токен прокси и обновляет профиль.",
-		"connections.action.switchDirect": "Перейти на прямой режим",
-		"connections.action.switchDirect.hint": "Подключается прямо к NanoGPT, пока плагин не отвечает.",
-		"connections.action.repairProfile": "Создать профиль",
-		"connections.action.repairProfile.fix": "Починить профиль",
-		"connections.action.sendToPlugin": "Отправить в плагин",
-		"connections.confirm.title": "Удаление подключения",
-		"connections.confirm.delete": "Удалить подключение «{name}», его профиль Connection Manager и сохранённый ключ?",
-		"connections.form.titleNew": "Новое подключение",
-		"connections.form.titleEdit": "Изменение подключения",
-		"connections.form.name": "Название",
-		"connections.form.nameHint": "Показывается в списке и в названии профиля («Nanovia · …»).",
-		"connections.form.model": "Идентификатор модели",
-		"connections.form.modelHint": "Идентификатор модели NanoGPT, например deepseek/deepseek-v4. Варианты вроде :thinking входят в идентификатор.",
-		"connections.form.mode": "Как подключаться",
-		"connections.mode.auto": "Автоматически",
-		"connections.mode.plugin": "Через плагин",
-		"connections.mode.direct": "Напрямую в NanoGPT",
-		"connections.mode.auto.hint": "Через плагин, пока он отвечает, иначе напрямую.",
-		"connections.mode.plugin.hint": "Через локальный прокси Nanovia: работают маршрутизация, защита подписки и учёт расхода.",
-		"connections.mode.direct.hint": "Из браузера прямо в NanoGPT. Нужен ваш ключ NanoGPT, вводится один раз.",
-		"connections.form.key": "Ключ NanoGPT",
-		"connections.form.keyActive": "Активный ключ",
-		"connections.form.keyHint": "Какой из ключей, известных плагину, использует это подключение.",
-		"connections.form.keysUnavailable": "Список ключей доступен только через плагин.",
-		"connections.key.add": "Добавить ключ",
-		"connections.key.name": "Название ключа",
-		"connections.key.value": "Вставьте ключ сюда",
-		"connections.key.save": "Сохранить ключ",
-		"connections.key.hint": "Ключ уходит в плагин и больше нигде не показывается.",
-		"connections.key.added": "Ключ добавлен.",
-		"connections.form.directKey": "Ключ NanoGPT",
-		"connections.form.directKeyHint": "Записывается в хранилище секретов SillyTavern один раз; Nanovia помнит только его идентификатор.",
-		"connections.form.directKeyOnFile": "Ключ уже сохранён. Вводите новый, только если хотите заменить.",
-		"connections.form.billing": "Тариф",
-		"connections.billing.auto": "Автоматически",
-		"connections.billing.subscription": "Только подписка",
-		"connections.billing.paygo": "Оплата по факту",
-		"connections.billing.auto.hint": "Разрешены любые настройки; Nanovia предупредит, если настройка выводит запрос за пределы подписки.",
-		"connections.billing.subscription.hint": "Настройки, из-за которых запрос оплачивался бы вне подписки, блокируются или убираются.",
-		"connections.billing.paygo.hint": "Всегда оплата по факту, что бы ни предлагала модель.",
-		"connections.form.reasoning": "Рассуждения",
-		"connections.reasoning.follow": "Как в запросе",
-		"connections.reasoning.fixed": "Фиксированный уровень",
-		"connections.reasoning.off": "Выключены",
-		"connections.reasoning.default": "По умолчанию модели",
-		"connections.reasoning.follow.hint": "Берёт уровень, который запросил SillyTavern, и переводит в то, что поддерживает модель.",
-		"connections.reasoning.fixed.hint": "Всегда уровень, выбранный ниже.",
-		"connections.reasoning.off.hint": "Без рассуждений, если модель позволяет; если рассуждает всегда — минимальный уровень со скрытым текстом.",
-		"connections.reasoning.default.hint": "Ничего не отправляет: решает модель.",
-		"connections.form.effort": "Уровень рассуждений",
-		"connections.effort.none": "Нет",
-		"connections.effort.minimal": "Минимальный",
-		"connections.effort.low": "Низкий",
-		"connections.effort.medium": "Средний",
-		"connections.effort.high": "Высокий",
-		"connections.effort.xhigh": "Очень высокий",
-		"connections.effort.max": "Максимальный",
-		"connections.form.hideThoughts": "Не включать текст рассуждений в ответ",
-		"connections.form.webSearch": "Веб-поиск (добавляет :online, оплачивается отдельно)",
-		"connections.form.note": "Заметка",
-		"connections.form.save": "Сохранить",
-		"connections.form.cancel": "Отмена",
-		"connections.form.offline": "Плагин не отвечает. Настройки режима плагина сохранятся здесь и уйдут в плагин, когда он вернётся.",
-		"connections.field.name": "название",
-		"connections.field.modelId": "идентификатор модели",
-		"connections.notice.saved": "Подключение сохранено.",
-		"connections.notice.deleted": "Подключение удалено.",
-		"connections.notice.rotated": "Выпущен новый токен, профиль обновлён.",
-		"connections.notice.profile": "Профиль обновлён.",
-		"connections.notice.sent": "Отправлено в плагин.",
-		"connections.notice.switched": "Переключено на прямой режим.",
-		"connections.notice.refreshed": "Обновлено.",
-		"connections.issue.plugin_down": "Плагин не отвечает. Выберите прямой режим или запустите плагин и повторите.",
-		"connections.issue.plugin_error": "Плагин отклонил запрос: {message}",
-		"connections.issue.direct_key_required": "Введите ключ NanoGPT: для прямого режима он нужен один раз.",
-		"connections.issue.key_write_failed": "SillyTavern не принял ключ ({message}).",
-		"connections.issue.not_found": "Такого подключения уже нет.",
-		"connections.issue.invalid": "Поле «{field}» обязательно.",
-		"connections.issue.not_on_plugin": "В плагине нет этого подключения.",
-		"connections.issue.saved_locally": "Сохранено здесь; уйдёт в плагин, когда он ответит.",
-		"connections.issue.profile_unavailable": "Connection Manager не установлен или выключен, поэтому профиль не записан.",
-		"connections.issue.profile_needs_token": "Токена прокси ещё нет, поэтому профиль не записан.",
-		"connections.issue.profile_needs_key": "Нет сохранённого ключа NanoGPT, поэтому профиль не записан.",
-		"connections.issue.profile_failed": "Профиль не удалось записать.",
-		"connections.issue.key_not_removed": "Сохранённый ключ не удалось убрать из SillyTavern; при желании удалите его там."
+		"account.tab": "Аккаунт",
+		"account.duration.lessMinute": "< 1 мин",
+		"account.unit.day": "д",
+		"account.unit.hour": "ч",
+		"account.unit.minute": "мин",
+		"account.refresh": "Обновить",
+		"account.key.label": "Ключ NanoGPT",
+		"account.key.activeOption": "Активный ключ",
+		"account.key.active": "активный",
+		"account.keys.open": "Открыть вкладку «Ключи»",
+		"account.state.idle": "Читаю аккаунт…",
+		"account.state.needsPlugin": "Баланс и подписку читает плагин Nanovia: браузер не может прочитать сохранённые ключи. Установите плагин, чтобы видеть их здесь. Запросы, сделанные этим браузером, считаются ниже и без него.",
+		"account.state.pluginDown": "Плагин Nanovia не отвечает, поэтому баланс и подписку прочитать нельзя.",
+		"account.state.pluginDownStale": "Плагин Nanovia не отвечает. Ниже последние цифры, которые он дал.",
+		"account.state.noKey": "У плагина нет ключа NanoGPT для запроса. Добавьте его на вкладке «Ключи».",
+		"account.state.subscriptionFailed": "Квоту подписки прочитать не удалось; баланс актуален.",
+		"account.error.key_rejected": "NanoGPT отклонил ключ. Проверьте его на вкладке «Ключи».",
+		"account.error.rate_limited": "NanoGPT ограничивает запросы по этому ключу. Попробуйте через минуту.",
+		"account.error.upstream_error": "NanoGPT ответил ошибкой. Попробуйте позже.",
+		"account.error.upstream_unreachable": "Сервер не смог достучаться до NanoGPT.",
+		"account.error.upstream_timeout": "NanoGPT не ответил вовремя.",
+		"account.error.other": "Не удалось прочитать аккаунт ({code}).",
+		"account.updated": "Обновлено {time}",
+		"account.updated.stale": "последнее обновление не удалось",
+		"account.balance.title": "Баланс",
+		"account.balance.usd": "USD",
+		"account.balance.nano": "XNO",
+		"account.balance.none": "Данных о балансе пока нет.",
+		"account.subscription.title": "Подписка",
+		"account.subscription.none": "Активной подписки нет: запросы оплачиваются по факту.",
+		"account.subscription.unknown": "Данных о подписке пока нет.",
+		"account.quota.daily": "Дневная квота (входные токены)",
+		"account.quota.weekly": "Недельная квота (входные токены)",
+		"account.quota.noData": "нет данных",
+		"account.quota.noLimit": "использовано {used} токенов, лимит не указан",
+		"account.quota.value": "{used} из {limit} токенов ({percent}%)",
+		"account.quota.resets": "сброс через {in} (в {at})",
+		"account.quota.resetDue": "пора сбрасывать",
+		"account.recommended.subscription": "NanoGPT советует: подписка",
+		"account.recommended.paygo": "NanoGPT советует: оплата по факту",
+		"account.recommended.paygo.hint": "Квота исчерпана: модели подписки оплачиваются по факту, пока она не сбросится.",
+		"account.spend.title": "Расходы",
+		"account.spend.note": "Реальная стоимость — это то, что списал NanoGPT (ноль, если запрос покрыла подписка). Эквивалент по тарифу «оплата по факту» — справочная цифра: сколько те же запросы стоили бы без подписки. Он никогда не учитывается ни в каком лимите расходов.",
+		"account.spend.noPlugin": "Без плагина эти цифры включают только запросы, которые этот браузер видел с момента открытия страницы.",
+		"account.spend.pluginDown": "Плагин не отвечает: эти цифры включают только запросы, которые этот браузер видел с момента открытия страницы.",
+		"account.spend.loading": "Загружаю…",
+		"account.spend.real": "Реальная стоимость",
+		"account.spend.equivalent": "Эквивалент (справочно)",
+		"account.spend.requests": "запросов: {count}",
+		"account.spend.tokens": "{prompt} вход · {completion} выход",
+		"account.spend.details": "Подробности за",
+		"account.spend.byConnection": "По подключениям",
+		"account.spend.byModel": "По моделям",
+		"account.spend.col.name": "Название",
+		"account.spend.col.requests": "Запросов",
+		"account.spend.col.real": "Реально",
+		"account.spend.col.equivalent": "Экв.",
+		"account.spend.col.tokens": "Токены",
+		"account.spend.empty": "За этот период запросов нет.",
+		"account.range.today": "Сегодня",
+		"account.range.week": "Последние 7 дней",
+		"account.range.month": "Последние 30 дней",
+		"account.row.noConnection": "вне Nanovia",
+		"account.recent.title": "Последние запросы",
+		"account.recent.note": "В списке запросы, которые этот браузер видел с момента открытия страницы. Запросы через плагин учтены в итогах выше.",
+		"account.recent.empty": "Запросов пока не было.",
+		"account.recent.check": "Узнать точную стоимость",
+		"account.recent.check.hint": "Спрашивает у NanoGPT точную сумму списания за этот запрос. Она может появиться не сразу, через несколько минут.",
+		"account.recent.check.needsPlugin": "Нужен плагин Nanovia.",
+		"account.recent.noId": "нет id запроса",
+		"account.row.cost": "Стоимость",
+		"account.row.equivalent": "Эквивалент",
+		"account.row.tokens": "{prompt} → {completion} токенов",
+		"account.row.cached": "из кэша {percent}%",
+		"account.row.error": "ошибка",
+		"account.row.errorStatus": "HTTP {status}",
+		"account.billing.subscription": "подписка",
+		"account.billing.paygo": "оплата по факту",
+		"account.billing.unknown": "неизвестно",
+		"account.lookup.cost": "Точная стоимость: {cost}",
+		"account.lookup.notReady": "Ещё не готово, попробуйте позже.",
+		"account.lookup.noUsd": "У NanoGPT есть списание, но не в долларах.",
+		"account.lookup.pluginDown": "Плагин не отвечает.",
+		"account.lookup.noKey": "У плагина нет ключа NanoGPT. Добавьте его на вкладке «Ключи».",
+		"account.lookup.error": "Не удалось проверить ({code})."
 	}
 };
 // src/ui/dom.ts
@@ -2604,6 +3254,31 @@ var SettingsPanel = class {
 		this.deps.setLastTab(id);
 		this.refresh();
 	}
+	/**
+	* Shows the drawer to the user: opens ST's Extensions panel and the Nanovia drawer in it (each only when it is
+	* closed; ST toggles both from its own delegated click handlers) and selects `tabId` when it is a known tab.
+	* Best effort: a page without the Extensions panel just does nothing.
+	*/
+	open(tabId) {
+		if (tabId) this.select(tabId);
+		if (!this.root && !this.mount()) return;
+		const root = this.root;
+		if (!root || typeof document === "undefined") return;
+		try {
+			const block = document.getElementById("rm_extensions_block");
+			const opener = document.querySelector("#extensions-settings-button .drawer-toggle");
+			if (opener && block && !block.classList.contains("openDrawer")) opener.click();
+			const header = root.querySelector(".inline-drawer-toggle");
+			const icon = root.querySelector(".inline-drawer-icon");
+			if (header && icon?.classList.contains("down")) header.click();
+			root.scrollIntoView?.({
+				block: "start",
+				behavior: "smooth"
+			});
+		} catch (error) {
+			this.deps.log.debug("could not open the Nanovia drawer", error);
+		}
+	}
 	activeTab() {
 		return this.activeId;
 	}
@@ -2750,6 +3425,976 @@ var UI_STRINGS = {
 		"ui.general.language.en": "English",
 		"ui.general.debug": "Подробный журнал",
 		"ui.general.debugHint": "Пишет подробности работы Nanovia в консоль браузера. Ключи и токены не выводятся никогда."
+	}
+};
+// src/features/account/view-model.ts
+var HOUR_MS = 36e5;
+var DAY_MS = 864e5;
+var DASH = "—";
+/**
+* USD with the decimals the amount needs to show three significant digits, at least two and at most six:
+* $12.40, $0.052, $0.0123, $0.000345. A positive amount too small for six decimals reads "<$0.000001", never "$0.00".
+*/
+function formatUsd(value) {
+	if (value === null || !Number.isFinite(value)) return DASH;
+	if (value === 0) return "$0.00";
+	const abs = Math.abs(value);
+	const decimals = abs >= 1 ? 2 : Math.min(6, Math.max(2, 2 - Math.floor(Math.log10(abs))));
+	const [whole = "0", fraction = ""] = value.toFixed(decimals).replace(/0+$/, "").split(".");
+	if (/^-?0$/.test(whole) && fraction === "") return `${value < 0 ? "-" : ""}<$0.000001`;
+	return `${whole.startsWith("-") ? "-$" + whole.slice(1) : "$" + whole}.${fraction.padEnd(2, "0")}`;
+}
+/** 950 -> 950, 12_345 -> 12.3k, 2_500_000 -> 2.5M. */
+function formatTokens(value) {
+	if (value === null || !Number.isFinite(value)) return DASH;
+	const abs = Math.abs(value);
+	if (abs >= 1e9) return `${trim(value / 1e9)}B`;
+	if (abs >= 1e6) return `${trim(value / 1e6)}M`;
+	if (abs >= 1e4) return `${trim(value / 1e3)}k`;
+	return String(Math.round(value));
+}
+function trim(value) {
+	return value.toFixed(1).replace(/\.0$/, "");
+}
+function formatPercent(fraction) {
+	return `${Math.round(fraction * 100)}`;
+}
+function formatLatency(ms) {
+	if (!Number.isFinite(ms) || ms <= 0) return DASH;
+	return ms < 1e3 ? `${Math.round(ms)} ms` : `${trim(ms / 1e3)} s`;
+}
+function pad(n) {
+	return String(n).padStart(2, "0");
+}
+/** HH:MM:SS in the browser's time zone. */
+function formatClock(at) {
+	const d = new Date(at);
+	return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+/** HH:MM:SS for today, DD.MM HH:MM:SS for another day. */
+function formatMoment(at, now) {
+	const d = new Date(at);
+	const n = new Date(now);
+	return d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth() && d.getDate() === n.getDate() ? formatClock(at) : `${pad(d.getDate())}.${pad(d.getMonth() + 1)} ${formatClock(at)}`;
+}
+/** "3 d 4 h", "3 h 20 min", "12 min", "< 1 min": the two largest units. */
+function formatDuration(ms, t) {
+	if (!Number.isFinite(ms) || ms < 6e4) return t("account.duration.lessMinute");
+	const days = Math.floor(ms / DAY_MS);
+	const hours = Math.floor(ms % DAY_MS / HOUR_MS);
+	const minutes = Math.floor(ms % HOUR_MS / 6e4);
+	const parts = [];
+	if (days > 0) parts.push(`${days} ${t("account.unit.day")}`);
+	if (hours > 0) parts.push(`${hours} ${t("account.unit.hour")}`);
+	if (minutes > 0 && days === 0) parts.push(`${minutes} ${t("account.unit.minute")}`);
+	return parts.slice(0, 2).join(" ");
+}
+function quotaBar(id, window, now, t) {
+	const label = t(`account.quota.${id}`);
+	const { used, limit, resetsAt } = window;
+	const fraction = used !== null && limit !== null && limit > 0 ? Math.min(1, Math.max(0, used / limit)) : null;
+	let valueText;
+	if (used === null) valueText = t("account.quota.noData");
+	else if (limit === null || !(limit > 0)) valueText = t("account.quota.noLimit", { used: formatTokens(used) });
+	else valueText = t("account.quota.value", {
+		used: formatTokens(used),
+		limit: formatTokens(limit),
+		percent: formatPercent(used / limit)
+	});
+	let level = "muted";
+	if (fraction !== null) level = fraction >= 1 ? "error" : fraction >= .8 ? "warn" : "ok";
+	let resetText = null;
+	if (resetsAt !== null) {
+		const wait = resetsAt - now;
+		resetText = wait > 0 ? t("account.quota.resets", {
+			in: formatDuration(wait, t),
+			at: formatMoment(resetsAt, now)
+		}) : t("account.quota.resetDue");
+	}
+	return {
+		id,
+		label,
+		fraction,
+		level,
+		valueText,
+		resetText
+	};
+}
+/** NanoGPT's advice on which billing to use right now. */
+function recommendedChip(mode, t) {
+	if (mode === null) return null;
+	return mode === "subscription" ? {
+		label: t("account.recommended.subscription"),
+		kind: "ok"
+	} : {
+		label: t("account.recommended.paygo"),
+		kind: "warn",
+		title: t("account.recommended.paygo.hint")
+	};
+}
+function errorText(error, t) {
+	if ([
+		"key_rejected",
+		"rate_limited",
+		"upstream_error",
+		"upstream_unreachable",
+		"upstream_timeout"
+	].includes(error.code)) return t(`account.error.${error.code}`);
+	return t("account.error.other", { code: error.code });
+}
+/** What to tell the user about the account's state, null when there is nothing to say. */
+function accountNotice(detail, t) {
+	switch (detail.state) {
+		case "needs_plugin": return {
+			kind: "info",
+			text: t("account.state.needsPlugin"),
+			action: null
+		};
+		case "plugin_down": return {
+			kind: "error",
+			text: detail.snapshot ? t("account.state.pluginDownStale") : t("account.state.pluginDown"),
+			action: null
+		};
+		case "no_key": return {
+			kind: "warn",
+			text: t("account.state.noKey"),
+			action: "keys"
+		};
+		case "error": return {
+			kind: "error",
+			text: detail.error ? errorText(detail.error, t) : t("account.error.other", { code: "?" }),
+			action: detail.error?.code === "key_rejected" ? "keys" : null
+		};
+		case "ok":
+			if (detail.subscriptionError && stateOfError(detail.subscriptionError) !== "needs_plugin") return {
+				kind: "warn",
+				text: t("account.state.subscriptionFailed"),
+				action: null
+			};
+			return null;
+		default: return detail.fetching ? null : {
+			kind: "info",
+			text: t("account.state.idle"),
+			action: null
+		};
+	}
+}
+function balanceUpdated(detail, now, t) {
+	const brief = detail.brief;
+	if (!brief) return null;
+	const text = t("account.updated", { time: formatMoment(brief.fetchedAt, now) });
+	return detail.stale ? `${text} · ${t("account.updated.stale")}` : text;
+}
+/** Label of an option of the key selector. */
+function keyOptionLabel(key, t) {
+	const base = key.label ? `${key.label} · ${key.masked}` : key.masked;
+	return key.active ? `${base} (${t("account.key.active")})` : base;
+}
+var SPEND_RANGES = [
+	"today",
+	"week",
+	"month"
+];
+/** The period of a range ending now: today since local midnight, the others the last 7 / 30 days. */
+function rangeBounds(range, now, startOfDay) {
+	const to = now + 1;
+	if (range === "today") return {
+		from: startOfDay(now),
+		to
+	};
+	return {
+		from: now - (range === "week" ? 7 : 30) * DAY_MS,
+		to
+	};
+}
+function spendCard(range, totals, t) {
+	const title = t(`account.range.${range}`);
+	if (!totals) return {
+		id: range,
+		title,
+		requests: DASH,
+		real: DASH,
+		equivalent: DASH,
+		tokens: DASH,
+		empty: true
+	};
+	return {
+		id: range,
+		title,
+		requests: String(totals.requests),
+		real: formatUsd(totals.costUsd),
+		equivalent: formatUsd(totals.equivalentUsd),
+		tokens: t("account.spend.tokens", {
+			prompt: formatTokens(totals.promptTokens),
+			completion: formatTokens(totals.completionTokens)
+		}),
+		empty: false
+	};
+}
+function breakdownRow(key, name, totals) {
+	return {
+		key,
+		name,
+		requests: String(totals.requests),
+		real: formatUsd(totals.costUsd),
+		equivalent: formatUsd(totals.equivalentUsd),
+		tokens: formatTokens(totals.promptTokens + totals.completionTokens)
+	};
+}
+/** Rows by connection; `nameOf` turns an id into the connection's name (null = requests outside Nanovia). */
+function connectionRows(rows, nameOf, t) {
+	return rows.map((row) => breakdownRow(row.connectionId ?? "", row.connectionId === null ? t("account.row.noConnection") : nameOf(row.connectionId) ?? row.connectionId, row));
+}
+function modelRows(rows) {
+	return rows.map((row) => breakdownRow(row.model, row.model, row));
+}
+/** Where the spend numbers come from, null when nothing needs saying (the plugin's log is part of them). */
+function spendSourceNote(result, t) {
+	if (!result || result.plugin) return null;
+	return result.error?.code === "not_installed" ? t("account.spend.noPlugin") : t("account.spend.pluginDown");
+}
+var BILLING_KIND = {
+	subscription: "ok",
+	paygo: "info",
+	unknown: "muted"
+};
+function cachedShare(record) {
+	const { promptTokens, cachedTokens } = record;
+	if (promptTokens === null || cachedTokens === null || !(promptTokens > 0)) return null;
+	return Math.min(1, Math.max(0, cachedTokens / promptTokens));
+}
+function recentRow(record, index, now, nameOf, t) {
+	const failed = record.error !== null || record.status >= 400;
+	const share = cachedShare(record);
+	const connection = record.connectionId === null ? t("account.row.noConnection") : nameOf(record.connectionId) ?? record.connectionId;
+	return {
+		key: record.requestId ?? `${record.at}-${index}`,
+		requestId: record.requestId,
+		time: formatMoment(record.at, now),
+		connection,
+		model: record.model,
+		billing: {
+			label: t(`account.billing.${record.billing}`),
+			kind: BILLING_KIND[record.billing]
+		},
+		cost: formatUsd(record.costUsd),
+		equivalent: formatUsd(record.equivalentUsd),
+		tokens: t("account.row.tokens", {
+			prompt: formatTokens(record.promptTokens),
+			completion: formatTokens(record.completionTokens)
+		}),
+		cached: share === null ? null : t("account.row.cached", { percent: formatPercent(share) }),
+		latency: formatLatency(record.latencyMs),
+		error: failed ? {
+			label: t("account.row.error"),
+			title: record.error ?? t("account.row.errorStatus", { status: record.status })
+		} : null
+	};
+}
+/** What the "check exact cost" button answers. Never shows a figure for a request that is not ready. */
+function lookupView(result, t) {
+	if (!result.ok) {
+		const code = result.error.code;
+		if (code === "not_installed" || code === "unreachable" || code === "timeout" || code === "forbidden") return {
+			kind: "error",
+			text: t("account.lookup.pluginDown")
+		};
+		if (code === "no_key") return {
+			kind: "warn",
+			text: t("account.lookup.noKey")
+		};
+		return {
+			kind: "error",
+			text: t("account.lookup.error", { code })
+		};
+	}
+	const { ready, costUsd } = result.data;
+	if (!ready) return {
+		kind: "warn",
+		text: t("account.lookup.notReady")
+	};
+	if (costUsd === null) return {
+		kind: "warn",
+		text: t("account.lookup.noUsd")
+	};
+	return {
+		kind: "ok",
+		text: t("account.lookup.cost", { cost: formatUsd(costUsd) })
+	};
+}
+/** The spend summaries are not asked for more often than this when records keep arriving. */
+var SPEND_THROTTLE_MS = 5e3;
+function renderAccountTab(root, ctx) {
+	const t = ctx.t;
+	const state = {
+		keys: null,
+		spend: {},
+		range: "week",
+		lookups: /* @__PURE__ */ new Map()
+	};
+	let disposed = false;
+	let loading = false;
+	let rerun = false;
+	let lastLoad = 0;
+	let trailing = null;
+	const headHost = el("div", { class: "nanovia-account-head" });
+	const noticeHost = el("div", {
+		class: "nanovia-notice-host",
+		attrs: { "aria-live": "polite" }
+	});
+	const accountHost = el("div", { class: "nanovia-account-cards" });
+	const spendHost = el("section", { class: "nanovia-account-section" });
+	const recentHost = el("section", { class: "nanovia-account-section" });
+	root.append(headHost, noticeHost, accountHost, spendHost, recentHost);
+	const nameOf = (connectionId) => ctx.connections.get(connectionId)?.config.name ?? null;
+	function drawHead() {
+		clear(headHost);
+		const keys = state.keys ?? [];
+		const row = el("div", { class: "nanovia-row" });
+		if (keys.length > 0) {
+			const options = [{
+				value: "",
+				label: t("account.key.activeOption")
+			}, ...keys.map((key) => ({
+				value: key.id,
+				label: keyOptionLabel(key, t)
+			}))];
+			row.appendChild(field(t("account.key.label"), select({
+				value: ctx.account.keyId() ?? "",
+				options,
+				label: t("account.key.label"),
+				onChange: async (value) => {
+					ctx.account.selectKey(value || null);
+					await ctx.account.refresh({ force: true });
+				}
+			})));
+		}
+		row.appendChild(button({
+			label: t("account.refresh"),
+			icon: "rotate",
+			kind: "ghost",
+			onClick: () => refreshAll()
+		}));
+		headHost.appendChild(row);
+	}
+	function renderBar(spec) {
+		const fill = el("div", { class: ["nanovia-bar-fill", `nanovia-bar-${spec.level}`] });
+		const percent = Math.round((spec.fraction ?? 0) * 100);
+		fill.style.width = `${percent}%`;
+		return el("div", { class: "nanovia-quota" }, [
+			el("div", {
+				class: "nanovia-quota-label",
+				text: spec.label
+			}),
+			el("div", {
+				class: "nanovia-bar",
+				attrs: {
+					role: "progressbar",
+					"aria-label": spec.label,
+					"aria-valuemin": 0,
+					"aria-valuemax": 100,
+					"aria-valuenow": spec.fraction === null ? void 0 : percent
+				}
+			}, [fill]),
+			el("div", {
+				class: "nanovia-muted",
+				text: spec.valueText
+			}),
+			spec.resetText ? el("div", {
+				class: "nanovia-muted",
+				text: spec.resetText
+			}) : null
+		]);
+	}
+	function drawAccount() {
+		const detail = ctx.account.detail();
+		const now = Date.now();
+		clear(noticeHost);
+		clear(accountHost);
+		const notice = accountNotice(detail, t);
+		if (notice) {
+			const box = el("div", { class: ["nanovia-notice", `nanovia-notice-${notice.kind}`] }, [el("div", { text: notice.text })]);
+			if (notice.action === "keys") box.appendChild(button({
+				label: t("account.keys.open"),
+				kind: "ghost",
+				onClick: () => ctx.panel.open?.("keys")
+			}));
+			noticeHost.appendChild(box);
+		}
+		const snapshot = detail.snapshot;
+		if (!snapshot) return;
+		const balance = el("div", { class: "nanovia-card" }, [
+			el("b", { text: t("account.balance.title") }),
+			el("div", {
+				class: "nanovia-big",
+				text: formatUsd(snapshot.usdBalance)
+			}),
+			snapshot.nanoBalance !== null && snapshot.nanoBalance !== 0 ? el("div", {
+				class: "nanovia-muted",
+				text: `${t("account.balance.nano")}: ${snapshot.nanoBalance}`
+			}) : null,
+			el("div", {
+				class: "nanovia-muted",
+				text: balanceUpdated(detail, now, t) ?? ""
+			})
+		]);
+		const sub = snapshot.subscription;
+		const subscription = el("div", { class: "nanovia-card" }, [el("b", { text: t("account.subscription.title") })]);
+		if (sub === null || !sub.active) subscription.appendChild(el("div", {
+			class: "nanovia-muted",
+			text: detail.subscriptionError ? t("account.subscription.unknown") : t("account.subscription.none")
+		}));
+		else {
+			for (const id of ["daily", "weekly"]) {
+				const window = sub[id];
+				if (window.used === null && window.limit === null && window.resetsAt === null) continue;
+				subscription.appendChild(renderBar(quotaBar(id, window, now, t)));
+			}
+			const recommended = recommendedChip(sub.recommendedMode, t);
+			if (recommended) subscription.appendChild(el("div", { class: "nanovia-row" }, [chip(recommended.label, recommended.kind, recommended.title)]));
+		}
+		accountHost.append(balance, subscription);
+	}
+	function breakdownTable(title, rows) {
+		const head = el("tr", {}, [
+			el("th", { text: t("account.spend.col.name") }),
+			el("th", { text: t("account.spend.col.requests") }),
+			el("th", { text: t("account.spend.col.real") }),
+			el("th", { text: t("account.spend.col.equivalent") }),
+			el("th", { text: t("account.spend.col.tokens") })
+		]);
+		const body = rows.map((row) => el("tr", { data: { row: row.key } }, [
+			el("td", {
+				class: "nanovia-table-name",
+				text: row.name
+			}),
+			el("td", { text: row.requests }),
+			el("td", { text: row.real }),
+			el("td", {
+				class: "nanovia-muted",
+				text: row.equivalent
+			}),
+			el("td", {
+				class: "nanovia-muted",
+				text: row.tokens
+			})
+		]));
+		return el("div", { class: "nanovia-table-block" }, [el("b", { text: title }), el("div", { class: "nanovia-table-wrap" }, [el("table", { class: "nanovia-table" }, [el("thead", {}, [head]), el("tbody", {}, body)])])]);
+	}
+	function drawSpend() {
+		clear(spendHost);
+		spendHost.appendChild(el("h4", {
+			class: "nanovia-account-title",
+			text: t("account.spend.title")
+		}));
+		spendHost.appendChild(el("div", {
+			class: "nanovia-muted nanovia-spend-note",
+			text: t("account.spend.note")
+		}));
+		const cards = el("div", { class: "nanovia-spend-cards" });
+		for (const range of SPEND_RANGES) {
+			const result = state.spend[range];
+			const spec = spendCard(range, result?.summary.total ?? null, t);
+			cards.appendChild(el("div", {
+				class: "nanovia-card nanovia-spend-card",
+				data: { range }
+			}, [
+				el("b", { text: spec.title }),
+				el("div", { class: "nanovia-spend-pair" }, [el("div", {}, [el("div", {
+					class: "nanovia-muted",
+					text: t("account.spend.real")
+				}), el("div", {
+					class: "nanovia-big nanovia-spend-real",
+					text: spec.real
+				})]), el("div", {}, [el("div", {
+					class: "nanovia-muted",
+					text: t("account.spend.equivalent")
+				}), el("div", {
+					class: "nanovia-big nanovia-spend-equivalent",
+					text: spec.equivalent
+				})])]),
+				el("div", {
+					class: "nanovia-muted",
+					text: spec.empty ? loading ? t("account.spend.loading") : "" : `${t("account.spend.requests", { count: spec.requests })} · ${spec.tokens}`
+				})
+			]));
+		}
+		spendHost.appendChild(cards);
+		const current = state.spend[state.range];
+		const source = spendSourceNote(current ?? state.spend.today ?? null, t);
+		if (source) spendHost.appendChild(el("div", {
+			class: "nanovia-notice nanovia-notice-warn",
+			text: source
+		}));
+		spendHost.appendChild(field(t("account.spend.details"), select({
+			value: state.range,
+			options: SPEND_RANGES.map((range) => ({
+				value: range,
+				label: t(`account.range.${range}`)
+			})),
+			label: t("account.spend.details"),
+			onChange: (value) => {
+				state.range = value;
+				drawSpend();
+			}
+		})));
+		if (current) {
+			if (current.summary.total.requests === 0) spendHost.appendChild(el("div", {
+				class: "nanovia-muted",
+				text: t("account.spend.empty")
+			}));
+			else spendHost.append(breakdownTable(t("account.spend.byConnection"), connectionRows(current.summary.byConnection, nameOf, t)), breakdownTable(t("account.spend.byModel"), modelRows(current.summary.byModel)));
+		}
+	}
+	function renderRecent(row) {
+		const lookup = row.requestId ? state.lookups.get(row.requestId) : void 0;
+		const pluginUp = ctx.connections.pluginUp();
+		const actions = el("div", { class: "nanovia-row" });
+		if (row.requestId) {
+			const id = row.requestId;
+			actions.appendChild(button({
+				label: t("account.recent.check"),
+				title: pluginUp ? t("account.recent.check.hint") : t("account.recent.check.needsPlugin"),
+				kind: "ghost",
+				disabled: !pluginUp || lookup?.busy === true,
+				onClick: () => checkCost(id)
+			}));
+		} else actions.appendChild(el("span", {
+			class: "nanovia-muted",
+			text: t("account.recent.noId")
+		}));
+		if (lookup && !lookup.busy) actions.appendChild(el("span", {
+			class: ["nanovia-lookup", `nanovia-lookup-${lookup.view.kind}`],
+			text: lookup.view.text
+		}));
+		return el("div", {
+			class: "nanovia-card nanovia-recent-row",
+			data: { request: row.requestId ?? "" }
+		}, [
+			el("div", { class: "nanovia-recent-head" }, [
+				el("span", {
+					class: "nanovia-muted",
+					text: row.time
+				}),
+				el("b", { text: row.connection }),
+				el("span", {
+					class: "nanovia-muted nanovia-recent-model",
+					text: row.model
+				})
+			]),
+			el("div", { class: "nanovia-row nanovia-chips" }, [chip(row.billing.label, row.billing.kind), row.error ? chip(row.error.label, "error", row.error.title) : null]),
+			el("div", { class: "nanovia-recent-numbers" }, [
+				el("span", { text: `${t("account.row.cost")}: ${row.cost}` }),
+				el("span", {
+					class: "nanovia-muted",
+					text: `${t("account.row.equivalent")}: ${row.equivalent}`
+				}),
+				el("span", {
+					class: "nanovia-muted",
+					text: row.tokens
+				}),
+				row.cached ? el("span", {
+					class: "nanovia-muted",
+					text: row.cached
+				}) : null,
+				el("span", {
+					class: "nanovia-muted",
+					text: row.latency
+				})
+			]),
+			actions
+		]);
+	}
+	function drawRecent() {
+		clear(recentHost);
+		recentHost.appendChild(el("h4", {
+			class: "nanovia-account-title",
+			text: t("account.recent.title")
+		}));
+		recentHost.appendChild(el("div", {
+			class: "nanovia-muted",
+			text: t("account.recent.note")
+		}));
+		const now = Date.now();
+		const records = ctx.usage.recent(30);
+		if (records.length === 0) {
+			recentHost.appendChild(el("div", {
+				class: "nanovia-muted nanovia-empty",
+				text: t("account.recent.empty")
+			}));
+			return;
+		}
+		const list = el("div", { class: "nanovia-cards" });
+		records.forEach((record, index) => list.appendChild(renderRecent(recentRow(record, index, now, nameOf, t))));
+		recentHost.appendChild(list);
+	}
+	function drawAll() {
+		drawHead();
+		drawAccount();
+		drawSpend();
+		drawRecent();
+	}
+	async function loadKeys() {
+		if (ctx.connections.checked() && !ctx.connections.pluginUp()) state.keys = null;
+		else {
+			const result = await ctx.plugin.listKeys();
+			state.keys = result.ok ? result.data : null;
+		}
+		if (!disposed) drawHead();
+	}
+	async function loadSpend() {
+		if (loading) {
+			rerun = true;
+			return;
+		}
+		loading = true;
+		lastLoad = Date.now();
+		drawSpend();
+		try {
+			const now = Date.now();
+			const results = await Promise.all(SPEND_RANGES.map(async (range) => [range, await ctx.usage.summary(rangeBounds(range, now, localMidnight))]));
+			for (const [range, result] of results) state.spend[range] = result;
+		} finally {
+			loading = false;
+		}
+		if (disposed) return;
+		drawSpend();
+		if (rerun) {
+			rerun = false;
+			loadSpend();
+		}
+	}
+	/** Records keep arriving while the tab is open; the summaries are asked for at most every few seconds. */
+	function scheduleSpend() {
+		if (disposed || trailing !== null) return;
+		const wait = SPEND_THROTTLE_MS - (Date.now() - lastLoad);
+		if (wait <= 0) {
+			loadSpend();
+			return;
+		}
+		trailing = setTimeout(() => {
+			trailing = null;
+			loadSpend();
+		}, wait);
+	}
+	async function refreshAll() {
+		await ctx.connections.refresh();
+		await Promise.all([
+			ctx.account.refresh({ force: true }),
+			ctx.usage.refresh(),
+			loadSpend(),
+			loadKeys()
+		]);
+	}
+	async function checkCost(requestId) {
+		state.lookups.set(requestId, { busy: true });
+		drawRecent();
+		const result = await ctx.account.lookup(requestId);
+		state.lookups.set(requestId, {
+			busy: false,
+			view: lookupView(result, t)
+		});
+		if (!disposed) drawRecent();
+	}
+	const stopWatching = ctx.usage.watch();
+	const offs = [
+		ctx.account.onChange(() => {
+			if (disposed) return;
+			drawHead();
+			drawAccount();
+		}),
+		ctx.usage.onChange(() => {
+			if (disposed) return;
+			drawRecent();
+			scheduleSpend();
+		}),
+		ctx.connections.onChange(() => {
+			if (disposed) return;
+			drawAccount();
+			drawRecent();
+		})
+	];
+	drawAll();
+	ctx.account.refresh();
+	loadSpend();
+	loadKeys();
+	return () => {
+		disposed = true;
+		stopWatching();
+		for (const off of offs) off();
+		if (trailing !== null) clearTimeout(trailing);
+		trailing = null;
+	};
+}
+// src/features/account/index.ts
+var ACCOUNT_FEATURE_ID = "account";
+var ACCOUNT_TAB_ID = "account";
+/** Tab «Account»: the NanoGPT balance and subscription quota, what was spent, and the recent requests. */
+var accountFeature = {
+	id: ACCOUNT_FEATURE_ID,
+	init(ctx) {
+		ctx.i18n.register(ACCOUNT_STRINGS);
+		return ctx.panel.registerTab({
+			id: ACCOUNT_TAB_ID,
+			titleKey: "account.tab",
+			order: 400,
+			render: (root, tabCtx) => renderAccountTab(root, tabCtx)
+		});
+	}
+};
+// src/features/connections/strings.ts
+var CONNECTIONS_STRINGS = {
+	en: {
+		"connections.tab": "Connections",
+		"connections.status.checking": "Checking the plugin…",
+		"connections.status.up": "Plugin is running",
+		"connections.status.upDetail": "port {port} · version {version}",
+		"connections.status.proxyDown": "The plugin answers, but its proxy is not listening on port {port}. Plugin-mode connections will not work until it does.",
+		"connections.status.down": "Plugin is not answering",
+		"connections.status.reason.not_installed": "SillyTavern does not know the Nanovia plugin: it is not installed or not enabled.",
+		"connections.status.reason.unreachable": "There was no answer from the SillyTavern server.",
+		"connections.status.reason.timeout": "The plugin did not answer in time.",
+		"connections.status.reason.forbidden": "SillyTavern refused the request (session or CSRF check). Reload the page.",
+		"connections.status.reason.other": "The plugin sent an unexpected answer ({code}).",
+		"connections.status.installHint": "To use plugin mode, copy the plugin folder to plugins/nanovia inside your SillyTavern folder, set enableServerPlugins: true in config.yaml and restart the server. Until then connections can work in direct mode.",
+		"connections.refresh": "Refresh",
+		"connections.new": "New connection",
+		"connections.empty": "No connections yet. A connection is a named bundle (model, key, billing, reasoning) that shows up in SillyTavern as a Connection Manager profile.",
+		"connections.chip.mode.plugin": "Plugin",
+		"connections.chip.mode.direct": "Direct",
+		"connections.chip.mode.autoPlugin": "Auto → plugin",
+		"connections.chip.mode.autoDirect": "Auto → direct",
+		"connections.chip.billing.auto": "Billing: auto",
+		"connections.chip.billing.subscription": "Subscription only",
+		"connections.chip.billing.paygo": "Pay as you go",
+		"connections.chip.profile.linked": "Profile linked",
+		"connections.chip.profile.drifted": "Profile differs",
+		"connections.chip.profile.missing": "Profile missing",
+		"connections.chip.profile.none": "No profile",
+		"connections.chip.profile.blocked": "Profile blocked",
+		"connections.chip.profile.unavailable": "No Connection Manager",
+		"connections.chip.pending": "Waiting for the plugin",
+		"connections.chip.orphan": "Not on the plugin",
+		"connections.chip.noKey": "No direct key",
+		"connections.chip.noKey.hint": "Direct mode needs your NanoGPT key. Edit the connection and enter it once.",
+		"connections.chip.pending.hint": "Edited while the plugin was down; it will be sent when the plugin answers.",
+		"connections.chip.orphan.hint": "The plugin does not have this connection. Send it to the plugin or delete it.",
+		"connections.chip.profile.blocked.hint": "A profile needs a proxy token (plugin mode) or a key (direct mode).",
+		"connections.action.edit": "Edit",
+		"connections.action.delete": "Delete",
+		"connections.action.rotate": "New token",
+		"connections.action.rotate.hint": "Issues a new proxy token and updates the profile.",
+		"connections.action.switchDirect": "Switch to direct mode",
+		"connections.action.switchDirect.hint": "Connects straight to NanoGPT while the plugin is down.",
+		"connections.action.repairProfile": "Create profile",
+		"connections.action.repairProfile.fix": "Repair profile",
+		"connections.action.sendToPlugin": "Send to plugin",
+		"connections.confirm.title": "Delete connection",
+		"connections.confirm.delete": "Delete the connection \"{name}\", its Connection Manager profile and its stored key?",
+		"connections.form.titleNew": "New connection",
+		"connections.form.titleEdit": "Edit connection",
+		"connections.form.name": "Name",
+		"connections.form.nameHint": "Shown in the list and in the profile name (\"Nanovia · …\").",
+		"connections.form.model": "Model id",
+		"connections.form.modelHint": "NanoGPT model id, for example deepseek/deepseek-v4. Variants such as :thinking are part of the id.",
+		"connections.form.mode": "How it connects",
+		"connections.mode.auto": "Automatic",
+		"connections.mode.plugin": "Through the plugin",
+		"connections.mode.direct": "Direct to NanoGPT",
+		"connections.mode.auto.hint": "Through the plugin while it answers, directly otherwise.",
+		"connections.mode.plugin.hint": "Through the local Nanovia proxy: routing, billing safety and usage tracking work.",
+		"connections.mode.direct.hint": "Straight from the browser to NanoGPT. Needs your NanoGPT key, entered once.",
+		"connections.form.key": "NanoGPT key",
+		"connections.form.keyActive": "The active key",
+		"connections.form.keyHint": "Which of the keys the plugin knows this connection uses.",
+		"connections.form.keysUnavailable": "The key list needs the plugin.",
+		"connections.key.add": "Add a key",
+		"connections.key.name": "Key name",
+		"connections.key.value": "Paste the key here",
+		"connections.key.save": "Save key",
+		"connections.key.hint": "The key goes to the plugin and is never shown again.",
+		"connections.key.added": "Key added.",
+		"connections.form.directKey": "NanoGPT key",
+		"connections.form.directKeyHint": "Written to SillyTavern's secret store once; Nanovia keeps only its id.",
+		"connections.form.directKeyOnFile": "A key is on file. Type a new one only to replace it.",
+		"connections.form.billing": "Billing",
+		"connections.billing.auto": "Automatic",
+		"connections.billing.subscription": "Subscription only",
+		"connections.billing.paygo": "Pay as you go",
+		"connections.billing.auto.hint": "Any setting is allowed; Nanovia warns when a setting takes a request out of your subscription.",
+		"connections.billing.subscription.hint": "Settings that would bill outside the subscription are blocked or removed.",
+		"connections.billing.paygo.hint": "Always billed pay-as-you-go, whatever the model offers.",
+		"connections.form.reasoning": "Reasoning",
+		"connections.reasoning.follow": "Follow the request",
+		"connections.reasoning.fixed": "Fixed effort",
+		"connections.reasoning.off": "Off",
+		"connections.reasoning.default": "Model default",
+		"connections.reasoning.follow.hint": "Takes the effort SillyTavern asked for and translates it to what the model supports.",
+		"connections.reasoning.fixed.hint": "Always the effort below.",
+		"connections.reasoning.off.hint": "No reasoning when the model allows it; the lowest effort, text hidden, when it always reasons.",
+		"connections.reasoning.default.hint": "Sends nothing: the model decides.",
+		"connections.form.effort": "Reasoning effort",
+		"connections.effort.none": "None",
+		"connections.effort.minimal": "Minimal",
+		"connections.effort.low": "Low",
+		"connections.effort.medium": "Medium",
+		"connections.effort.high": "High",
+		"connections.effort.xhigh": "Extra high",
+		"connections.effort.max": "Max",
+		"connections.form.hideThoughts": "Leave the reasoning text out of the reply",
+		"connections.form.webSearch": "Web search (adds :online, billed separately)",
+		"connections.form.note": "Note",
+		"connections.form.save": "Save",
+		"connections.form.cancel": "Cancel",
+		"connections.form.offline": "The plugin is not answering. Plugin-mode settings are saved here and sent when it is back.",
+		"connections.field.name": "name",
+		"connections.field.modelId": "model id",
+		"connections.notice.saved": "Connection saved.",
+		"connections.notice.deleted": "Connection deleted.",
+		"connections.notice.rotated": "New token issued and the profile updated.",
+		"connections.notice.profile": "Profile updated.",
+		"connections.notice.sent": "Sent to the plugin.",
+		"connections.notice.switched": "Switched to direct mode.",
+		"connections.notice.refreshed": "Refreshed.",
+		"connections.issue.plugin_down": "The plugin is not answering. Choose direct mode, or start the plugin and try again.",
+		"connections.issue.plugin_error": "The plugin refused the request: {message}",
+		"connections.issue.direct_key_required": "Enter your NanoGPT key: direct mode needs it once.",
+		"connections.issue.key_write_failed": "SillyTavern did not accept the key ({message}).",
+		"connections.issue.not_found": "This connection no longer exists.",
+		"connections.issue.invalid": "The {field} is required.",
+		"connections.issue.not_on_plugin": "The plugin does not have this connection.",
+		"connections.issue.saved_locally": "Saved here; it will be sent to the plugin when it answers.",
+		"connections.issue.profile_unavailable": "Connection Manager is not installed or is disabled, so no profile was written.",
+		"connections.issue.profile_needs_token": "No proxy token yet, so the profile was not written.",
+		"connections.issue.profile_needs_key": "No NanoGPT key on file, so the profile was not written.",
+		"connections.issue.profile_failed": "The profile could not be written.",
+		"connections.issue.key_not_removed": "The stored key could not be removed from SillyTavern; delete it there if you like."
+	},
+	ru: {
+		"connections.tab": "Подключения",
+		"connections.status.checking": "Проверяю плагин…",
+		"connections.status.up": "Плагин работает",
+		"connections.status.upDetail": "порт {port} · версия {version}",
+		"connections.status.proxyDown": "Плагин отвечает, но его прокси не слушает порт {port}. Подключения через плагин не заработают, пока это так.",
+		"connections.status.down": "Плагин не отвечает",
+		"connections.status.reason.not_installed": "SillyTavern не знает плагин Nanovia: он не установлен или не включён.",
+		"connections.status.reason.unreachable": "Сервер SillyTavern не ответил.",
+		"connections.status.reason.timeout": "Плагин не ответил вовремя.",
+		"connections.status.reason.forbidden": "SillyTavern отклонил запрос (проверка сессии или CSRF). Перезагрузите страницу.",
+		"connections.status.reason.other": "Плагин прислал неожиданный ответ ({code}).",
+		"connections.status.installHint": "Чтобы работать через плагин, скопируйте папку плагина в plugins/nanovia внутри папки SillyTavern, включите enableServerPlugins: true в config.yaml и перезапустите сервер. Пока этого нет, подключения могут работать напрямую.",
+		"connections.refresh": "Обновить",
+		"connections.new": "Новое подключение",
+		"connections.empty": "Подключений пока нет. Подключение — это именованный набор (модель, ключ, тариф, рассуждения), который появляется в SillyTavern как профиль Connection Manager.",
+		"connections.chip.mode.plugin": "Плагин",
+		"connections.chip.mode.direct": "Напрямую",
+		"connections.chip.mode.autoPlugin": "Авто → плагин",
+		"connections.chip.mode.autoDirect": "Авто → напрямую",
+		"connections.chip.billing.auto": "Тариф: авто",
+		"connections.chip.billing.subscription": "Только подписка",
+		"connections.chip.billing.paygo": "Оплата по факту",
+		"connections.chip.profile.linked": "Профиль связан",
+		"connections.chip.profile.drifted": "Профиль отличается",
+		"connections.chip.profile.missing": "Профиль пропал",
+		"connections.chip.profile.none": "Нет профиля",
+		"connections.chip.profile.blocked": "Профиль не создать",
+		"connections.chip.profile.unavailable": "Нет Connection Manager",
+		"connections.chip.pending": "Ждёт плагин",
+		"connections.chip.orphan": "Нет в плагине",
+		"connections.chip.noKey": "Нет ключа",
+		"connections.chip.noKey.hint": "Для прямого режима нужен ваш ключ NanoGPT. Откройте подключение и введите его один раз.",
+		"connections.chip.pending.hint": "Изменено, пока плагин не отвечал; уйдёт в плагин, когда он ответит.",
+		"connections.chip.orphan.hint": "В плагине нет этого подключения. Отправьте его в плагин или удалите.",
+		"connections.chip.profile.blocked.hint": "Для профиля нужен токен прокси (режим плагина) или ключ (прямой режим).",
+		"connections.action.edit": "Изменить",
+		"connections.action.delete": "Удалить",
+		"connections.action.rotate": "Новый токен",
+		"connections.action.rotate.hint": "Выпускает новый токен прокси и обновляет профиль.",
+		"connections.action.switchDirect": "Перейти на прямой режим",
+		"connections.action.switchDirect.hint": "Подключается прямо к NanoGPT, пока плагин не отвечает.",
+		"connections.action.repairProfile": "Создать профиль",
+		"connections.action.repairProfile.fix": "Починить профиль",
+		"connections.action.sendToPlugin": "Отправить в плагин",
+		"connections.confirm.title": "Удаление подключения",
+		"connections.confirm.delete": "Удалить подключение «{name}», его профиль Connection Manager и сохранённый ключ?",
+		"connections.form.titleNew": "Новое подключение",
+		"connections.form.titleEdit": "Изменение подключения",
+		"connections.form.name": "Название",
+		"connections.form.nameHint": "Показывается в списке и в названии профиля («Nanovia · …»).",
+		"connections.form.model": "Идентификатор модели",
+		"connections.form.modelHint": "Идентификатор модели NanoGPT, например deepseek/deepseek-v4. Варианты вроде :thinking входят в идентификатор.",
+		"connections.form.mode": "Как подключаться",
+		"connections.mode.auto": "Автоматически",
+		"connections.mode.plugin": "Через плагин",
+		"connections.mode.direct": "Напрямую в NanoGPT",
+		"connections.mode.auto.hint": "Через плагин, пока он отвечает, иначе напрямую.",
+		"connections.mode.plugin.hint": "Через локальный прокси Nanovia: работают маршрутизация, защита подписки и учёт расхода.",
+		"connections.mode.direct.hint": "Из браузера прямо в NanoGPT. Нужен ваш ключ NanoGPT, вводится один раз.",
+		"connections.form.key": "Ключ NanoGPT",
+		"connections.form.keyActive": "Активный ключ",
+		"connections.form.keyHint": "Какой из ключей, известных плагину, использует это подключение.",
+		"connections.form.keysUnavailable": "Список ключей доступен только через плагин.",
+		"connections.key.add": "Добавить ключ",
+		"connections.key.name": "Название ключа",
+		"connections.key.value": "Вставьте ключ сюда",
+		"connections.key.save": "Сохранить ключ",
+		"connections.key.hint": "Ключ уходит в плагин и больше нигде не показывается.",
+		"connections.key.added": "Ключ добавлен.",
+		"connections.form.directKey": "Ключ NanoGPT",
+		"connections.form.directKeyHint": "Записывается в хранилище секретов SillyTavern один раз; Nanovia помнит только его идентификатор.",
+		"connections.form.directKeyOnFile": "Ключ уже сохранён. Вводите новый, только если хотите заменить.",
+		"connections.form.billing": "Тариф",
+		"connections.billing.auto": "Автоматически",
+		"connections.billing.subscription": "Только подписка",
+		"connections.billing.paygo": "Оплата по факту",
+		"connections.billing.auto.hint": "Разрешены любые настройки; Nanovia предупредит, если настройка выводит запрос за пределы подписки.",
+		"connections.billing.subscription.hint": "Настройки, из-за которых запрос оплачивался бы вне подписки, блокируются или убираются.",
+		"connections.billing.paygo.hint": "Всегда оплата по факту, что бы ни предлагала модель.",
+		"connections.form.reasoning": "Рассуждения",
+		"connections.reasoning.follow": "Как в запросе",
+		"connections.reasoning.fixed": "Фиксированный уровень",
+		"connections.reasoning.off": "Выключены",
+		"connections.reasoning.default": "По умолчанию модели",
+		"connections.reasoning.follow.hint": "Берёт уровень, который запросил SillyTavern, и переводит в то, что поддерживает модель.",
+		"connections.reasoning.fixed.hint": "Всегда уровень, выбранный ниже.",
+		"connections.reasoning.off.hint": "Без рассуждений, если модель позволяет; если рассуждает всегда — минимальный уровень со скрытым текстом.",
+		"connections.reasoning.default.hint": "Ничего не отправляет: решает модель.",
+		"connections.form.effort": "Уровень рассуждений",
+		"connections.effort.none": "Нет",
+		"connections.effort.minimal": "Минимальный",
+		"connections.effort.low": "Низкий",
+		"connections.effort.medium": "Средний",
+		"connections.effort.high": "Высокий",
+		"connections.effort.xhigh": "Очень высокий",
+		"connections.effort.max": "Максимальный",
+		"connections.form.hideThoughts": "Не включать текст рассуждений в ответ",
+		"connections.form.webSearch": "Веб-поиск (добавляет :online, оплачивается отдельно)",
+		"connections.form.note": "Заметка",
+		"connections.form.save": "Сохранить",
+		"connections.form.cancel": "Отмена",
+		"connections.form.offline": "Плагин не отвечает. Настройки режима плагина сохранятся здесь и уйдут в плагин, когда он вернётся.",
+		"connections.field.name": "название",
+		"connections.field.modelId": "идентификатор модели",
+		"connections.notice.saved": "Подключение сохранено.",
+		"connections.notice.deleted": "Подключение удалено.",
+		"connections.notice.rotated": "Выпущен новый токен, профиль обновлён.",
+		"connections.notice.profile": "Профиль обновлён.",
+		"connections.notice.sent": "Отправлено в плагин.",
+		"connections.notice.switched": "Переключено на прямой режим.",
+		"connections.notice.refreshed": "Обновлено.",
+		"connections.issue.plugin_down": "Плагин не отвечает. Выберите прямой режим или запустите плагин и повторите.",
+		"connections.issue.plugin_error": "Плагин отклонил запрос: {message}",
+		"connections.issue.direct_key_required": "Введите ключ NanoGPT: для прямого режима он нужен один раз.",
+		"connections.issue.key_write_failed": "SillyTavern не принял ключ ({message}).",
+		"connections.issue.not_found": "Такого подключения уже нет.",
+		"connections.issue.invalid": "Поле «{field}» обязательно.",
+		"connections.issue.not_on_plugin": "В плагине нет этого подключения.",
+		"connections.issue.saved_locally": "Сохранено здесь; уйдёт в плагин, когда он ответит.",
+		"connections.issue.profile_unavailable": "Connection Manager не установлен или выключен, поэтому профиль не записан.",
+		"connections.issue.profile_needs_token": "Токена прокси ещё нет, поэтому профиль не записан.",
+		"connections.issue.profile_needs_key": "Нет сохранённого ключа NanoGPT, поэтому профиль не записан.",
+		"connections.issue.profile_failed": "Профиль не удалось записать.",
+		"connections.issue.key_not_removed": "Сохранённый ключ не удалось убрать из SillyTavern; при желании удалите его там."
 	}
 };
 // src/features/connections/view-model.ts
@@ -3453,21 +5098,266 @@ var FEATURES = [{
 			render: (root, tabCtx) => renderConnectionsTab(root, tabCtx)
 		});
 	}
-}];
+}, accountFeature];
+// src/domain/routing.ts
+/**
+* Names (RoutingConfig keys) of the settings that select a provider or a route, in a fixed order. These are the
+* settings NanoGPT bills as an explicit provider selection (pay-as-you-go plus markup). `zdr` is not among them: it only
+* narrows the platform's own routing. Looks at the fields only; whether routing is enabled is the caller's question
+* (see hasExplicitRouting).
+*/
+function routingFields(r) {
+	const fields = [];
+	if (r.order.length > 0) fields.push("order");
+	if (r.only.length > 0) fields.push("only");
+	if (r.ignore.length > 0) fields.push("ignore");
+	if (r.sort !== "default") fields.push("sort");
+	if (r.quantizations.length > 0) fields.push("quantizations");
+	if (r.minQuantization !== null) fields.push("minQuantization");
+	if (isSet(r.maxPrice.prompt) || isSet(r.maxPrice.completion)) fields.push("maxPrice");
+	if (r.allowFallbacks === false) fields.push("allowFallbacks");
+	if (r.requireParameters) fields.push("requireParameters");
+	if (isSet(r.preferredMaxLatency)) fields.push("preferredMaxLatency");
+	if (isSet(r.preferredMinThroughput)) fields.push("preferredMinThroughput");
+	if (r.cachingRoute) fields.push("cachingRoute");
+	return fields;
+}
+/** True when routing is enabled and at least one setting of routingFields is in use. `zdr` alone is not explicit. */
+function hasExplicitRouting(r) {
+	return r.enabled && routingFields(r).length > 0;
+}
+function isSet(value) {
+	return typeof value === "number" && Number.isFinite(value);
+}
+// src/domain/billing.ts
+/**
+* The routing a 'subscription' ("safe") connection really uses: every bypassing setting is reset to its neutral value,
+* `zdr` stays. `stripped` names what was removed (RoutingConfig keys). Nothing is stripped while routing is disabled
+* (it sends nothing). Does not look at `connection.billing`: callers apply it in safe mode, and a panel can call it to
+* offer "make this subscription-safe". `_model` is reserved for model-specific rules.
+*/
+function subscriptionSafeOverrides(connection, _model) {
+	const r = connection.routing;
+	const stripped = r.enabled ? routingFields(r) : [];
+	if (stripped.length === 0) return {
+		routing: cloneRouting(r),
+		stripped
+	};
+	return {
+		routing: {
+			...r,
+			order: [],
+			only: [],
+			ignore: [],
+			sort: "default",
+			quantizations: [],
+			minQuantization: null,
+			maxPrice: {
+				prompt: null,
+				completion: null
+			},
+			allowFallbacks: true,
+			requireParameters: false,
+			preferredMaxLatency: null,
+			preferredMinThroughput: null,
+			cachingRoute: false
+		},
+		stripped
+	};
+}
+/**
+* What this connection does to the billing of a request to `model` (null = not in the catalog).
+* `providerSelection` is ModelProviders.supportsProviderSelection: false means NanoGPT ignores routing for the model,
+* null means unknown (treated as true). `subscriptionSafe` speaks about settings only (nothing bypasses the
+* subscription and billing is not forced to pay-as-you-go); whether the model itself is covered is `outcome`.
+*/
+function analyzeBilling(connection, model, providerSelection) {
+	const forced = connection.billing === "paygo";
+	const safe = connection.billing === "subscription";
+	const { routing, stripped } = safe ? subscriptionSafeOverrides(connection, model) : {
+		routing: connection.routing,
+		stripped: []
+	};
+	const explicit = hasExplicitRouting(routing);
+	const selectionIgnored = providerSelection === false;
+	const bypass = explicit && !selectionIgnored;
+	const reasons = [];
+	if (forced) reasons.push({ code: "billing.forced" });
+	else if (model !== null && !model.subscription.included) {
+		reasons.push({
+			code: "model.notIncluded",
+			params: { model: model.id }
+		});
+		if (safe) reasons.push({
+			code: "billing.modelNotCoverable",
+			params: { model: model.id }
+		});
+	}
+	if (explicit) {
+		const fields = routingFields(routing).join(", ");
+		reasons.push({
+			code: selectionIgnored ? "routing.unsupportedByModel" : "routing.explicit",
+			params: { fields }
+		});
+	} else if (routing.enabled && routing.zdr && !selectionIgnored && !forced) reasons.push({ code: "routing.zdrOnly" });
+	if (connection.webSearch) reasons.push({ code: "search.billedSeparately" });
+	if (connection.memory.enabled) reasons.push({ code: "memory.billedSeparately" });
+	let outcome;
+	if (forced || bypass) outcome = "paygo";
+	else if (model === null) outcome = "unknown";
+	else outcome = model.subscription.included ? "subscription" : "paygo";
+	if (model !== null && outcome === "subscription" && model.subscription.inputTokenMultiplier > 1) reasons.push({
+		code: "subscription.multiplier",
+		params: { value: model.subscription.inputTokenMultiplier }
+	});
+	return {
+		outcome,
+		markupPercent: bypass ? 5 : 0,
+		subscriptionSafe: !forced && !bypass,
+		reasons,
+		stripped
+	};
+}
+function cloneRouting(r) {
+	return {
+		...r,
+		order: [...r.order],
+		only: [...r.only],
+		ignore: [...r.ignore],
+		quantizations: [...r.quantizations],
+		maxPrice: { ...r.maxPrice }
+	};
+}
+function efforts(model) {
+	return model.reasoningEfforts.map((effort) => effort.trim().toLowerCase()).filter(Boolean);
+}
+/**
+* false for a model that always reasons: it lists efforts and 'none' is not one of them, so the lowest level is the
+* quietest the connection can make it (planReasoning then hides the text but the tokens are still spent).
+*/
+function canDisableReasoning(model) {
+	const list = efforts(model);
+	return list.length === 0 || list.includes("none");
+}
+/** The lowest effort a model lists, in the ladder's order; '' when it lists none. */
+function lowestEffort(model) {
+	const order = [
+		"none",
+		"minimal",
+		"low",
+		"medium",
+		"high",
+		"xhigh",
+		"max"
+	];
+	const known = efforts(model).map((effort) => order.indexOf(effort)).filter((index) => index >= 0);
+	return known.length ? order[Math.min(...known)] ?? "" : "";
+}
+var PRIVATE_CATEGORY = /(?:^|[^a-z])(?:private|tee)(?:[^a-z]|$)/i;
+/** `:thinking` style variants exist to reason; they are not a quiet choice even when the catalog lists no efforts. */
+var THINKING_VARIANT = /:thinking\b/i;
+/**
+* Models good for background work: they reason only when asked (no effort dial, or 'none' among the efforts), support
+* structured output, are not on the private/TEE shelf and are not a `:thinking` variant. Cheapest first (prompt +
+* completion price per 1M tokens), then by id. Empty for an empty catalog.
+*/
+function suggestBackgroundModels(models, limit = 5) {
+	const price = (model) => model.pricing.prompt + model.pricing.completion;
+	return models.filter((model) => model.capabilities.structuredOutput && canDisableReasoning(model) && !(model.category !== null && PRIVATE_CATEGORY.test(model.category)) && !THINKING_VARIANT.test(model.id) && Number.isFinite(price(model))).sort((a, b) => price(a) - price(b) || a.pricing.completion - b.pricing.completion || (a.id < b.id ? -1 : 1)).slice(0, Math.max(0, limit)).map((model) => model.id);
+}
+/** Whether Qvink Memory is loaded: it registers its generate interceptor as a global (the way Maestro detects it). */
+function qvinkInstalled() {
+	return typeof globalThis["memory_intercept_messages"] === "function";
+}
+/**
+* The findings for using `input.connection` as a background connection. `ok` is true when none of them is a warning
+* (information notes alone keep it true).
+*/
+function backgroundAdvice(input) {
+	const { connection, model } = input;
+	const issues = [];
+	if (connection.mode === "plugin" && input.pluginDown) issues.push({
+		code: "route.pluginDown",
+		severity: "warn"
+	});
+	if (model === null) issues.push({
+		code: "model.unknown",
+		severity: "info",
+		params: {
+			model: connection.modelId,
+			catalogLoaded: input.catalogLoaded
+		}
+	});
+	else if (!canDisableReasoning(model)) issues.push({
+		code: "reasoning.alwaysOn",
+		severity: "warn",
+		params: {
+			model: model.id,
+			efforts: efforts(model).join(", "),
+			lowest: lowestEffort(model)
+		}
+	});
+	const { policy, effort } = connection.reasoning;
+	const modelReasons = model === null || model.capabilities.reasoning;
+	const fixedOn = policy === "fixed" && effort !== null && effort !== "none";
+	const defaultOn = model !== null && model.capabilities.reasoning && (policy === "default" || policy === "fixed" && effort === null);
+	if (modelReasons && (fixedOn || defaultOn)) issues.push({
+		code: "reasoning.policyOn",
+		severity: "warn",
+		params: {
+			policy,
+			effort: effort ?? ""
+		}
+	});
+	if (model !== null && connection.billing === "auto" && model.subscription.included) {
+		const impact = analyzeBilling(connection, model, input.providerSelection);
+		const explicit = impact.reasons.find((reason) => reason.code === "routing.explicit");
+		if (explicit && impact.outcome === "paygo") issues.push({
+			code: "billing.bypassesSubscription",
+			severity: "warn",
+			params: {
+				model: model.id,
+				fields: String(explicit.params?.["fields"] ?? "")
+			}
+		});
+	}
+	if (connection.memory.enabled && input.qvinkInstalled) issues.push({
+		code: "memory.overlapsQvink",
+		severity: "info"
+	});
+	return {
+		ok: !issues.some((issue) => issue.severity === "warn"),
+		issues,
+		suggestedModels: suggestBackgroundModels(input.catalog)
+	};
+}
 // src/app/api.ts
+function capabilitiesOf(model) {
+	if (!model) return null;
+	return {
+		reasoning: model.capabilities.reasoning,
+		reasoningEfforts: [...model.reasoningEfforts],
+		canDisableReasoning: canDisableReasoning(model),
+		structuredOutput: model.capabilities.structuredOutput,
+		toolCalling: model.capabilities.toolCalling,
+		vision: model.capabilities.vision
+	};
+}
 function createApiPublisher(deps) {
-	const { connections, profiles, settings, log } = deps;
+	const { connections, profiles, settings, catalog, usage, account, panel, log } = deps;
+	const qvinkInstalled$1 = deps.qvinkInstalled ?? qvinkInstalled;
 	/** The connection a Connection Manager profile belongs to: by the id we stored, then by a proxy URL it carries. */
 	function connectionIdOf(profileId) {
 		for (const [connectionId, linked] of Object.entries(settings.get().profiles)) if (linked === profileId) return connectionId;
 		const profile = profiles.get(profileId);
 		return profile ? profiles.connectionIdOf(profile) : null;
 	}
-	function describeProfile(profileId) {
+	function entryOfProfile(profileId) {
 		if (typeof profileId !== "string" || !profileId) return null;
 		const id = connectionIdOf(profileId);
-		const entry = id ? connections.get(id) : null;
-		if (!entry) return null;
+		return id ? connections.get(id) : null;
+	}
+	function describe(entry) {
 		const { config } = entry;
 		return {
 			connectionId: config.id,
@@ -3475,15 +5365,69 @@ function createApiPublisher(deps) {
 			modelId: config.modelId,
 			reasoning: { ...config.reasoning },
 			billing: config.billing,
-			capabilities: null
+			capabilities: capabilitiesOf(catalog?.model(config.modelId) ?? null)
 		};
+	}
+	function describeProfile(profileId) {
+		const entry = entryOfProfile(profileId);
+		return entry ? describe(entry) : null;
+	}
+	function describeUrl(apiUrl) {
+		const target = parseProxyUrl(apiUrl);
+		const entry = target ? connections.get(target.connectionId) : null;
+		return entry ? describe(entry) : null;
+	}
+	function backgroundProfile(profileId) {
+		const entry = entryOfProfile(profileId);
+		if (!entry) return null;
+		const modelId = entry.config.modelId;
+		return backgroundAdvice({
+			connection: entry.config,
+			model: catalog?.model(modelId) ?? null,
+			catalog: catalog?.models() ?? [],
+			catalogLoaded: catalog?.status().loaded ?? false,
+			pluginDown: connections.checked() && !connections.pluginUp(),
+			providerSelection: catalog?.providers(modelId)?.supportsProviderSelection ?? null,
+			qvinkInstalled: qvinkInstalled$1()
+		});
+	}
+	/** What is really installed, for feature detection: the running panel features plus the API's own members. */
+	function featureList() {
+		const list = [
+			...deps.features(),
+			"describeProfile",
+			"describeUrl"
+		];
+		if (usage) list.push("usage");
+		if (account) list.push("account");
+		list.push("advice");
+		if (panel) list.push("panel");
+		return [...new Set(list)];
 	}
 	const api = {
 		version: 1,
 		nanoviaVersion: deps.version,
-		features: deps.features(),
+		features: featureList(),
 		connections: () => connections.summaries(),
-		describeProfile
+		describeProfile,
+		describeUrl,
+		advice: { backgroundProfile }
+	};
+	if (usage) api.usage = {
+		today: () => usage.today(),
+		recent: (limit) => usage.recent(limit),
+		onRecord: (listener) => usage.onRecord(listener)
+	};
+	if (account) api.account = {
+		snapshot: () => account.snapshot(),
+		refresh: () => account.refresh()
+	};
+	if (panel) api.openPanel = (tab) => {
+		try {
+			panel.open(typeof tab === "string" && tab ? tab : void 0);
+		} catch (error) {
+			log.warn("could not open the panel", error);
+		}
 	};
 	const holder = globalThis;
 	return {
@@ -3546,6 +5490,18 @@ async function startNanovia(options = {}) {
 		log: log.scope("connections")
 	});
 	const catalog = createEmptyCatalogStore();
+	const pluginAccount = createPluginAccount({ client: plugin });
+	const usage = createUsageStore({
+		bus,
+		account: pluginAccount,
+		connections,
+		log: log.scope("usage")
+	});
+	const account = createAccountStore({
+		account: pluginAccount,
+		connections,
+		log: log.scope("account")
+	});
 	const ctx = {};
 	const panel = new SettingsPanel({
 		i18n,
@@ -3561,6 +5517,8 @@ async function startNanovia(options = {}) {
 		plugin,
 		connections,
 		catalog,
+		usage,
+		account,
 		profiles,
 		secrets,
 		registerRequestHook: (hook) => requests.register(hook),
@@ -3570,7 +5528,7 @@ async function startNanovia(options = {}) {
 		bus,
 		log
 	});
-	const owned = [];
+	const owned = [() => usage.dispose()];
 	owned.push(panel.registerTab(generalTab({
 		settings,
 		i18n,
@@ -3596,15 +5554,21 @@ async function startNanovia(options = {}) {
 		connections,
 		profiles,
 		settings,
+		catalog,
+		usage,
+		account,
+		panel: { open: (tab) => panel.open(tab) },
 		log: log.scope("api")
 	});
 	api.publish();
-	if (!options.skipInitialRefresh) connections.refresh().catch((error) => log.error("first refresh failed", error));
+	if (!options.skipInitialRefresh) connections.refresh().then(() => usage.refresh()).catch((error) => log.error("first refresh failed", error));
 	log.info(`${NANOVIA_VERSION} started`);
 	return {
 		ctx,
 		settings,
 		connections,
+		usage,
+		account,
 		panel,
 		api,
 		async stop() {
