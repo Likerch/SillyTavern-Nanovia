@@ -1,7 +1,8 @@
-dist/
+LICENSE
 coverage/
+dist/
+docs/
 node_modules/
 package-lock.json
-LICENSE
-docs/
+server/index.js
 tools/fixtures/
