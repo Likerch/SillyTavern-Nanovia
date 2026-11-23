@@ -302,8 +302,8 @@ function installPlugin() {
         return { installed: false };
     }
     ok(deployPlugin(PLUGIN_DIR, { repo: REPO }));
-    writeJson(path.join(PLUGIN_DIR, 'config.json'), { port: PROXY_PORT, upstreamBase: MOCK_BASE, timeoutMs: 30000 });
-    ok(`plugin config.json: proxy port ${PROXY_PORT}, upstreamBase ${MOCK_BASE}`);
+    writeJson(path.join(PLUGIN_DIR, 'config.json'), { port: PROXY_PORT, upstreamBase: MOCK_BASE, siteBase: MOCK_ORIGIN, timeoutMs: 30000 });
+    ok(`plugin config.json: proxy port ${PROXY_PORT}, upstreamBase ${MOCK_BASE}, siteBase ${MOCK_ORIGIN}`);
     return { installed: true };
 }
 

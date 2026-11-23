@@ -66,6 +66,15 @@ describe.skipIf(!KEY)('live NanoGPT through the plugin', () => {
         expect(text).not.toContain(KEY);
     }, 60_000);
 
+    it('reads the balance and the subscription state', async () => {
+        const balance = await h.api('GET', '/account/balance');
+        expect(balance.status, JSON.stringify(balance.json)).toBe(200);
+        expect(typeof balance.json['usdBalance']).toBe('number');
+        const subscription = await h.api('GET', '/account/subscription');
+        expect(subscription.status, JSON.stringify(subscription.json)).toBe(200);
+        expect(typeof subscription.json['subscription']?.active).toBe('boolean');
+    }, 60_000);
+
     it('leaves the key out of every log line and usage record', () => {
         expect(JSON.stringify(h.usage())).not.toContain(KEY);
         expect(h.logs.join('\n')).not.toContain(KEY);
