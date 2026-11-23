@@ -3,6 +3,8 @@ import { createAccountStore } from '../../src/core/account';
 import type { AccountStore } from '../../src/core/account';
 import { createEmptyCatalogStore } from '../../src/core/catalog';
 import type { FeatureContext } from '../../src/core/context';
+import { createDoctorService } from '../../src/core/doctor';
+import type { DoctorDeps } from '../../src/core/doctor';
 import { createI18n } from '../../src/core/i18n';
 import type { Locale } from '../../src/core/types';
 import { createUsageStore } from '../../src/core/usage';
@@ -24,7 +26,15 @@ export interface TestContext {
     account: AccountStore;
 }
 
-export function createContext(h: Harness, initial: Locale = 'en'): TestContext {
+/**
+ * `doctor` overrides what the Doctor service reads from outside the harness (ST's version, Qvink, the Management token).
+ * By default ST is new enough, Qvink is absent and the Management token is not known.
+ */
+export function createContext(
+    h: Harness,
+    initial: Locale = 'en',
+    doctor: Partial<Pick<DoctorDeps, 'stVersion' | 'qvink' | 'mgmtToken' | 'now'>> = {},
+): TestContext {
     let locale: Locale = initial;
     const i18n = createI18n(() => locale);
     i18n.register(UI_STRINGS);
@@ -34,6 +44,19 @@ export function createContext(h: Harness, initial: Locale = 'en'): TestContext {
     const fake = createAccountFake(h);
     const usage = createUsageStore({ bus: h.bus, account: fake.account, connections: h.connections, log: h.log });
     const account = createAccountStore({ account: fake.account, connections: h.connections, log: h.log });
+    const doctorService = createDoctorService({
+        connections: h.connections,
+        plugin: h.plugin,
+        profiles: h.profiles,
+        account,
+        catalog: () => ctx.catalog,
+        panel: () => ctx.panel,
+        host,
+        log: h.log,
+        stVersion: async () => '1.19.0',
+        qvink: () => 'absent',
+        ...doctor,
+    });
     const ctx: FeatureContext = {
         version: '0.0.0-test',
         host,
@@ -43,6 +66,7 @@ export function createContext(h: Harness, initial: Locale = 'en'): TestContext {
         catalog: createEmptyCatalogStore(),
         usage,
         account,
+        doctor: doctorService,
         profiles: h.profiles,
         secrets: h.secrets,
         registerRequestHook: () => () => {},

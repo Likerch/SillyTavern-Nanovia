@@ -108,6 +108,7 @@ describe('startNanovia', () => {
             'usage',
             'account',
             'advice',
+            'doctor',
             'panel',
         ]);
         await runtime.stop();

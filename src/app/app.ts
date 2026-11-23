@@ -6,6 +6,7 @@ import type { AccountStore } from '../core/account';
 import { createBus } from '../core/bus';
 import { createConnectionsService } from '../core/connections';
 import type { ConnectionsService } from '../core/connections';
+import { createDoctorService } from '../core/doctor';
 import { createEmptyCatalogStore } from '../core/catalog';
 import type { Feature, FeatureContext } from '../core/context';
 import { createI18n, hostLocale } from '../core/i18n';
@@ -109,6 +110,17 @@ export async function startNanovia(options: StartOptions = {}): Promise<Runtime>
         getLastTab: () => settings.get().lastTab,
         setLastTab: (id) => settings.set('lastTab', id),
     });
+    // The Doctor reads everything above; the catalog comes through the context, which is told about it later.
+    const doctor = createDoctorService({
+        connections,
+        plugin,
+        profiles,
+        account,
+        catalog: () => ctx.catalog,
+        panel: () => panel,
+        host,
+        log: log.scope('doctor'),
+    });
     Object.assign(ctx, {
         version: NANOVIA_VERSION,
         host,
@@ -118,6 +130,7 @@ export async function startNanovia(options: StartOptions = {}): Promise<Runtime>
         catalog,
         usage,
         account,
+        doctor,
         profiles,
         secrets,
         registerRequestHook: (hook) => requests.register(hook),
@@ -177,6 +190,7 @@ export async function startNanovia(options: StartOptions = {}): Promise<Runtime>
         catalog,
         usage,
         account,
+        doctor,
         panel: { open: (tab) => panel.open(tab) },
         log: log.scope('api'),
     });
