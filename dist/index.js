@@ -7399,7 +7399,9 @@ function defaultModel(models, options = {}) {
 	const wanted = preferred ? models.find((model) => model.id.toLowerCase() === preferred) : void 0;
 	if (wanted) return wanted;
 	const fit = options.suitable ? models.filter(options.suitable) : [];
-	const pool = fit.length > 0 ? fit : models;
+	const candidates = fit.length > 0 ? fit : models;
+	const paid = candidates.filter((model) => (model.price.from ?? 0) > 0);
+	const pool = paid.length > 0 ? paid : candidates;
 	const priced = sortModels(pool, "price")[0];
 	if (priced && Number.isFinite(priceRank(priced))) return priced;
 	return sortModels(pool, "name")[0] ?? null;

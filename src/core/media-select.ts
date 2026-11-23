@@ -94,7 +94,10 @@ export function defaultModel(
     // The cheapest model is often a tool that cannot start from a prompt (a cropper, an upscaler, a video reframer): prefer
     // the ones that can, and fall back to the whole list only when none qualifies.
     const fit = options.suitable ? models.filter(options.suitable) : [];
-    const pool = fit.length > 0 ? fit : models;
+    const candidates = fit.length > 0 ? fit : models;
+    // A price of 0 is how the list shows helper tools ("Image Model Recommender", a cropper): a real generator costs money.
+    const paid = candidates.filter((model) => (model.price.from ?? 0) > 0);
+    const pool = paid.length > 0 ? paid : candidates;
     const priced = sortModels(pool, 'price')[0];
     if (priced && Number.isFinite(priceRank(priced))) return priced;
     return sortModels(pool, 'name')[0] ?? null;

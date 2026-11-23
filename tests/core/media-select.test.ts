@@ -154,7 +154,20 @@ describe('the first choice of a studio', () => {
         const suitable = (m: (typeof models)[number]) => startsFromPrompt('image', m);
         expect(defaultModel([tool, maker], { suitable })?.id).toBe('maker');
         expect(defaultModel([tool], { suitable })?.id).toBe('cropper');
-        expect(defaultModel([tool, maker])?.id).toBe('cropper');
+        expect(defaultModel([tool, maker])?.id).toBe('maker'); // a free price is skipped even without the predicate
+    });
+
+    it('passes over a free helper that does claim to start from a prompt', () => {
+        const free = mediaModel({
+            id: 'recommender',
+            name: 'Recommender',
+            medium: 'image',
+            price: price(0),
+            capabilities: { textToImage: true },
+        });
+        const suitable = (m: (typeof models)[number]) => startsFromPrompt('image', m);
+        expect(defaultModel([free, maker], { suitable })?.id).toBe('maker');
+        expect(defaultModel([free], { suitable })?.id).toBe('recommender');
     });
 
     it('knows what starts from a prompt in each medium', () => {
