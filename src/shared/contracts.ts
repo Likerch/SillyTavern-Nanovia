@@ -326,6 +326,14 @@ export interface AccountBrief {
     fetchedAt: number;
 }
 
+/** What `NANOVIA_API.mgmt.status()` tells about the Management token: nothing else (no value, no keys, no presets). */
+export interface MgmtBrief {
+    /** A token is stored on the server for this user. */
+    present: boolean;
+    /** NanoGPT recognised it at the last contact; false = rejected (revoked, expired, mistyped); null = not known. */
+    valid: boolean | null;
+}
+
 /** One finding of a check; `code` + `params` are turned into text by the consumer's own i18n. */
 export interface AdviceIssue {
     code:
@@ -380,6 +388,13 @@ export interface NanoviaApi {
     account?: {
         snapshot(): AccountBrief | null;
         refresh(): Promise<AccountBrief | null>;
+    };
+    /**
+     * feature 'mgmt': whether a Management token is stored and whether NanoGPT last accepted it. Sync, from what the
+     * panel last read (`present: false, valid: null` until the first answer; a read starts in the background).
+     */
+    mgmt?: {
+        status(): MgmtBrief;
     };
     /** feature 'advice': null when the profile is not a Nanovia connection. */
     advice?: {

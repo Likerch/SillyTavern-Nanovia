@@ -52,6 +52,8 @@ export interface MgmtFake {
     check: { valid: boolean | null; checkedAt: number | null; error: MgmtErrorCode | null };
     /** How NanoGPT answers to the stored token and to a token being checked. */
     upstream: UpstreamMode;
+    /** false: the plugin answers its other routes but not /mgmt/* (an older plugin): ST's own 404. */
+    hasRoutes: boolean;
     /** The scopes the stored token holds (write includes read). */
     scopes: Set<MgmtScope>;
     keys: ManagedKey[];
@@ -120,6 +122,7 @@ export function createMgmtFake(h: Harness): MgmtFake {
         mgmt: undefined as unknown as PluginMgmt,
         token: null,
         check: { valid: null, checkedAt: null, error: null },
+        hasRoutes: true,
         upstream: 'ok',
         scopes: new Set<MgmtScope>(['usage:read', 'api_keys:write', 'model_presets:write']),
         keys: [],
@@ -381,7 +384,9 @@ export function createMgmtFake(h: Harness): MgmtFake {
         }
         fake.calls.push({ method, path: full, body });
         if (!h.backend.plugin.up) throw new TypeError('Failed to fetch');
-        if (!h.backend.plugin.installed) return new Response('<html>Cannot GET</html>', { status: 404 });
+        if (!h.backend.plugin.installed || !fake.hasRoutes) {
+            return new Response('<html>Cannot GET</html>', { status: 404 });
+        }
         return route(method, full, body) ?? failure(404, 'not_found', 'no such route');
     };
     fake.client = createPluginClient({

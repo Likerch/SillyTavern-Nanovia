@@ -4,6 +4,8 @@ import type { AccountStore } from '../../src/core/account';
 import { createEmptyCatalogStore } from '../../src/core/catalog';
 import type { FeatureContext } from '../../src/core/context';
 import { createI18n } from '../../src/core/i18n';
+import { createMgmtStore } from '../../src/core/mgmt';
+import type { MgmtStore } from '../../src/core/mgmt';
 import type { Locale } from '../../src/core/types';
 import { createUsageStore } from '../../src/core/usage';
 import type { UsageStore } from '../../src/core/usage';
@@ -14,6 +16,8 @@ import { UI_STRINGS } from '../../src/ui/strings';
 import { createAccountFake } from './account-fake';
 import type { AccountFake } from './account-fake';
 import type { Harness } from './harness';
+import { createMgmtFake } from './mgmt-fake';
+import type { MgmtFake } from './mgmt-fake';
 
 export interface TestContext {
     ctx: FeatureContext;
@@ -22,6 +26,9 @@ export interface TestContext {
     fake: AccountFake;
     usage: UsageStore;
     account: AccountStore;
+    /** The stage 0.6 routes of the fake plugin (Management token, keys, presets). */
+    mgmtFake: MgmtFake;
+    mgmt: MgmtStore;
 }
 
 export function createContext(h: Harness, initial: Locale = 'en'): TestContext {
@@ -34,6 +41,8 @@ export function createContext(h: Harness, initial: Locale = 'en'): TestContext {
     const fake = createAccountFake(h);
     const usage = createUsageStore({ bus: h.bus, account: fake.account, connections: h.connections, log: h.log });
     const account = createAccountStore({ account: fake.account, connections: h.connections, log: h.log });
+    const mgmtFake = createMgmtFake(h);
+    const mgmt = createMgmtStore({ mgmt: mgmtFake.mgmt, connections: h.connections, log: h.log });
     const ctx: FeatureContext = {
         version: '0.0.0-test',
         host,
@@ -43,6 +52,7 @@ export function createContext(h: Harness, initial: Locale = 'en'): TestContext {
         catalog: createEmptyCatalogStore(),
         usage,
         account,
+        mgmt,
         profiles: h.profiles,
         secrets: h.secrets,
         registerRequestHook: () => () => {},
@@ -52,5 +62,5 @@ export function createContext(h: Harness, initial: Locale = 'en'): TestContext {
         bus: h.bus,
         log: h.log,
     };
-    return { ctx, setLocale: (value) => void (locale = value), fake, usage, account };
+    return { ctx, setLocale: (value) => void (locale = value), fake, usage, account, mgmtFake, mgmt };
 }

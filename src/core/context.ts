@@ -3,6 +3,7 @@ import type { Host, PluginClient, ProfilesHost, RequestHooks, SecretsHost } from
 import type { AccountStore } from './account';
 import type { CatalogStore } from './catalog';
 import type { ConnectionsService } from './connections';
+import type { MgmtStore } from './mgmt';
 import type { Bus, I18n, I18nParams, Logger, PanelApi, SettingsService } from './types';
 import type { UsageStore } from './usage';
 
@@ -22,6 +23,8 @@ export interface FeatureContext {
     usage: UsageStore;
     /** Balance and subscription quota of the NanoGPT account, read through the plugin (stage 0.4). */
     account: AccountStore;
+    /** NanoGPT's Management API through the plugin: the write-only token, managed keys with limits, model presets (stage 0.6). */
+    mgmt: MgmtStore;
     /** Connection Manager profile host. */
     profiles: ProfilesHost;
     /** Write-only access to ST's secret store, for direct mode. */

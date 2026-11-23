@@ -10,6 +10,7 @@ import { createBrowserCatalogStore } from '../core/catalog-store';
 import type { Feature, FeatureContext } from '../core/context';
 import { createI18n, hostLocale } from '../core/i18n';
 import { ConsoleLogger, createLogger } from '../core/logger';
+import { createMgmtStore } from '../core/mgmt';
 import { Settings } from '../core/settings';
 import type { Unsubscribe } from '../core/types';
 import { createUsageStore } from '../core/usage';
@@ -19,6 +20,7 @@ import {
     createHost,
     createPluginAccount,
     createPluginClient,
+    createPluginMgmt,
     createProfilesHost,
     createDirectMode,
     createSecretsHost,
@@ -100,6 +102,13 @@ export async function startNanovia(options: StartOptions = {}): Promise<Runtime>
     const usage = createUsageStore({ bus, account: pluginAccount, connections, log: log.scope('usage') });
     const account = createAccountStore({ account: pluginAccount, connections, log: log.scope('account') });
 
+    // The Management API (stage 0.6): the token is write-only, the plugin makes every call.
+    const mgmt = createMgmtStore({
+        mgmt: createPluginMgmt({ client: plugin }),
+        connections,
+        log: log.scope('mgmt'),
+    });
+
     // The panel hands the context to its tabs lazily and the context carries the panel: fill it in after both exist.
     const ctx = {} as FeatureContext;
     const panel = new SettingsPanel<FeatureContext>({
@@ -118,6 +127,7 @@ export async function startNanovia(options: StartOptions = {}): Promise<Runtime>
         catalog,
         usage,
         account,
+        mgmt,
         profiles,
         secrets,
         registerRequestHook: (hook) => requests.register(hook),
@@ -177,6 +187,7 @@ export async function startNanovia(options: StartOptions = {}): Promise<Runtime>
         catalog,
         usage,
         account,
+        mgmt,
         panel: { open: (tab) => panel.open(tab) },
         log: log.scope('api'),
     });
