@@ -1,0 +1,48 @@
+{
+ "canonicalId": "fireworks/ember-1",
+ "displayName": "Ember 1",
+ "supportsProviderSelection": true,
+ "defaultPrice": {
+  "inputPer1kTokens": 0.003,
+  "outputPer1kTokens": 0.015,
+  "cacheReadInputPer1kTokens": 0.0003
+ },
+ "autoTps": 88.2,
+ "autoTtftMs": 1317,
+ "autoCacheReadRate": 0,
+ "providers": [
+  {
+   "provider": "fireworks",
+   "displayName": "Fireworks",
+   "pricing": {
+    "inputPer1kTokens": 0.00315,
+    "outputPer1kTokens": 0.01575,
+    "cacheReadInputPer1kTokens": 0.00031499999999999996
+   },
+   "available": true,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 1040000,
+   "maxOutputTokens": 943718,
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "imageInput": true,
+    "promptCaching": true,
+    "reasoningEfforts": [
+     "none",
+     "low",
+     "high",
+     "max"
+    ]
+   },
+   "cacheReadRate": 0,
+   "quantization": "unknown",
+   "tps": 88.2,
+   "ttftMs": 1317,
+   "uptime": {
+    "uptimePct": 82.81,
+    "windowHours": 72
+   }
+  }
+ ]
+}

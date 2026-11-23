@@ -1,0 +1,12 @@
+{
+ "canonicalId": "z-ai/glm-4.5v",
+ "supportsProviderSelection": false,
+ "message": "This model does not support provider selection",
+ "providerDetails": [],
+ "defaultPrice": {
+  "inputPer1kTokens": 0.0006,
+  "outputPer1kTokens": 0.0018,
+  "cacheReadInputPer1kTokens": 0.00011
+ },
+ "autoCacheReadRate": 0.0004
+}
