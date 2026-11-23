@@ -66,6 +66,10 @@ ESLint (`eslint.config.js`) enforces the layer rules and bans hard-coded UI stri
 ## 3. Data on the server
 
 - Global dir `<ST data root>/_nanovia/`: `registry.json` = `{ version: 1, tokens: { [sha256(token)]: { connectionId, userHandle } } }`.
+- Catalog cache `<ST data root>/_nanovia/catalog.json` = `{ version: 1, fetchedAt, models: CatalogModel[] }`: the normalised public
+  NanoGPT catalog (`GET <siteBase>/api/v1/models?detailed=true`, no key), written after every fetch, read at start so the proxy
+  knows the models at once and while NanoGPT is down. In memory: catalog TTL 10 min, per-model host lists TTL 5 min (200, LRU).
+  `src/server/catalog.ts`; routes `GET /catalog[?refresh=1]`, `/catalog/:id/providers`, `/catalog/:id/hints` (+ `?id=` forms).
 - Per-user dir `<user root>/nanovia/`: `connections.json` = `{ version: 1, connections: ConnectionConfig[] }`,
   `usage-YYYY-MM-DD.jsonl` (one `UsageRecord` per line), later `mgmt.json` (Management token, never returned to the browser).
 - ST data root: `globalThis.DATA_ROOT`, falling back to `<cwd>/data`. User directories come from ST's `src/users.js`
