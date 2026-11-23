@@ -9,6 +9,8 @@ import type { Logger } from './types';
 
 export type { HostEvents, HostEventsImpl } from './events';
 export type { HostModulesImpl, ModuleImporter, ModuleNamespace } from './modules';
+export { QVINK_INTERCEPTOR, qvinkState, readStVersion } from './extensions';
+export type { QvinkState } from './extensions';
 export { createPluginClient, isPluginDown, parseConnectionView, parseStatus } from './plugin-client';
 export type { PluginClient, PluginError, PluginErrorCode, PluginResult } from './plugin-client';
 export { createPluginAccount } from './plugin-account';
