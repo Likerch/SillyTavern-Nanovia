@@ -244,7 +244,12 @@ export function createMediaFake(h: Harness): MediaFake {
                         progress: next === 'running' ? 0.5 : next === 'completed' ? 1 : job.progress,
                         output:
                             next === 'completed'
-                                ? { kind: 'video', mime: 'video/mp4', url: 'https://cdn.example.test/v.mp4', file: id }
+                                ? {
+                                      kind: 'video',
+                                      mime: 'video/mp4',
+                                      url: 'https://cdn.example.test/v.mp4',
+                                      file: `/media/files/${id}`,
+                                  }
                                 : null,
                         error: next === 'failed' ? 'NanoGPT could not render the video' : null,
                         cost: next === 'completed' ? costOf({ usd: 0.41, source: 'response' }) : job.cost,

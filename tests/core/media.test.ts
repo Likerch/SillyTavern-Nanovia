@@ -418,7 +418,7 @@ describe('video jobs', () => {
         expect(states()).toEqual(['running']);
         await vi.advanceTimersByTimeAsync(5_000);
         expect(states()).toEqual(['completed']);
-        expect(store.videos().jobs[0]?.output).toMatchObject({ file: 'vid_1' });
+        expect(store.videos().jobs[0]?.output).toMatchObject({ file: '/media/files/vid_1' });
         // A finished job is not asked about any more: the timer is gone.
         const calls = statusCalls().length;
         await vi.advanceTimersByTimeAsync(60_000);

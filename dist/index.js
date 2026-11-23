@@ -2241,11 +2241,14 @@ var CATALOG_TIMEOUT_MS$2 = 4e4;
 var STATUS_TIMEOUT_MS = 3e4;
 var LIST_TIMEOUT_MS = 15e3;
 /**
-* The URL of a saved video for `<video src>`: the plugin's files route. `file` is the id the plugin gave (`output.file`);
-* a value that already is a path or an URL is used as it is. Same origin as ST, so the session cookie goes along.
+* The URL of a saved video for `<video src>`: the plugin's files route. `output.file` is the route path the plugin gives
+* (`/media/files/<id>`, relative to the admin base), which gets the base in front; a bare id works too, and a value that
+* already is a full path or an URL is used as it is. Same origin as ST, so the session cookie goes along.
 */
 function mediaFileUrl(file) {
-	if (/^(?:https?:)?\/\//i.test(file) || file.startsWith("/")) return file;
+	if (/^(?:https?:)?\/\//i.test(file)) return file;
+	if (file.startsWith("/media/")) return `${PLUGIN_ADMIN_BASE}${file}`;
+	if (file.startsWith("/")) return file;
 	return `${PLUGIN_ADMIN_BASE}/media/files/${encodeURIComponent(file)}`;
 }
 function numberOf(value) {

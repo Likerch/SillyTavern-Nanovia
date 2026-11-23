@@ -317,7 +317,7 @@ describe('video jobs', () => {
         const done = await fake.media.videoStatus('vid_1');
         expect(done).toMatchObject({
             ok: true,
-            data: { status: 'completed', output: { kind: 'video', mime: 'video/mp4', file: 'vid_1' } },
+            data: { status: 'completed', output: { kind: 'video', mime: 'video/mp4', file: '/media/files/vid_1' } },
         });
 
         expect(await fake.media.deleteVideo('vid_1')).toEqual({ ok: true, data: true });
@@ -333,6 +333,8 @@ describe('video jobs', () => {
         expect(mediaFileUrl('vid_1')).toBe('/api/plugins/nanovia/media/files/vid_1');
         expect(mediaFileUrl('a b')).toBe('/api/plugins/nanovia/media/files/a%20b');
         expect(mediaFileUrl('/api/plugins/nanovia/media/files/x')).toBe('/api/plugins/nanovia/media/files/x');
+        // The route path exactly as the plugin sends it in `output.file`.
+        expect(mediaFileUrl('/media/files/vid_1')).toBe('/api/plugins/nanovia/media/files/vid_1');
         expect(mediaFileUrl('https://cdn.example.test/v.mp4')).toBe('https://cdn.example.test/v.mp4');
     });
 });
