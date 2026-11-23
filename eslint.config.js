@@ -80,6 +80,7 @@ export default tseslint.config(
             'docs/**',
             'tools/stand/runtime/**',
             '.wt/**',
+            '.claude/**',
         ],
     },
     js.configs.recommended,
