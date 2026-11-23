@@ -49,7 +49,7 @@ npm run stand:stop
 - пишет `runtime/config/config.yaml` из `default/config.yaml`: порт 8130, `listen: false`, белый список, без basic auth, **`enableServerPlugins: true`**, без автообновлений расширений и плагинов;
 - создаёт пользователя в `runtime/data/default-user`: `settings.json` (Chat Completion → Custom → мок, чтобы цепочка ST → мок работала сразу) и `secrets.json` с фальшивым ключом NanoGPT (`api_key_nanogpt`) и ключом для Custom. Существующие файлы не трогаются, `--force` перезаписывает;
 - ставит расширение: папка с копией `manifest.json` и ссылкой `dist` на `dist/` репозитория (пересборка видна после перезагрузки страницы; `--copy` кладёт обычную копию);
-- ставит плагин в `runtime/st/plugins/nanovia` (`index.js`, `package.json`) и пишет ему `config.json`: `{ "port": 8788, "upstreamBase": "http://127.0.0.1:5300/api/v1", "timeoutMs": 30000 }`.
+- ставит плагин в `runtime/st/plugins/nanovia` (`index.js`, `package.json`) и пишет ему `config.json`: `{ "port": 8788, "upstreamBase": "http://127.0.0.1:5300/api/v1", "mgmtBase": "http://127.0.0.1:5300/api/management/v1", "timeoutMs": 30000 }`.
 
 Каждый `npm run stand` заново подхватывает сборку: перелинковывает `dist/`, копирует `server/index.js` (плагин ST грузит только при старте, после пересборки плагина нужен `npm run stand -- restart`). Если `dist/index.js` или `server/index.js` ещё нет, стенд пишет предупреждение и работает без них.
 
@@ -134,9 +134,10 @@ docker compose restart sillytavern        # плагин ST грузит тол�
 | -------------- | ---------------------------------- | ------------------------------------------------------------------------------ |
 | `port`         | `8787`                             | порт локального прокси (слушает только `127.0.0.1`)                            |
 | `upstreamBase` | `https://api.nano-gpt.com/api/v1`  | куда пересылать запросы (при ошибках соединения плагин пробует `https://nano-gpt.com/api/v1`) |
+| `mgmtBase`     | `https://nano-gpt.com/api/management/v1` | Management API (ключи с лимитами, пресеты моделей); единственный адрес, куда уходит токен Management, запасного нет |
 | `timeoutMs`    | задаёт плагин                      | таймаут запроса к NanoGPT                                                       |
 
-Переменные окружения `NANOVIA_PORT` и `NANOVIA_UPSTREAM` перекрывают файл. Ключ NanoGPT в конфиг не кладут: он берётся из секретов ST (`api_key_nanogpt`).
+Переменные окружения `NANOVIA_PORT`, `NANOVIA_UPSTREAM` и `NANOVIA_MGMT` перекрывают файл. Ключ NanoGPT в конфиг не кладут: он берётся из секретов ST (`api_key_nanogpt`). Токен Management (`sk-nano-mgmt-…`) тоже не в конфиге: его вводят в панели, он лежит в `<папка пользователя>/nanovia/mgmt.json` (режим 0600, наружу не отдаётся ни одним маршрутом). При подмене `upstreamBase` на мок `mgmtBase` нужно подменить тоже: адреса независимы.
 
 ### Файрвол и порты
 
