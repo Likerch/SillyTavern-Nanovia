@@ -309,9 +309,12 @@ function installPlugin() {
         upstreamBase: MOCK_BASE,
         siteBase: MOCK_ORIGIN,
         mgmtBase: MOCK_MGMT_BASE,
+        mediaBase: MOCK_ORIGIN,
         timeoutMs: 30000,
     });
-    ok(`plugin config.json: proxy port ${PROXY_PORT}, upstreamBase ${MOCK_BASE}, siteBase ${MOCK_ORIGIN}, mgmtBase ${MOCK_MGMT_BASE}`);
+    ok(
+        `plugin config.json: proxy port ${PROXY_PORT}, upstreamBase ${MOCK_BASE}, siteBase ${MOCK_ORIGIN}, mgmtBase ${MOCK_MGMT_BASE}, mediaBase ${MOCK_ORIGIN}`,
+    );
     return { installed: true };
 }
 

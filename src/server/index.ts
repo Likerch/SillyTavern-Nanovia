@@ -1,7 +1,8 @@
 // Nanovia server plugin for SillyTavern (docs/ARCHITECTURE.md §1, §3, §4).
 // Install: copy server/ to <ST>/plugins/nanovia, set enableServerPlugins: true, restart ST.
 // Optional config: <ST>/plugins/nanovia/config.json { "port": 8787, "upstreamBase": "...", "timeoutMs": 300000 };
-// environment overrides: NANOVIA_PORT, NANOVIA_UPSTREAM, NANOVIA_SITE, NANOVIA_MGMT (the Management API base).
+// environment overrides: NANOVIA_PORT, NANOVIA_UPSTREAM, NANOVIA_SITE, NANOVIA_MGMT (the Management API base),
+// NANOVIA_MEDIA (the media host: images, speech, transcription, video).
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { PLUGIN_ID } from '../shared/constants';
@@ -54,7 +55,14 @@ export async function init(router: RouterLike): Promise<void> {
     for (const warning of warnings) log.warn(warning);
     const st = await createStServices(log);
     const fetch = await loadFetch();
-    running = await startNanovia(router, { config, st, fetch, log, catalog: { autoFetch: true } });
+    running = await startNanovia(router, {
+        config,
+        st,
+        fetch,
+        log,
+        catalog: { autoFetch: true },
+        media: { catalog: { autoFetch: true } },
+    });
     const proxy = running.status;
     log.info(
         `v${PLUGIN_VERSION} ready (secrets: ${st.available ? 'ST' : 'unavailable'}, proxy: ${

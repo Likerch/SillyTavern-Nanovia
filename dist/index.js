@@ -769,6 +769,8 @@ function summarizeUsage(records, range, dayOf, filter = {}) {
 	const days = /* @__PURE__ */ new Map();
 	const connections = /* @__PURE__ */ new Map();
 	const models = /* @__PURE__ */ new Map();
+	const media = /* @__PURE__ */ new Map();
+	let hasMedia = false;
 	for (const record of records) {
 		if (!(record.at >= range.from && record.at < range.to)) continue;
 		if (filter.connectionId !== void 0 && record.connectionId !== filter.connectionId) continue;
@@ -776,6 +778,9 @@ function summarizeUsage(records, range, dayOf, filter = {}) {
 		addRecord(bucket(days, dayOf(record.at)), record);
 		addRecord(bucket(connections, record.connectionId), record);
 		addRecord(bucket(models, record.model), record);
+		const medium = record.medium ?? "chat";
+		if (medium !== "chat") hasMedia = true;
+		addRecord(bucket(media, medium), record);
 	}
 	const byDay = [...days].map(([day, totals]) => ({
 		day,
@@ -789,7 +794,7 @@ function summarizeUsage(records, range, dayOf, filter = {}) {
 		model,
 		...finish(totals)
 	})).sort((a, b) => byWeight(a, b) || compareText(a.model, b.model));
-	return {
+	const summary = {
 		from: range.from,
 		to: range.to,
 		total: finish(total),
@@ -797,6 +802,11 @@ function summarizeUsage(records, range, dayOf, filter = {}) {
 		byConnection,
 		byModel
 	};
+	if (hasMedia) summary.byMedium = [...media].map(([medium, totals]) => ({
+		medium,
+		...finish(totals)
+	})).sort((a, b) => byWeight(a, b) || compareText(a.medium, b.medium));
+	return summary;
 }
 function emptyTotals$1() {
 	return {
@@ -5281,7 +5291,7 @@ function nonNegative$1(value) {
 	const n = finite$1(value);
 	return n !== null && n >= 0 ? n : null;
 }
-function positive$1(value) {
+function positive$2(value) {
 	const n = finite$1(value);
 	return n !== null && n > 0 ? n : null;
 }
@@ -5316,7 +5326,7 @@ function compareNumbers(a, b) {
 }
 /** `created` is seconds in NanoGPT's list; a millisecond value is tolerated. */
 function toSeconds(value) {
-	const n = positive$1(value);
+	const n = positive$2(value);
 	if (n === null) return null;
 	return n > 1e11 ? Math.floor(n / 1e3) : Math.floor(n);
 }
@@ -5337,8 +5347,8 @@ function normalizeCatalogModel(raw) {
 		id,
 		name: text$1(raw["name"]) || id,
 		description: text$1(raw["description"]),
-		contextLength: positive$1(raw["context_length"]),
-		maxOutputTokens: positive$1(raw["max_output_tokens"]),
+		contextLength: positive$2(raw["context_length"]),
+		maxOutputTokens: positive$2(raw["max_output_tokens"]),
 		capabilities: {
 			vision: caps["vision"] === true,
 			reasoning: caps["reasoning"] === true,
@@ -5355,7 +5365,7 @@ function normalizeCatalogModel(raw) {
 		category: text$1(raw["category"]) || null,
 		subscription: {
 			included: sub["included"] === true,
-			inputTokenMultiplier: positive$1(sub["inputTokenMultiplier"]) ?? 1
+			inputTokenMultiplier: positive$2(sub["inputTokenMultiplier"]) ?? 1
 		},
 		providerIds: strings$1(raw["providers"]),
 		created: toSeconds(raw["created"])
@@ -5450,10 +5460,10 @@ function normalizeEndpoint(raw) {
 		quantization,
 		rawQuantization,
 		pricing: priceOf(raw["pricing"]),
-		tps: positive$1(raw["tps"]),
-		ttftMs: positive$1(raw["ttftMs"]),
+		tps: positive$2(raw["tps"]),
+		ttftMs: positive$2(raw["ttftMs"]),
 		uptime: uptimeOf(raw["uptime"]),
-		maxOutputTokens: positive$1(raw["maxOutputTokens"]),
+		maxOutputTokens: positive$2(raw["maxOutputTokens"]),
 		features: featuresOf(raw["features"])
 	};
 }
@@ -5482,8 +5492,8 @@ function normalizeModelProviders(modelId, raw) {
 		modelId: id,
 		supportsProviderSelection: raw["supportsProviderSelection"] !== false,
 		autoCacheReadRate: rate !== null && rate >= 0 && rate <= 1 ? rate : null,
-		autoTps: positive$1(raw["autoTps"]),
-		autoTtftMs: positive$1(raw["autoTtftMs"]),
+		autoTps: positive$2(raw["autoTps"]),
+		autoTtftMs: positive$2(raw["autoTtftMs"]),
 		providers
 	};
 }
@@ -5631,8 +5641,8 @@ function scoreHosts(providers, criteria) {
 	const weights = normalisedWeights(criteria);
 	const blended = providers.map((p) => p.pricing ? p.pricing.prompt + p.pricing.completion : null);
 	const cheapest = Math.min(...numbersOf(blended));
-	const bestTps = Math.max(...numbersOf(providers.map((p) => positive$1(p.tps))));
-	const bestTtft = Math.min(...numbersOf(providers.map((p) => positive$1(p.ttftMs))));
+	const bestTps = Math.max(...numbersOf(providers.map((p) => positive$2(p.tps))));
+	const bestTtft = Math.min(...numbersOf(providers.map((p) => positive$2(p.ttftMs))));
 	const preference = criteria.preferQuantization;
 	const hasPreference = quantizationRank(preference) !== null;
 	const cap = criteria.maxPrice;
@@ -5643,8 +5653,8 @@ function scoreHosts(providers, criteria) {
 		if (own === null) missing.push("price");
 		else price = own <= cheapest ? 1 : cheapest / own;
 		const parts = [];
-		const tps = positive$1(p.tps);
-		const ttft = positive$1(p.ttftMs);
+		const tps = positive$2(p.tps);
+		const ttft = positive$2(p.ttftMs);
 		if (tps !== null) parts.push(tps / bestTps);
 		if (ttft !== null) parts.push(bestTtft / ttft);
 		let speed = 0;
@@ -6057,7 +6067,7 @@ function isRecord(value) {
 function finite(value) {
 	return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
-function positive(value) {
+function positive$1(value) {
 	const n = finite(value);
 	return n !== null && n > 0 ? n : null;
 }
@@ -6092,8 +6102,8 @@ function readCatalogModel(raw) {
 		id,
 		name: typeof raw["name"] === "string" && raw["name"].trim() ? raw["name"].trim() : id,
 		description: typeof raw["description"] === "string" ? raw["description"] : "",
-		contextLength: positive(raw["contextLength"]),
-		maxOutputTokens: positive(raw["maxOutputTokens"]),
+		contextLength: positive$1(raw["contextLength"]),
+		maxOutputTokens: positive$1(raw["maxOutputTokens"]),
 		capabilities: {
 			vision: caps["vision"] === true,
 			reasoning: caps["reasoning"] === true,
@@ -6110,10 +6120,10 @@ function readCatalogModel(raw) {
 		category: typeof raw["category"] === "string" && raw["category"] ? raw["category"] : null,
 		subscription: {
 			included: sub["included"] === true,
-			inputTokenMultiplier: positive(sub["inputTokenMultiplier"]) ?? 1
+			inputTokenMultiplier: positive$1(sub["inputTokenMultiplier"]) ?? 1
 		},
 		providerIds: strings(raw["providerIds"]),
-		created: positive(raw["created"])
+		created: positive$1(raw["created"])
 	};
 }
 /** A list of models of the contract shape: junk entries are skipped, a repeated id keeps its first entry. */
@@ -6146,10 +6156,10 @@ function readEndpoint(raw) {
 			completion,
 			cacheRead: nonNegative(price["cacheRead"])
 		} : null,
-		tps: positive(raw["tps"]),
-		ttftMs: positive(raw["ttftMs"]),
+		tps: positive$1(raw["tps"]),
+		ttftMs: positive$1(raw["ttftMs"]),
 		uptime: nonNegative(raw["uptime"]),
-		maxOutputTokens: positive(raw["maxOutputTokens"]),
+		maxOutputTokens: positive$1(raw["maxOutputTokens"]),
 		features: strings(raw["features"])
 	};
 }
@@ -6171,10 +6181,10 @@ function readModelProviders(raw, fallbackFetchedAt) {
 		modelId,
 		supportsProviderSelection: raw["supportsProviderSelection"] !== false,
 		autoCacheReadRate: rate !== null && rate >= 0 && rate <= 1 ? rate : null,
-		autoTps: positive(raw["autoTps"]),
-		autoTtftMs: positive(raw["autoTtftMs"]),
+		autoTps: positive$1(raw["autoTps"]),
+		autoTtftMs: positive$1(raw["autoTtftMs"]),
 		providers,
-		fetchedAt: positive(raw["fetchedAt"]) ?? fallbackFetchedAt
+		fetchedAt: positive$1(raw["fetchedAt"]) ?? fallbackFetchedAt
 	};
 }
 function invalid(what) {
@@ -6202,7 +6212,7 @@ function createPluginCatalogClient(plugin, log, now = Date.now) {
 				ok: true,
 				data: {
 					models,
-					fetchedAt: positive(data["fetchedAt"]) ?? now(),
+					fetchedAt: positive$1(data["fetchedAt"]) ?? now(),
 					source: source === "live" || source === "cache" || source === "stale" ? source : "cache"
 				}
 			};
@@ -13829,7 +13839,7 @@ function parseNumber(text) {
 	return Number.isFinite(value) ? value : void 0;
 }
 /** `1024x1024`, `1024 x 1024`, `1024*1024` or `1024×1024` as numbers; null for anything else (and for a zero side). */
-function parseSize(text) {
+function parseSize$1(text) {
 	const match = /^\s*(\d{2,5})\s*[x×*]\s*(\d{2,5})\s*$/i.exec(text);
 	if (!match) return null;
 	const width = Number(match[1]);
@@ -14107,7 +14117,7 @@ function buildImageRequest(model, draft) {
 	else if (count !== null && count > 1) request.n = count;
 	if (spec.size) {
 		const size = choiceValue(spec.size, draft.size).trim();
-		if (spec.size.kind === "free" && size && !parseSize(size)) issues.push({
+		if (spec.size.kind === "free" && size && !parseSize$1(size)) issues.push({
 			code: "size_invalid",
 			field: "size"
 		});
@@ -14827,20 +14837,82 @@ var MEDIA_STRINGS = {
 	}
 };
 // src/domain/media.ts
+var hasKeys = (map) => Object.keys(map).length > 0;
+/** `1024*1024`, `1024X1024`, `1024×1024` -> `1024x1024`; everything else lower-cased. */
+function sizeKey(size) {
+	return size.trim().toLowerCase().replace(/[×*]/g, "x");
+}
+function parseSize(size) {
+	const m = /^(\d{1,5})x(\d{1,5})$/.exec(sizeKey(size));
+	if (!m) return null;
+	return {
+		width: Number(m[1]),
+		height: Number(m[2])
+	};
+}
+/** The figure for a named option (size, resolution): the exact entry, else the cheapest the list gives. */
+function figureFor(price, name, normalize) {
+	if (name !== void 0 && name.trim() !== "") {
+		const wanted = normalize(name);
+		for (const [key, value] of Object.entries(price.byKey)) if (normalize(key) === wanted) return value;
+	}
+	return price.from;
+}
+function positive(value) {
+	return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : null;
+}
 /** USD for `n` images of `size` (`WxH` or a size token the price list names); null when not computable. */
-function estimateImageCost(_model, _request) {
+function estimateImageCost(model, request) {
+	const n = typeof request.n === "number" && Number.isInteger(request.n) && request.n >= 1 ? request.n : 1;
+	const { price } = model;
+	if (price.unit === "image") {
+		const each = figureFor(price, request.size, sizeKey);
+		return each === null ? null : roundUsd$1(each * n);
+	}
+	if (price.unit === "megapixel" && price.from !== null && request.size) {
+		const size = parseSize(request.size);
+		return size ? roundUsd$1(price.from * (size.width * size.height / 1e6) * n) : null;
+	}
 	return null;
 }
-/** USD for a video of `duration` seconds at `resolution`; null when not computable (the price is approximate or missing). */
-function estimateVideoCost(_model, _request) {
+/**
+* USD for a video of `duration` seconds at `resolution`; null when not computable: the price is approximate (a floor, a
+* multiplier, per-mode tables …) or missing, the duration is not given for a per-second price, or a per-duration price
+* has no entry for it. A resolution the list does not name falls back to the cheapest one.
+*/
+function estimateVideoCost(model, request) {
+	const { price } = model;
+	if (model.priceIsApproximate || price.from === null) return null;
+	if (price.unit === "second" || price.unit === "minute") {
+		const seconds = positive(request.duration);
+		const rate = price.unit === "second" ? figureFor(price, request.resolution, (k) => k.trim().toLowerCase()) : price.from;
+		if (seconds === null || rate === null) return null;
+		return roundUsd$1(rate * (price.unit === "second" ? seconds : seconds / 60));
+	}
+	if (price.unit === "request") {
+		if (!hasKeys(price.byKey)) return price.from;
+		const seconds = positive(request.duration);
+		if (seconds === null) return price.from;
+		const exact = price.byKey[`${seconds}s`];
+		return exact === void 0 ? null : exact;
+	}
 	return null;
 }
 /** USD for `chars` characters of speech; null when not computable. */
-function estimateTtsCost(_model, _chars) {
+function estimateTtsCost(model, chars) {
+	const { price } = model;
+	if (price.from === null || !Number.isFinite(chars) || chars < 0) return null;
+	if (price.unit === "thousand_chars") return roundUsd$1(chars / 1e3 * price.from);
+	if (price.unit === "request") return price.from;
 	return null;
 }
 /** USD for `seconds` of audio to transcribe; null when not computable. */
-function estimateSttCost(_model, _seconds) {
+function estimateSttCost(model, seconds) {
+	const { price } = model;
+	if (price.from === null || !Number.isFinite(seconds) || seconds < 0) return null;
+	if (price.unit === "minute") return roundUsd$1(seconds / 60 * price.from);
+	if (price.unit === "second") return roundUsd$1(seconds * price.from);
+	if (price.unit === "request") return price.from;
 	return null;
 }
 // src/features/media/view-model.ts

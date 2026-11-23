@@ -47,7 +47,12 @@ function recording(extra: () => Record<string, string> = () => ({})) {
     const calls: Call[] = [];
     const real = globalThis.fetch as unknown as FetchLike;
     const fetch: FetchLike = (url, init) => {
-        calls.push({ url, method: init.method, headers: { ...init.headers }, body: init.body });
+        calls.push({
+            url,
+            method: init.method,
+            headers: { ...init.headers },
+            body: typeof init.body === 'string' ? init.body : undefined,
+        });
         return real(url, { ...init, headers: { ...init.headers, ...extra() } });
     };
     return { fetch, calls };
@@ -668,7 +673,12 @@ describe('POST /mgmt/keys', () => {
         const flaky: FetchLike = (url, init) => {
             if (fail && init.method === 'POST') {
                 fail = false;
-                rec.calls.push({ url, method: init.method, headers: { ...init.headers }, body: init.body });
+                rec.calls.push({
+                    url,
+                    method: init.method,
+                    headers: { ...init.headers },
+                    body: typeof init.body === 'string' ? init.body : undefined,
+                });
                 return Promise.reject(new Error('socket hang up'));
             }
             return rec.fetch(url, init);

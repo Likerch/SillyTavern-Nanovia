@@ -4,6 +4,9 @@
 //   GET  /health                           -> { ok: true, version }                     (no auth)
 //   GET  /c/<id>/v1/models                 -> OpenAI model list with the connection's model
 //   POST /c/<id>/v1/chat/completions       -> NanoGPT, streamed chunk by chunk or in one piece
+//   POST /c/<id>/v1/audio/speech           -> media (stage 0.7): audio bytes relayed as they arrive      (media-proxy.ts)
+//   POST /c/<id>/v1/audio/transcriptions   -> media: multipart in, JSON out
+//   POST /c/<id>/v1/images/generations     -> media: JSON in, JSON out (`b64_json` / `url`)
 //
 // Keys, tokens and request bodies are never logged and never appear in an error message.
 import http from 'node:http';
@@ -12,8 +15,10 @@ import { randomBytes } from 'node:crypto';
 import type { UsageRecord } from '../shared/contracts';
 import { PROXY_HOST, RESPONSE_HEADERS, SECRET_KEY_NANOGPT } from '../shared/constants';
 import { createProxyContext, parseHints } from './context';
+import { createMediaProxy, MEDIA_ENDPOINTS, type MediaEndpoint } from './media-proxy';
 import { REQUEST_STEPS, RESPONSE_STEPS } from './pipeline';
 import { lookupCatalog, requestedModelId } from './pipeline/steps/plan';
+import { errorBody, headerSafe, sendError, sendJson, sendMethodNotAllowed, writeChunk } from './proxy-http';
 import { SecretValue } from './secret-value';
 import { hashToken } from './tokens';
 import { callUpstream, UpstreamError, type UpstreamHandle } from './upstream';
@@ -22,7 +27,8 @@ import type { ProxyContext, ProxyStatus, RequestStep, ResponseStep, ServerDeps, 
 
 export const MAX_BODY_BYTES = 32 * 1024 * 1024;
 
-const ROUTE = /^\/c\/([a-z0-9]{6,16})\/v1\/(models|chat\/completions)\/?$/;
+const ROUTE =
+    /^\/c\/([a-z0-9]{6,16})\/v1\/(models|chat\/completions|audio\/speech|audio\/transcriptions|images\/generations)\/?$/;
 const REQUEST_ID_HEADERS = ['x-request-id', 'x-nanogpt-request-id', 'request-id'];
 
 export interface ProxyServer {
@@ -45,6 +51,7 @@ export function createProxyServer(
     steps: PipelineSteps = { request: REQUEST_STEPS, response: RESPONSE_STEPS },
 ): ProxyServer {
     const { config, log } = deps;
+    const mediaProxy = createMediaProxy(deps);
     let state: ProxyStatus = { up: false, host: PROXY_HOST, port: config.port, error: null };
 
     const server = http.createServer((req, res) => {
@@ -65,7 +72,7 @@ export function createProxyServer(
         const match = ROUTE.exec(pathname);
         if (!match) return sendError(res, 404, 'invalid_request_error', 'not_found', 'Unknown path');
         const connectionId = match[1] as string;
-        const endpoint = match[2] as 'models' | 'chat/completions';
+        const endpoint = match[2] as 'models' | 'chat/completions' | MediaEndpoint;
         const wanted = endpoint === 'models' ? 'GET' : 'POST';
         if (req.method !== wanted) return sendMethodNotAllowed(res, wanted);
 
@@ -101,6 +108,16 @@ export function createProxyServer(
                 },
                 { [RESPONSE_HEADERS.connection]: connection.id },
             );
+        }
+        if (MEDIA_ENDPOINTS.includes(endpoint as MediaEndpoint)) {
+            return mediaProxy({
+                req,
+                res,
+                endpoint: endpoint as MediaEndpoint,
+                user: auth.user,
+                userRoot: auth.userRoot,
+                connection,
+            });
         }
         await chatCompletions(req, res, auth.user, auth.userRoot, connection);
     }
@@ -502,44 +519,6 @@ function blankUsage(connectionId: string, model: string, startedAt: number, now:
     };
 }
 
-function errorBody(
-    type: string,
-    code: string,
-    message: string,
-): { error: { message: string; type: string; code: string } } {
-    return { error: { message, type, code } };
-}
-
-function sendJson(res: http.ServerResponse, status: number, body: unknown, headers: Record<string, string> = {}): void {
-    if (res.headersSent || res.destroyed) return;
-    const payload = Buffer.from(JSON.stringify(body));
-    res.writeHead(status, {
-        'content-type': 'application/json; charset=utf-8',
-        'content-length': String(payload.length),
-        'cache-control': 'no-store',
-        ...headers,
-    });
-    res.end(payload);
-}
-
-function sendError(
-    res: http.ServerResponse,
-    status: number,
-    type: string,
-    code: string,
-    message: string,
-    headers: Record<string, string> = {},
-): void {
-    sendJson(res, status, errorBody(type, code, message), {
-        ...headers,
-        ...(status === 413 ? { connection: 'close' } : {}),
-    });
-}
-
-function sendMethodNotAllowed(res: http.ServerResponse, allow: string): void {
-    sendError(res, 405, 'invalid_request_error', 'method_not_allowed', 'Method not allowed', { allow });
-}
-
 /** Headers of the reply to the client: what the upstream said about the content, plus ours. */
 function clientHeaders(ctx: ProxyContext, info: UpstreamInfo, stream: boolean): Record<string, string> {
     const headers: Record<string, string> = {};
@@ -562,31 +541,12 @@ function clientHeaders(ctx: ProxyContext, info: UpstreamInfo, stream: boolean): 
     return headers;
 }
 
-function headerSafe(value: string): string {
-    return value.replace(/[^\x20-\x7e]/g, '').slice(0, 500);
-}
-
 function firstHeader(headers: Record<string, string>, names: string[]): string | null {
     for (const name of names) {
         const value = headers[name];
         if (value) return value;
     }
     return null;
-}
-
-/** Writes a chunk and waits for the socket to drain, so a slow client slows the upstream read instead of buffering. */
-function writeChunk(res: http.ServerResponse, chunk: Uint8Array): Promise<void> {
-    if (res.destroyed || res.writableEnded) return Promise.resolve();
-    if (res.write(chunk)) return Promise.resolve();
-    return new Promise((resolve) => {
-        const done = (): void => {
-            res.off('drain', done);
-            res.off('close', done);
-            resolve();
-        };
-        res.once('drain', done);
-        res.once('close', done);
-    });
 }
 
 /**

@@ -4,7 +4,7 @@ import { addTotals, createUsageStore, emptyTotals, localMidnight, mergeSummaries
 import type { UsageStore } from '../../src/core/usage';
 import type { PluginAccount, PluginError } from '../../src/host';
 import type { UsageTotals } from '../../src/shared/contracts';
-import type { UsageSummary } from '../../src/shared/contracts-account';
+import type { MediumUsage, UsageSummary } from '../../src/shared/contracts-account';
 import { usageRecord } from '../helpers/account-fake';
 import { memoryLogger } from '../helpers/fakes';
 
@@ -496,18 +496,18 @@ describe('a record whose cost the plugin corrected later (stage 0.7)', () => {
 });
 
 describe('the spend by kind of request (stage 0.7)', () => {
-    const medium = (name: string, requests: number, cost: number) => ({
+    const medium = (name: MediumUsage['medium'], requests: number, cost: number): MediumUsage => ({
         medium: name,
         ...totals(requests, cost, cost),
     });
 
     it('is merged by medium, heaviest first, and absent when neither side has it', () => {
-        const a = summary(totals(2, 1, 1)) as UsageSummary & { byMedium?: unknown };
-        const b = summary(totals(1, 3, 3)) as UsageSummary & { byMedium?: unknown };
+        const a = summary(totals(2, 1, 1)) as UsageSummary;
+        const b = summary(totals(1, 3, 3)) as UsageSummary;
         expect(mergeSummaries(a, b)).not.toHaveProperty('byMedium');
         a.byMedium = [medium('chat', 2, 1), medium('image', 1, 0.5)];
         b.byMedium = [medium('image', 2, 0.25), medium('tts', 1, 3)];
-        const merged = mergeSummaries(a, b) as UsageSummary & { byMedium?: unknown };
+        const merged = mergeSummaries(a, b) as UsageSummary;
         expect(merged.byMedium).toEqual([medium('tts', 1, 3), medium('chat', 2, 1), medium('image', 3, 0.75)]);
         // One side alone still shows.
         expect((mergeSummaries(a, summary(totals(0, 0, 0))) as { byMedium?: unknown[] }).byMedium).toHaveLength(2);

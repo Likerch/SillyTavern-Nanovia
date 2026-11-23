@@ -1,7 +1,14 @@
 // Reading NanoGPT's `usage` (OpenAI/OpenRouter shape plus NanoGPT's own fields) into one tolerant structure, and summing
 // usage records. Pure: untrusted JSON in, plain numbers out; nothing is invented and bad numbers become null.
 import type { UsageRecord } from '../shared/contracts';
-import type { ConnectionUsage, DayUsage, ModelUsage, UsageSummary, UsageTotals } from '../shared/contracts-account';
+import type {
+    ConnectionUsage,
+    DayUsage,
+    MediumUsage,
+    ModelUsage,
+    UsageSummary,
+    UsageTotals,
+} from '../shared/contracts-account';
 
 /** `usage` of one response (or one SSE chunk) with every alias folded in. null = the response did not say. */
 export interface NormalizedUsage {
@@ -163,6 +170,8 @@ export function summarizeUsage(
     const days = new Map<string, UsageTotals>();
     const connections = new Map<string | null, UsageTotals>();
     const models = new Map<string, UsageTotals>();
+    const media = new Map<MediumUsage['medium'], UsageTotals>();
+    let hasMedia = false;
     for (const record of records) {
         if (!(record.at >= range.from && record.at < range.to)) continue;
         if (filter.connectionId !== undefined && record.connectionId !== filter.connectionId) continue;
@@ -170,6 +179,9 @@ export function summarizeUsage(
         addRecord(bucket(days, dayOf(record.at)), record);
         addRecord(bucket(connections, record.connectionId), record);
         addRecord(bucket(models, record.model), record);
+        const medium = record.medium ?? 'chat';
+        if (medium !== 'chat') hasMedia = true;
+        addRecord(bucket(media, medium), record);
     }
     const byDay: DayUsage[] = [...days]
         .map(([day, totals]) => ({ day, ...finish(totals) }))
@@ -180,7 +192,20 @@ export function summarizeUsage(
     const byModel: ModelUsage[] = [...models]
         .map(([model, totals]) => ({ model, ...finish(totals) }))
         .sort((a, b) => byWeight(a, b) || compareText(a.model, b.model));
-    return { from: range.from, to: range.to, total: finish(total), byDay, byConnection, byModel };
+    const summary: UsageSummary = {
+        from: range.from,
+        to: range.to,
+        total: finish(total),
+        byDay,
+        byConnection,
+        byModel,
+    };
+    if (hasMedia) {
+        summary.byMedium = [...media]
+            .map(([medium, totals]) => ({ medium, ...finish(totals) }))
+            .sort((a, b) => byWeight(a, b) || compareText(a.medium, b.medium));
+    }
+    return summary;
 }
 
 function emptyTotals(): UsageTotals {

@@ -1,0 +1,1667 @@
+{
+ "object": "list",
+ "data": [
+  {
+   "id": "voxtral-mini-tts-3-0",
+   "object": "model",
+   "created": 1795453686,
+   "owned_by": "mistral",
+   "name": "Voxtral TTS 3",
+   "description": "Generate multilingual speech with preset voices or a per-request MP3 or WAV voice reference. Supports inline emotion and pace tags, pronunciation hints, and MP3, WAV, PCM, FLAC, or Opus output. Up to 4,000 input characters; returns completed audio.",
+   "architecture": {
+    "modality": "text->audio",
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "audio"
+    ]
+   },
+   "pricing": {
+    "per_thousand_chars": 0.0221,
+    "currency": "USD"
+   },
+   "capabilities": {
+    "text_to_speech": true,
+    "streaming": false,
+    "voice_cloning": true
+   },
+   "supported_parameters": {
+    "max_chars": 4000,
+    "voices": [
+     "voice_478",
+     "voice_447",
+     "voice_485",
+     "voice_484",
+     "voice_483",
+     "voice_482",
+     "voice_481",
+     "voice_480",
+     "voice_479",
+     "en_paul_neutral",
+     "gb_jane_neutral",
+     "gb_oliver_neutral",
+     "fr_marie_neutral"
+    ]
+   },
+   "icon_url": "/icons/Mistral.svg",
+   "category": "audio_tts"
+  },
+  {
+   "id": "kotoba-technologies/kotoba-tts/v2/tts/ws",
+   "object": "model",
+   "created": 1795453686,
+   "owned_by": "kotoba-technologies",
+   "name": "Kotoba TTS v2",
+   "description": "Japanese speech synthesis with male-01 and female-01 preset voices. Returns completed 24 kHz mono WAV audio. Billed by exact UTF-8 bytes, not characters. NanoGPT accepts up to 12,000 input bytes.",
+   "architecture": {
+    "modality": "text->audio",
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "audio"
+    ]
+   },
+   "pricing": {
+    "per_thousand_utf8_bytes": 0.0255,
+    "currency": "USD"
+   },
+   "capabilities": {
+    "text_to_speech": true,
+    "streaming": false,
+    "voice_cloning": false
+   },
+   "supported_parameters": {
+    "voices": [
+     "male-01",
+     "female-01"
+    ],
+    "languages": [
+     "ja"
+    ],
+    "output_formats": [
+     "wav"
+    ],
+    "sample_rates": [
+     24000
+    ],
+    "max_input_bytes": 12000,
+    "streaming": false,
+    "return_url": false
+   },
+   "category": "audio_tts"
+  },
+  {
+   "id": "qwen-audio-3.1-tts-flash",
+   "object": "model",
+   "created": 1795453686,
+   "owned_by": "alibaba",
+   "name": "Qwen Audio 3.1 TTS Flash",
+   "description": "Speech synthesis with four multilingual voices in Singapore. Supports Japanese, Korean, French, German, Portuguese, Italian, Vietnamese, and Indonesian, plus eight Chinese dialects. Returns MP3, WAV, or PCM audio after generation completes. Billed by measured input and output tokens; character-based previews are estimates.",
+   "architecture": {
+    "modality": "text->audio",
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "audio"
+    ]
+   },
+   "pricing": {
+    "prompt": 0.391,
+    "completion": 3.1790000000000003,
+    "currency": "USD",
+    "unit": "per_million_tokens",
+    "usage_source": "provider_task_finished"
+   },
+   "capabilities": {
+    "text_to_speech": true
+   },
+   "supported_parameters": {
+    "max_chars": 20000,
+    "voices": [
+     "longanhuan_v3.1",
+     "longanlingxin_v3.1",
+     "longanfengyue_v3.1",
+     "xunanchuan_v3.1"
+    ],
+    "response_format": {
+     "values": [
+      "mp3",
+      "wav",
+      "pcm"
+     ],
+     "default": "mp3"
+    },
+    "sample_rate": {
+     "values": [
+      8000,
+      16000,
+      22050,
+      24000,
+      44100,
+      48000
+     ],
+     "default": 22050
+    },
+    "speed": {
+     "min": 0.5,
+     "max": 2,
+     "default": 1
+    },
+    "pitch": {
+     "min": 0.5,
+     "max": 2,
+     "default": 1
+    },
+    "volume": {
+     "min": 0,
+     "max": 100,
+     "default": 50
+    },
+    "seed": {
+     "min": 0,
+     "max": 65535,
+     "default": 0
+    },
+    "bit_rate": {
+     "min": 6,
+     "max": 510,
+     "default": 32,
+     "formats": [
+      "mp3"
+     ]
+    },
+    "language": {
+     "values": [
+      "Auto",
+      "Japanese",
+      "Korean",
+      "French",
+      "German",
+      "Portuguese",
+      "Italian",
+      "Vietnamese",
+      "Indonesian"
+     ],
+     "default": "Auto"
+    },
+    "stream": {
+     "delivery": "buffered_audio_after_task_finished"
+    },
+    "payment_modes": [
+     "account_balance"
+    ]
+   },
+   "icon_url": "/icons/Alibaba.svg",
+   "category": "audio_tts"
+  },
+  {
+   "id": "qwen-audio-3.1-tts-plus",
+   "object": "model",
+   "created": 1795453686,
+   "owned_by": "alibaba",
+   "name": "Qwen Audio 3.1 TTS Plus",
+   "description": "High-quality multilingual speech synthesis for narration, dubbing, brand voices, and character performance. Four preset voices support instruction-guided emotion, tone, and persona, plus SSML and expressive tags. Returns MP3, WAV, or PCM audio after generation completes. Optional API word timestamps return JSON with base64 audio. Billed by measured characters. NanoGPT accepts up to 20,000 characters per request; this is a transport limit.",
+   "architecture": {
+    "modality": "text->audio",
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "audio"
+    ]
+   },
+   "pricing": {
+    "per_thousand_chars": 0.051,
+    "currency": "USD"
+   },
+   "capabilities": {
+    "text_to_speech": true,
+    "streaming": false,
+    "instructions": true,
+    "ssml": true,
+    "voice_cloning": false,
+    "word_timestamps": true
+   },
+   "supported_parameters": {
+    "max_chars": 20000,
+    "voices": [
+     "longanlingxin_v3.1",
+     "xunanchuan_v3.1",
+     "longanhuan_v3.1",
+     "longanfengyue_v3.1"
+    ],
+    "response_format": {
+     "values": [
+      "mp3",
+      "wav",
+      "pcm"
+     ],
+     "default": "mp3"
+    },
+    "sample_rate": {
+     "values": [
+      8000,
+      16000,
+      22050,
+      24000,
+      44100,
+      48000
+     ],
+     "default": 22050
+    },
+    "speed": {
+     "min": 0.5,
+     "max": 2,
+     "default": 1
+    },
+    "pitch": {
+     "min": 0.5,
+     "max": 2,
+     "default": 1
+    },
+    "volume": {
+     "min": 0,
+     "max": 100,
+     "default": 50
+    },
+    "seed": {
+     "min": 0,
+     "max": 65535,
+     "default": 0
+    },
+    "bit_rate": {
+     "min": 6,
+     "max": 510,
+     "default": 32,
+     "formats": [
+      "mp3"
+     ]
+    },
+    "language": {
+     "values": [
+      "Auto",
+      "Chinese",
+      "English",
+      "French",
+      "German",
+      "Japanese",
+      "Korean",
+      "Russian",
+      "Portuguese",
+      "Thai",
+      "Indonesian",
+      "Vietnamese",
+      "Spanish",
+      "Italian",
+      "Malay",
+      "Filipino",
+      "Arabic"
+     ],
+     "default": "Auto"
+    },
+    "instructions": {
+     "type": "string",
+     "alias": "instruction",
+     "max_length": 1000
+    },
+    "enable_ssml": {
+     "type": "boolean",
+     "default": false
+    },
+    "word_timestamp_enabled": {
+     "type": "boolean",
+     "default": false,
+     "response": "json_with_base64_audio_and_sentence_timestamps"
+    },
+    "stream": {
+     "delivery": "buffered_audio_after_task_finished"
+    },
+    "payment_modes": [
+     "account_balance"
+    ]
+   },
+   "icon_url": "/icons/Alibaba.svg",
+   "category": "audio_tts"
+  },
+  {
+   "id": "elevenlabs/music",
+   "object": "model",
+   "created": 1795453686,
+   "owned_by": "elevenlabs",
+   "name": "ElevenLabs Music",
+   "description": "Generate music with optional vocals, up to five minutes.",
+   "architecture": {
+    "modality": "text->music",
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "music"
+    ]
+   },
+   "pricing": {
+    "per_second": 0.01,
+    "minimum": 0,
+    "currency": "USD"
+   },
+   "capabilities": {
+    "text_to_music": true
+   },
+   "supported_parameters": {
+    "min_duration": 5,
+    "max_duration": 300
+   },
+   "icon_url": "/icons/ElevenLabs.svg",
+   "category": "audio_music"
+  },
+  {
+   "id": "elevenlabs/music/v2",
+   "object": "model",
+   "created": 1795453686,
+   "owned_by": "elevenlabs",
+   "name": "ElevenLabs Music v2",
+   "description": "Generate songs with vocals or instrumental music from a prompt, with tracks up to ten minutes.",
+   "architecture": {
+    "modality": "text->music",
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "music"
+    ]
+   },
+   "pricing": {
+    "per_billing_interval": 0.75,
+    "billing_interval_seconds": 60,
+    "billing_interval_label": "started minute",
+    "minimum": 0.75,
+    "currency": "USD"
+   },
+   "capabilities": {
+    "text_to_music": true
+   },
+   "supported_parameters": {
+    "min_duration": 3,
+    "max_duration": 600
+   },
+   "icon_url": "/icons/ElevenLabs.svg",
+   "category": "audio_music"
+  },
+  {
+   "id": "elevenlabs/sound-effects/v3",
+   "object": "model",
+   "created": 1795453686,
+   "owned_by": "elevenlabs",
+   "name": "ElevenLabs Sound Effects V3",
+   "description": "Create sound effects from text prompts up to 450 characters. Choose a duration from 0.5 to 30 seconds or let the prompt determine the length, adjust prompt influence, and generate seamless loops. Download MP3 or Opus audio.",
+   "architecture": {
+    "modality": "text->audio",
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "audio"
+    ]
+   },
+   "pricing": {
+    "per_second": 0.002,
+    "minimum": 0,
+    "currency": "USD",
+    "billing_unit": "second",
+    "billing_basis": "requested_seconds_or_output_seconds",
+    "rounding": "whole_seconds_including_codec_padding_when_output_billed",
+    "reservation": "ceil(requested_seconds) + 1; automatic: 31",
+    "reconciled_on_completion": true
+   },
+   "capabilities": {
+    "text_to_audio": true
+   },
+   "supported_parameters": {
+    "duration": {
+     "label": "Duration (seconds)",
+     "type": "number",
+     "default": 5,
+     "min": 0.5,
+     "max": 30,
+     "step": 0.1
+    },
+    "automatic_duration": {
+     "label": "Automatic duration",
+     "type": "boolean",
+     "default": false,
+     "description": "Let the prompt determine the length. Billing uses rounded requested or output seconds; output billing includes codec padding. The quote reserves an extra second (up to $0.062); unused allowance is refunded."
+    },
+    "loop": {
+     "label": "Seamless loop",
+     "type": "boolean",
+     "default": false
+    },
+    "prompt_influence": {
+     "label": "Prompt influence",
+     "type": "number",
+     "default": 0.3,
+     "min": 0,
+     "max": 1,
+     "step": 0.05
+    },
+    "output_format": {
+     "label": "Output format",
+     "type": "string",
+     "default": "mp3_44100_128",
+     "options": [
+      {
+       "value": "mp3_44100_128",
+       "label": "MP3 · 44.1 kHz · 128 kbps"
+      },
+      {
+       "value": "opus_48000_128",
+       "label": "Opus · 48 kHz · 128 kbps"
+      }
+     ]
+    },
+    "max_chars": 450,
+    "min_duration": 0.5,
+    "max_duration": 30,
+    "duration_step": 0.1,
+    "duration_seconds": {
+     "min": 0.5,
+     "max": 30,
+     "nullable": true,
+     "automatic_when_omitted": true
+    },
+    "output_formats": [
+     "mp3_44100_128",
+     "opus_48000_128"
+    ]
+   },
+   "subscription": {
+    "included": false
+   },
+   "zero_data_retention": false,
+   "icon_url": "/icons/ElevenLabs.svg",
+   "category": "audio_generation"
+  },
+  {
+   "id": "ACE-Step-v1.5-XL-Turbo",
+   "object": "model",
+   "created": 1795453686,
+   "owned_by": "acestep",
+   "name": "ACE-Step 1.5 XL Turbo",
+   "description": "ACE-Step 1.5 XL Turbo uses a 4B music generation architecture with distilled 8-step inference. Create music from text, transform a reference track into a cover, replace a segment, or extend audio before or after the source. Supports optional lyrics, musical key, tempo, and vocal language.",
+   "architecture": {
+    "modality": "text+audio->music",
+    "input_modalities": [
+     "text",
+     "audio"
+    ],
+    "output_modalities": [
+     "music"
+    ]
+   },
+   "pricing": {
+    "billing": "compute",
+    "currency": "USD",
+    "default_prepaid_ceiling": 0.00528,
+    "ceiling_step_parameter": "steps",
+    "reconciliation": "reported_provider_cost_with_10_percent_markup_capped_at_prepaid_ceiling"
+   },
+   "capabilities": {
+    "text_to_music": true,
+    "audio_to_audio": true,
+    "audio_cover": true,
+    "audio_repainting": true,
+    "audio_extension": true
+   },
+   "supported_parameters": {
+    "max_chars": 3000,
+    "min_prompt_characters": 2,
+    "min_duration": 30,
+    "max_duration": 300,
+    "duration_step": 0.1,
+    "default_duration": 60,
+    "duration_requires_no_audio_input": true,
+    "music_mode": [
+     "text",
+     "cover",
+     "repaint",
+     "extend"
+    ],
+    "audio_url": {
+     "type": "string",
+     "format": "HTTP(S) URL or UUID",
+     "required_for": [
+      "cover",
+      "repaint",
+      "extend"
+     ]
+    },
+    "steps": {
+     "min": 1,
+     "max": 20,
+     "default": 8
+    },
+    "strength": {
+     "min": 0,
+     "max": 1,
+     "step": 0.01,
+     "requires": "audio_url"
+    },
+    "repainting_start": {
+     "min": -300,
+     "max": 300,
+     "requires": "audio_url"
+    },
+    "repainting_end": {
+     "min": 0,
+     "max": 300,
+     "requires": "audio_url",
+     "greater_than": "repainting_start"
+    },
+    "lyrics": {
+     "min_length": 10,
+     "max_length": 3000,
+     "required": false
+    },
+    "bpm": {
+     "min": 30,
+     "max": 300
+    },
+    "key_scale": "Note[#|b] major|minor",
+    "time_signature": [
+     2,
+     3,
+     4,
+     6
+    ],
+    "vocal_language": [
+     "unknown",
+     "ar",
+     "az",
+     "bg",
+     "bn",
+     "ca",
+     "cs",
+     "da",
+     "de",
+     "el",
+     "en",
+     "es",
+     "fa",
+     "fi",
+     "fr",
+     "he",
+     "hi",
+     "hr",
+     "ht",
+     "hu",
+     "id",
+     "is",
+     "it",
+     "ja",
+     "ko",
+     "la",
+     "lt",
+     "ms",
+     "ne",
+     "nl",
+     "no",
+     "pa",
+     "pl",
+     "pt",
+     "ro",
+     "ru",
+     "sa",
+     "sk",
+     "sr",
+     "sv",
+     "sw",
+     "ta",
+     "te",
+     "th",
+     "tl",
+     "tr",
+     "uk",
+     "ur",
+     "vi",
+     "yue",
+     "zh"
+    ],
+    "output_format": [
+     "mp3",
+     "wav",
+     "flac",
+     "ogg"
+    ],
+    "seed": {
+     "min": 0,
+     "max": 2147483647,
+     "random": "omit or -1"
+    }
+   },
+   "icon_url": "/icons/ACEStep.webp",
+   "category": "audio_music"
+  },
+  {
+   "id": "minimax/music-cover",
+   "object": "model",
+   "created": 1795453686,
+   "owned_by": "minimax",
+   "name": "MiniMax Music Cover",
+   "description": "MiniMax Music Cover transforms a reference song into a new style while preserving the core melody. Provide a style prompt plus an MP3 URL for the source track.",
+   "architecture": {
+    "modality": "text+audio->music",
+    "input_modalities": [
+     "text",
+     "audio"
+    ],
+    "output_modalities": [
+     "music"
+    ]
+   },
+   "pricing": {
+    "per_second": 0,
+    "minimum": 0.15,
+    "currency": "USD"
+   },
+   "capabilities": {
+    "text_to_music": true,
+    "audio_to_music": true,
+    "music_cover": true
+   },
+   "supported_parameters": {
+    "min_duration": 6,
+    "max_duration": 360
+   },
+   "icon_url": "/icons/Minimax.svg",
+   "category": "audio_music"
+  },
+  {
+   "id": "google/lyria-3.5",
+   "object": "model",
+   "created": 1795453686,
+   "owned_by": "gemini",
+   "name": "Google Lyria 3.5",
+   "description": "Google DeepMind Lyria 3.5 turns detailed text prompts into full-length music with controllable genres, instrumentation, vocal delivery, dynamics, and optional image inspiration.",
+   "architecture": {
+    "modality": "text+image->music",
+    "input_modalities": [
+     "text",
+     "image"
+    ],
+    "output_modalities": [
+     "music"
+    ]
+   },
+   "pricing": {
+    "per_generation": 0.11,
+    "currency": "USD"
+   },
+   "capabilities": {
+    "text_to_music": true,
+    "image_to_music": true
+   },
+   "supported_parameters": {
+    "max_chars": 5000,
+    "image_url": {
+     "type": "string",
+     "format": "uri",
+     "required": false
+    }
+   },
+   "icon_url": "/icons/Gemini.svg",
+   "category": "audio_music"
+  },
+  {
+   "id": "bytedance/seed-audio-1.0",
+   "object": "model",
+   "created": 1795453686,
+   "owned_by": "bytedance",
+   "name": "ByteDance Seed Audio 1.0",
+   "description": "ByteDance Seed Audio 1.0 generates natural audio from text, with optional preset voices, up to three reference audio clips, or a single reference image.",
+   "architecture": {
+    "modality": "text+audio+image->audio",
+    "input_modalities": [
+     "text",
+     "audio",
+     "image"
+    ],
+    "output_modalities": [
+     "audio"
+    ]
+   },
+   "pricing": {
+    "per_generation": 0.3,
+    "currency": "USD"
+   },
+   "capabilities": {
+    "text_to_audio": true,
+    "audio_reference": true,
+    "image_guided_audio": true
+   },
+   "supported_parameters": {
+    "max_chars": 2048,
+    "voices": [
+     "vivi_mixed_en_zh_ja_es_id",
+     "mindy_en_es_id_pt_zh",
+     "kian_en_zh",
+     "cedric_en_zh",
+     "sophie_en_zh",
+     "jean_en_zh",
+     "magnus_en_zh",
+     "mabel_en_zh",
+     "nadia_en_zh",
+     "opal_en_zh",
+     "pearl_en_zh",
+     "quentin_en_zh",
+     "corinne_mixed_en_zh",
+     "esther_mixed_en_zh",
+     "lyla_mixed_en_zh",
+     "tracy_es_zh",
+     "sandy_es_mixed_en_zh",
+     "felix_zh",
+     "celeste_zh",
+     "monkey_king_zh"
+    ]
+   },
+   "icon_url": "/icons/ByteDance.png",
+   "category": "audio_generation"
+  },
+  {
+   "id": "veed/clean-audio",
+   "object": "model",
+   "created": 1795453686,
+   "owned_by": "veed",
+   "name": "VEED Clean Audio",
+   "description": "Remove background noise from speech recordings while preserving quiet and distant words. Processes up to 30 minutes / 512 MiB of audio into 48 kHz mono FLAC or WAV, with optional loudness normalization.",
+   "architecture": {
+    "modality": "audio->audio",
+    "input_modalities": [
+     "audio"
+    ],
+    "output_modalities": [
+     "audio"
+    ]
+   },
+   "pricing": {
+    "per_billing_interval": 0.013750000000000002,
+    "billing_interval_seconds": 60,
+    "billing_interval_label": "started minute",
+    "minimum": 0.013750000000000002,
+    "currency": "USD"
+   },
+   "capabilities": {
+    "audio_to_audio": true,
+    "noise_reduction": true
+   },
+   "supported_parameters": {
+    "min_duration": 0.6,
+    "audio_url": {
+     "type": "string",
+     "format": "uri",
+     "required": true,
+     "aliases": [
+      "audio"
+     ]
+    },
+    "duration": {
+     "type": "number",
+     "minimum": 0.6,
+     "maximum": 1800,
+     "required": true,
+     "description": "Source duration estimate for quoting. Verified before billing; rounded to whole seconds, then up to full minutes."
+    },
+    "strength": {
+     "type": "number",
+     "minimum": 0,
+     "maximum": 1,
+     "default": 0.874
+    },
+    "target_lufs": {
+     "type": [
+      "number",
+      "null"
+     ],
+     "minimum": -40,
+     "maximum": -8,
+     "default": -19,
+     "description": "Use null to skip loudness normalization."
+    },
+    "output_format": {
+     "type": "string",
+     "enum": [
+      "flac",
+      "wav"
+     ],
+     "default": "flac"
+    },
+    "max_duration": 1800
+   },
+   "icon_url": "/icons/VEED.svg",
+   "category": "audio_processing"
+  },
+  {
+   "id": "mirelo-ai/sfx2.0",
+   "object": "model",
+   "created": 1795453686,
+   "owned_by": "mirelo",
+   "name": "Mirelo SFX 2.0",
+   "description": "Create sound effects from text or synchronized soundtracks from a video. Generate up to 600 seconds and four samples, with optional speech preservation for video.",
+   "architecture": {
+    "modality": "text+video->audio",
+    "input_modalities": [
+     "text",
+     "video"
+    ],
+    "output_modalities": [
+     "audio"
+    ]
+   },
+   "pricing": {
+    "currency": "USD",
+    "min_duration": 0.1,
+    "max_duration": 600,
+    "duration_step": 0.1,
+    "default_duration": 30,
+    "per_second": 0.011,
+    "standard_per_second": 0.0165,
+    "multiplier_parameter": "num_samples",
+    "multiplier_min": 1,
+    "multiplier_max": 4,
+    "multiplier_default": 2,
+    "promotion": {
+     "starts_at": "2026-10-14T00:00:00.000Z",
+     "ends_at": "2026-12-14T00:00:00.000Z",
+     "per_second": 0.011,
+     "calendar_timezone": "UTC"
+    },
+    "billing": "Output sound seconds per sample. Video sound duration clamps to source length verified from media bytes. Fractional seconds are preserved."
+   },
+   "capabilities": {
+    "text_to_audio": true,
+    "video_to_audio": true
+   },
+   "supported_parameters": {
+    "duration": {
+     "label": "Sound duration (seconds)",
+     "type": "number",
+     "min": 0.1,
+     "max": 600,
+     "step": 0.1,
+     "default": 30,
+     "description": "Text defaults to 30s; video defaults to 10s and clamps to source length. Video requires at least 1s."
+    },
+    "num_samples": {
+     "min": 1,
+     "max": 4,
+     "default": 2
+    },
+    "negative_prompt": {
+     "max_length": 1000
+    },
+    "preserve_speech": {
+     "default": true
+    },
+    "seed": {
+     "label": "Seed",
+     "type": "number",
+     "min": -1,
+     "max": 9007199254740988,
+     "step": 1,
+     "default": -1
+    },
+    "video_url": {
+     "label": "Source video URL (optional)",
+     "type": "string",
+     "description": "Supply a video for synchronized audio. Leave empty to generate from text. Video must be at least one second."
+    },
+    "upload_audio_format": {
+     "label": "Audio format",
+     "type": "string",
+     "default": "wav",
+     "options": [
+      {
+       "value": "wav",
+       "label": "WAV"
+      },
+      {
+       "value": "mp3",
+       "label": "MP3"
+      },
+      {
+       "value": "aac",
+       "label": "AAC"
+      },
+      {
+       "value": "flac",
+       "label": "FLAC"
+      }
+     ]
+    },
+    "upload_audio_bitrate_kbps": {
+     "label": "Bitrate (optional)",
+     "type": "number",
+     "min": 32,
+     "max": 320,
+     "step": 1,
+     "description": "Text input only. MP3 accepts standard 32–320 kbps rates; AAC accepts 32–256. Omit for defaults. Unavailable for WAV/FLAC."
+    },
+    "prompt": {
+     "min_length": 1,
+     "max_length": 2000,
+     "required_without_video": true
+    },
+    "min_duration": 0.1,
+    "video_min_duration": 1,
+    "max_duration": 600,
+    "default_text_duration": 30,
+    "default_video_duration": 10,
+    "duration_step": 0.1
+   },
+   "icon_url": "/icons/Mirelo.svg",
+   "category": "audio_generation"
+  },
+  {
+   "id": "mirelo-ai/sfx1.6/inpaint-audio",
+   "object": "model",
+   "created": 1795453686,
+   "owned_by": "mirelo",
+   "name": "Mirelo SFX1.6 Inpaint Audio",
+   "description": "Mirelo SFX1.6 regenerates a selected segment of a short audio clip while preserving the surrounding audio.",
+   "architecture": {
+    "modality": "text+audio->audio",
+    "input_modalities": [
+     "text",
+     "audio"
+    ],
+    "output_modalities": [
+     "audio"
+    ]
+   },
+   "pricing": {
+    "per_second": 0.01,
+    "minimum": 0.01,
+    "currency": "USD",
+    "multiplier_parameter": "num_samples",
+    "multiplier_min": 1,
+    "multiplier_max": 4
+   },
+   "capabilities": {
+    "audio_to_audio": true,
+    "audio_inpainting": true
+   },
+   "supported_parameters": {
+    "min_duration": 1,
+    "max_duration": 8,
+    "sample_count_parameter": "num_samples",
+    "min_samples": 1,
+    "max_samples": 4
+   },
+   "icon_url": "/icons/Mirelo.svg",
+   "category": "audio_processing"
+  },
+  {
+   "id": "microsoft/vibevoice",
+   "object": "model",
+   "created": 1795453686,
+   "owned_by": "microsoft",
+   "name": "VibeVoice",
+   "description": "Long-form text-to-speech with multi-speaker dialogue support and 9 voice presets across English, Chinese, and Hindi.",
+   "architecture": {
+    "modality": "text->audio",
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "audio"
+    ]
+   },
+   "pricing": {
+    "per_generation": 0.15,
+    "per_thousand_chars": 0,
+    "currency": "USD"
+   },
+   "capabilities": {
+    "text_to_speech": true
+   },
+   "supported_parameters": {
+    "voices": [
+     "en-Alice_woman",
+     "en-Carter_man",
+     "en-Frank_man",
+     "en-Mary_woman_bgm",
+     "en-Maya_woman",
+     "in-Samuel_man",
+     "zh-Anchen_man_bgm",
+     "zh-Bowen_man",
+     "zh-Xinran_woman"
+    ]
+   },
+   "icon_url": "/icons/Microsoft.svg",
+   "category": "audio_tts"
+  },
+  {
+   "id": "Kokoro-82m",
+   "object": "model",
+   "created": 1795453686,
+   "owned_by": "hexgrad",
+   "name": "Kokoro 82M",
+   "description": "High-quality multilingual text-to-speech model",
+   "architecture": {
+    "modality": "text->audio",
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "audio"
+    ]
+   },
+   "pricing": {
+    "per_thousand_chars": 0.0017,
+    "currency": "USD"
+   },
+   "capabilities": {
+    "text_to_speech": true
+   },
+   "supported_parameters": {
+    "max_chars": 10000,
+    "voices": [
+     "af_alloy",
+     "af_aoede",
+     "af_bella",
+     "af_jessica",
+     "af_kore",
+     "af_nicole",
+     "af_nova",
+     "af_river",
+     "af_sarah",
+     "af_sky",
+     "am_adam",
+     "am_echo",
+     "am_eric",
+     "am_fenrir",
+     "am_liam",
+     "am_michael",
+     "am_onyx",
+     "am_puck",
+     "bf_alice",
+     "bf_emma",
+     "bf_isabella",
+     "bf_lily",
+     "bm_daniel",
+     "bm_fable",
+     "bm_george",
+     "bm_lewis",
+     "ff_siwis",
+     "hf_alpha",
+     "hf_beta",
+     "hm_omega",
+     "hm_psi",
+     "if_sara",
+     "im_nicola"
+    ]
+   },
+   "category": "audio_tts"
+  },
+  {
+   "id": "google/gemini-3.8-flash-lite-tts",
+   "object": "model",
+   "created": 1795453686,
+   "owned_by": "gemini",
+   "name": "Gemini 3.8 Flash-Lite TTS",
+   "description": "Fast, expressive single-speaker speech in over 100 languages with 30 voices, delivery instructions, and inline vocal events. Accepts text or one narration turn and returns WAV audio. Billed by exact spoken characters with no per-request minimum; instructions are not billed. The complete input is limited to 8,192 tokens; turn-array input also has an 8,192-byte normalized limit.",
+   "architecture": {
+    "modality": "text->audio",
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "audio"
+    ]
+   },
+   "pricing": {
+    "per_thousand_chars": 0.03,
+    "currency": "USD"
+   },
+   "capabilities": {
+    "text_to_speech": true,
+    "turn_array_input": true
+   },
+   "supported_parameters": {
+    "turn_input": {
+     "maxTurns": 1,
+     "maxInputBytes": 8192,
+     "dialogueVoices": 0,
+     "singleTurnNarration": true
+    },
+    "voices": [
+     "Zephyr",
+     "Puck",
+     "Charon",
+     "Kore",
+     "Fenrir",
+     "Leda",
+     "Orus",
+     "Aoede",
+     "Callirrhoe",
+     "Autonoe",
+     "Enceladus",
+     "Iapetus",
+     "Umbriel",
+     "Algieba",
+     "Despina",
+     "Erinome",
+     "Algenib",
+     "Rasalgethi",
+     "Laomedeia",
+     "Achernar",
+     "Alnilam",
+     "Schedar",
+     "Gacrux",
+     "Pulcherrima",
+     "Achird",
+     "Zubenelgenubi",
+     "Vindemiatrix",
+     "Sadachbia",
+     "Sadaltager",
+     "Sulafat"
+    ]
+   },
+   "subscription": {
+    "included": false
+   },
+   "zero_data_retention": false,
+   "icon_url": "/icons/Gemini.svg",
+   "category": "audio_tts"
+  },
+  {
+   "id": "Elevenlabs-Turbo-V2.5",
+   "object": "model",
+   "created": 1795453686,
+   "owned_by": "elevenlabs",
+   "name": "ElevenLabs Turbo V2.5",
+   "description": "High quality with lowest latency, ideal for real-time applications. Supports 32 languages while maintaining natural voice quality.",
+   "architecture": {
+    "modality": "text->audio",
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "audio"
+    ]
+   },
+   "pricing": {
+    "per_thousand_chars": 0.102,
+    "currency": "USD"
+   },
+   "capabilities": {
+    "text_to_speech": true
+   },
+   "supported_parameters": {
+    "max_chars": 3000,
+    "voices": [
+     "Aria",
+     "Roger",
+     "Sarah",
+     "Laura",
+     "Charlie",
+     "George",
+     "Callum",
+     "River",
+     "Liam",
+     "Charlotte",
+     "Alice",
+     "Matilda",
+     "Will",
+     "Jessica",
+     "Eric",
+     "Chris",
+     "Brian",
+     "Daniel",
+     "Lily",
+     "Bill",
+     "Rachel",
+     "auq43ws1oslv0tO4BDa7"
+    ]
+   },
+   "icon_url": "/icons/ElevenLabs.svg",
+   "category": "audio_tts"
+  },
+  {
+   "id": "Elevenlabs-V3",
+   "object": "model",
+   "created": 1795453686,
+   "owned_by": "elevenlabs",
+   "name": "ElevenLabs v3",
+   "description": "High-quality text-to-speech with enhanced controls and natural voices.",
+   "architecture": {
+    "modality": "text->audio",
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "audio"
+    ]
+   },
+   "pricing": {
+    "per_thousand_chars": 0.17,
+    "currency": "USD"
+   },
+   "capabilities": {
+    "text_to_speech": true
+   },
+   "supported_parameters": {
+    "max_chars": 3000,
+    "voices": [
+     "Aria",
+     "Roger",
+     "Sarah",
+     "Laura",
+     "Charlie",
+     "George",
+     "Callum",
+     "River",
+     "Liam",
+     "Charlotte",
+     "Alice",
+     "Matilda",
+     "Will",
+     "Jessica",
+     "Eric",
+     "Chris",
+     "Brian",
+     "Daniel",
+     "Lily",
+     "Bill",
+     "Rachel",
+     "auq43ws1oslv0tO4BDa7"
+    ]
+   },
+   "icon_url": "/icons/ElevenLabs.svg",
+   "category": "audio_tts"
+  },
+  {
+   "id": "Qwen-3-TTS-1.7B",
+   "object": "model",
+   "created": 1795453686,
+   "owned_by": "qwen",
+   "name": "Qwen 3 TTS 1.7B",
+   "description": "Bring speech to your texts using Qwen3-TTS with pre-trained voices or cloned voice embeddings.\n\nWarning: provider may store generated media indefinitely.",
+   "architecture": {
+    "modality": "text->audio",
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "audio"
+    ]
+   },
+   "pricing": {
+    "per_thousand_chars": 0.12,
+    "currency": "USD"
+   },
+   "capabilities": {
+    "text_to_speech": true,
+    "preset_voices": true,
+    "voice_cloning": true
+   },
+   "supported_parameters": {
+    "voices": [
+     "Vivian",
+     "Serena",
+     "Uncle_Fu",
+     "Dylan",
+     "Eric",
+     "Ryan",
+     "Aiden",
+     "Ono_Anna",
+     "Sohee"
+    ],
+    "language": {
+     "default": "Auto",
+     "values": [
+      "Auto",
+      "English",
+      "Chinese",
+      "Spanish",
+      "French",
+      "German",
+      "Italian",
+      "Japanese",
+      "Korean",
+      "Portuguese",
+      "Russian"
+     ]
+    }
+   },
+   "icon_url": "/icons/Qwen.svg",
+   "category": "audio_tts"
+  },
+  {
+   "id": "tts-1",
+   "object": "model",
+   "created": 1795453686,
+   "owned_by": "openai",
+   "name": "OpenAI TTS",
+   "description": "Standard quality text-to-speech model with low latency",
+   "architecture": {
+    "modality": "text->audio",
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "audio"
+    ]
+   },
+   "pricing": {
+    "per_thousand_chars": 0.0255,
+    "currency": "USD"
+   },
+   "capabilities": {
+    "text_to_speech": true
+   },
+   "supported_parameters": {
+    "max_chars": 4096,
+    "voices": [
+     "alloy",
+     "ash",
+     "coral",
+     "echo",
+     "fable",
+     "onyx",
+     "nova",
+     "sage",
+     "shimmer"
+    ]
+   },
+   "icon_url": "/icons/OpenAI.svg",
+   "category": "audio_tts"
+  },
+  {
+   "id": "gpt-4o-mini-tts",
+   "object": "model",
+   "created": 1795453686,
+   "owned_by": "openai",
+   "name": "GPT-4o Mini TTS",
+   "description": "Ultra-low cost text-to-speech model with voice instructions support",
+   "architecture": {
+    "modality": "text->audio",
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "audio"
+    ]
+   },
+   "pricing": {
+    "per_thousand_chars": 0.01326,
+    "currency": "USD"
+   },
+   "capabilities": {
+    "text_to_speech": true
+   },
+   "supported_parameters": {
+    "max_chars": 4096,
+    "voices": [
+     "alloy",
+     "ash",
+     "ballad",
+     "coral",
+     "echo",
+     "fable",
+     "nova",
+     "onyx",
+     "sage",
+     "shimmer",
+     "verse",
+     "marin",
+     "cedar"
+    ]
+   },
+   "icon_url": "/icons/OpenAI.svg",
+   "category": "audio_tts"
+  },
+  {
+   "id": "mureka-ai/vocal-clone",
+   "object": "model",
+   "created": 1795453686,
+   "owned_by": "mureka",
+   "name": "Mureka Vocal Clone",
+   "description": "Create a reusable singing voice from an authorized MP3 or M4A vocal sample lasting 15–30 seconds and smaller than 10 MB.",
+   "architecture": {
+    "modality": "audio->voice",
+    "input_modalities": [
+     "audio"
+    ],
+    "output_modalities": [
+     "voice"
+    ]
+   },
+   "pricing": {
+    "per_generation": 5,
+    "currency": "USD"
+   },
+   "capabilities": {
+    "voice_clone": true
+   },
+   "supported_parameters": {},
+   "icon_url": "/icons/Mureka.png",
+   "category": "voice_clone"
+  },
+  {
+   "id": "mureka-ai/describe-song",
+   "object": "model",
+   "created": 1795453686,
+   "owned_by": "mureka",
+   "name": "Mureka Describe Song",
+   "description": "Analyze a song and return its instruments, genres, tags and description.",
+   "architecture": {
+    "modality": "audio->text",
+    "input_modalities": [
+     "audio"
+    ],
+    "output_modalities": [
+     "text"
+    ]
+   },
+   "pricing": {
+    "per_generation": 0.1,
+    "currency": "USD"
+   },
+   "capabilities": {
+    "audio_to_text": true,
+    "song_description": true
+   },
+   "supported_parameters": {},
+   "icon_url": "/icons/Mureka.png",
+   "category": "audio_analysis"
+  },
+  {
+   "id": "mureka-ai/mureka-v7.6/recognize-song",
+   "object": "model",
+   "created": 1795453686,
+   "owned_by": "mureka",
+   "name": "Mureka Recognize Song",
+   "description": "Recognize timed lyrics from an audio URL or an uploaded audio ID.",
+   "architecture": {
+    "modality": "audio->text",
+    "input_modalities": [
+     "audio"
+    ],
+    "output_modalities": [
+     "text"
+    ]
+   },
+   "pricing": {
+    "per_generation": 0.03,
+    "currency": "USD"
+   },
+   "capabilities": {
+    "audio_to_text": true,
+    "song_recognition": true
+   },
+   "supported_parameters": {},
+   "icon_url": "/icons/Mureka.png",
+   "category": "audio_analysis"
+  },
+  {
+   "id": "mureka-ai/stem-song",
+   "object": "model",
+   "created": 1795453686,
+   "owned_by": "mureka",
+   "name": "Mureka Stem Song",
+   "description": "Separate a song into a downloadable stem archive. Choose Audio Separation 1, 2 or 3; available stems and MIDI output depend on the selected model.",
+   "architecture": {
+    "modality": "audio->audio",
+    "input_modalities": [
+     "audio"
+    ],
+    "output_modalities": [
+     "audio"
+    ]
+   },
+   "pricing": {
+    "per_generation": 0.7,
+    "currency": "USD",
+    "per_generation_by_option": {
+     "parameter": "mureka_model",
+     "prices": {
+      "audio-separation-1": 0.06,
+      "audio-separation-2": 0.7,
+      "audio-separation-3": 0.2
+     }
+    }
+   },
+   "capabilities": {
+    "audio_to_audio": true,
+    "stem_separation": true
+   },
+   "supported_parameters": {},
+   "icon_url": "/icons/Mureka.png",
+   "category": "audio_processing"
+  },
+  {
+   "id": "mureka/api/generate/instrumental",
+   "object": "model",
+   "created": 1795453686,
+   "owned_by": "mureka",
+   "name": "Mureka 9.5 Instrumental",
+   "description": "Generate instrumental music from a prompt or an uploaded instrumental reference with Mureka 9.5.",
+   "architecture": {
+    "modality": "text->music",
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "music"
+    ]
+   },
+   "pricing": {
+    "per_generation": 0.15,
+    "currency": "USD"
+   },
+   "capabilities": {
+    "text_to_music": true,
+    "instrumental_generation": true
+   },
+   "supported_parameters": {},
+   "icon_url": "/icons/Mureka.png",
+   "category": "audio_music"
+  },
+  {
+   "id": "mureka/api/generate/podcast",
+   "object": "model",
+   "created": 1795453686,
+   "owned_by": "mureka",
+   "name": "Mureka 9.5 Podcast",
+   "description": "Generate a podcast from an ordered sequence of text turns and Mureka voices.",
+   "architecture": {
+    "modality": "text->audio",
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "audio"
+    ]
+   },
+   "pricing": {
+    "per_generation": 0.18975,
+    "currency": "USD"
+   },
+   "capabilities": {
+    "text_to_audio": true,
+    "podcast_generation": true
+   },
+   "supported_parameters": {},
+   "icon_url": "/icons/Mureka.png",
+   "category": "audio_generation"
+  },
+  {
+   "id": "mureka/api/generate/speech",
+   "object": "model",
+   "created": 1795453686,
+   "owned_by": "mureka",
+   "name": "Mureka Speech",
+   "description": "Generate speech from up to 500 characters with five preset voices or an uploaded voice sample.",
+   "architecture": {
+    "modality": "text->audio",
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "audio"
+    ]
+   },
+   "pricing": {
+    "per_generation": 0.08169999999999998,
+    "currency": "USD"
+   },
+   "capabilities": {
+    "media_processing": true,
+    "text_to_speech": true
+   },
+   "supported_parameters": {},
+   "icon_url": "/icons/Mureka.png",
+   "category": "text_to_speech"
+  },
+  {
+   "id": "sonilo/video-to-music",
+   "object": "model",
+   "created": 1795453686,
+   "owned_by": "sonilo",
+   "name": "Sonilo Video-to-Music",
+   "description": "Sonilo Video-to-Music generates background music synced to an input video mood, pacing, and scene transitions.",
+   "architecture": {
+    "modality": "video->music",
+    "input_modalities": [
+     "video",
+     "text"
+    ],
+    "output_modalities": [
+     "music"
+    ]
+   },
+   "pricing": {
+    "per_second": 0.009,
+    "minimum": 0.009,
+    "currency": "USD"
+   },
+   "capabilities": {
+    "video_to_music": true
+   },
+   "supported_parameters": {
+    "min_duration": 1,
+    "max_duration": 360
+   },
+   "icon_url": "/icons/Sonilo.png",
+   "category": "audio_music"
+  }
+ ],
+ "meta": {
+  "count": 30,
+  "generated_at": "2026-11-23T17:08:06.835Z",
+  "trimmed_from": 101
+ }
+}

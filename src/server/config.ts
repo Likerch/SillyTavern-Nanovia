@@ -5,6 +5,7 @@ import {
     DEFAULT_PROXY_PORT,
     NANOGPT_API_BASE,
     NANOGPT_API_BASE_FALLBACK,
+    NANOGPT_MEDIA_BASE,
     NANOGPT_MGMT_BASE,
     NANOGPT_SITE,
 } from '../shared/constants';
@@ -28,6 +29,12 @@ export interface ServerConfig {
      * public one). A stand or a mock must set it too (`NANOVIA_MGMT`), the other bases do not carry over.
      */
     mgmtBase: string;
+    /**
+     * The media host (`https://api.nano-gpt.com`, no path): images, speech, transcription, video and the model lists. Not
+     * the chat upstream's host or path, and with no fallback: whatever is set here is the only place the key goes for a
+     * media call (a stand or a mock must set it, `NANOVIA_MEDIA`; the other bases do not carry over).
+     */
+    mediaBase: string;
     /** Time to wait for the upstream answer, and between two chunks of a stream. */
     timeoutMs: number;
     /**
@@ -50,6 +57,7 @@ export function defaultConfig(): ServerConfig {
         upstreamFallbackBase: NANOGPT_API_BASE_FALLBACK,
         siteBase: NANOGPT_SITE,
         mgmtBase: NANOGPT_MGMT_BASE,
+        mediaBase: NANOGPT_MEDIA_BASE,
         timeoutMs: DEFAULT_TIMEOUT_MS,
         nanogptKey: null,
     };
@@ -110,6 +118,13 @@ export function parseConfig(fileText: string | null, env: Record<string, string 
         const base = cleanBase(mgmt);
         if (base) config.mgmtBase = base;
         else warnings.push('mgmtBase is not an http(s) URL; default used');
+    }
+
+    const media = pick(file['mediaBase'], env['NANOVIA_MEDIA']);
+    if (media !== undefined) {
+        const base = cleanBase(media);
+        if (base) config.mediaBase = base;
+        else warnings.push('mediaBase is not an http(s) URL; default used');
     }
 
     if (file['timeoutMs'] !== undefined) {

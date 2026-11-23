@@ -11,8 +11,9 @@ import * as account from './lib/account.mjs';
 import { checkInferenceKey, checkMgmtToken, fingerprint, hasScope, maskSecrets, maskedHeaders } from './lib/auth.mjs';
 import { loadCatalog } from './lib/catalog.mjs';
 import { handleChat } from './lib/chat.mjs';
-import { applyCors, header, randomId, readBody, sendError, sendJson, sleep } from './lib/http.mjs';
+import { applyCors, header, parseMultipart, randomId, readBuffer, sendError, sendJson, sleep } from './lib/http.mjs';
 import { MANAGEMENT_ROUTES, managementError } from './lib/management.mjs';
+import * as media from './lib/media.mjs';
 import { createState } from './lib/state.mjs';
 
 export const DEFAULT_PORT = 5300;
@@ -30,7 +31,10 @@ const FORCED_ERRORS = {
 /** `GET /api/models/:id/providers` style patterns -> a regexp with named groups. */
 const compile = (pattern) => new RegExp(`^${pattern.replace(/:(\w+)/g, '(?<$1>[^/]+)')}$`);
 
-/** [method, pattern, auth, handler]; auth: 'key' (inference key), 'mgmt' (Management token, scope in the 5th slot) or null. */
+/**
+ * [method, pattern, auth, handler]; auth: 'key' (inference key), 'key-text' (the same, but a refusal is the plain text
+ * `Invalid session` like the video routes answer), 'mgmt' (Management token, scope in the 5th slot) or null.
+ */
 const ROUTES = [
     ['GET', '/api/v1/models', null, account.models],
     ['GET', '/api/models/(?<id>.+)/providers', null, account.providers],
@@ -40,8 +44,21 @@ const ROUTES = [
     ['GET', '/api/v1/subscription/usage', 'key', account.subscription],
     ['GET', '/api/v1/usage', 'key', account.usage],
     ['GET', '/api/v1/usage/requests/:id', 'key', account.requestBilling],
-    ['POST', '/api/v1/images/generations', 'key', account.images],
-    ['POST', '/api/v1/images', 'key', account.images],
+    // Media (stage 7): lists are public, calls take a key; the OpenAI-compatible routes answer on both path spellings.
+    ['GET', '/api/v1/images/models', null, media.imageModels],
+    ['GET', '/api/v1/image-models', null, media.imageModels],
+    ['GET', '/api/v1/video-models', null, media.videoModels],
+    ['GET', '/api/v1/audio-models', null, media.audioModels],
+    ['POST', '/v1/images/generations', 'key', media.imageGenerations],
+    ['POST', '/api/v1/images/generations', 'key', media.imageGenerations],
+    ['POST', '/api/v1/images', 'key', media.imageGenerations],
+    ['POST', '/v1/audio/speech', 'key', media.speech],
+    ['POST', '/api/v1/audio/speech', 'key', media.speech],
+    ['POST', '/v1/audio/transcriptions', 'key', media.transcriptions],
+    ['POST', '/api/v1/audio/transcriptions', 'key', media.transcriptions],
+    ['POST', '/api/generate-video', 'key-text', media.videoSubmit],
+    ['GET', '/api/video/status', 'key-text', media.videoStatus],
+    ['GET', '/api/generate-video/content', null, media.videoContent],
     ...MANAGEMENT_ROUTES.map(([method, pattern, scope, handler]) => [method, pattern, 'mgmt', handler, scope]),
 ].map(([method, pattern, auth, handler, scope]) => ({
     method,
@@ -69,6 +86,7 @@ function parseBody(text) {
 export function createMockServer(options = {}) {
     const state = createState();
     const catalog = loadCatalog(options.fixturesDir);
+    const mediaLists = media.loadMedia(options.fixturesDir);
     const say = options.log ?? (() => {});
 
     /**
@@ -78,6 +96,20 @@ export function createMockServer(options = {}) {
     function forcedError(req, res, ctx) {
         const wanted = header(req, 'x-mock-error');
         if (!wanted) return false;
+        // The other two error shapes of the real service (docs/research/media-api.md §1.3), besides the OpenAI envelope.
+        if (wanted === '401-text') {
+            res.writeHead(401, { 'Content-Type': 'text/plain; charset=utf-8' });
+            res.end('Invalid session');
+            return true;
+        }
+        if (wanted === '402-legacy') {
+            sendJson(res, 402, { error: 'Insufficient balance', requiredBalance: 0.0035, status: 402 });
+            return true;
+        }
+        if (wanted === '400-policy') {
+            sendError(res, 400, 'content_policy_violation', 'Your prompt was blocked by the content policy.');
+            return true;
+        }
         const status = Number.parseInt(wanted, 10);
         const [code, message] = FORCED_ERRORS[status] ?? [];
         if (!code) return false;
@@ -99,6 +131,7 @@ export function createMockServer(options = {}) {
         const path = url.pathname;
         if (req.method === 'OPTIONS') return void res.writeHead(204).end();
         if (path === '/__mock/health') return sendJson(res, 200, { ok: true, models: catalog.models.length });
+        if (path === '/__mock/image.png') return media.imageFile({ res });
         if (path === '/__mock/requests' && req.method === 'GET') {
             const filter = url.searchParams.get('path');
             const limit = Number(url.searchParams.get('limit')) || 0;
@@ -112,8 +145,15 @@ export function createMockServer(options = {}) {
         }
         if (path === '/__mock/state') {
             if (req.method === 'POST') patchState(parseBody(text).body ?? {});
-            const { balanceUsd, nanoBalance, paidSpendAllowed, subscription } = state;
-            return sendJson(res, 200, { balanceUsd, nanoBalance, paidSpendAllowed, subscription });
+            const { balanceUsd, nanoBalance, paidSpendAllowed, subscription, billingMisses } = state;
+            return sendJson(res, 200, {
+                balanceUsd,
+                nanoBalance,
+                paidSpendAllowed,
+                subscription,
+                billingMisses,
+                media: state.media,
+            });
         }
         return sendError(res, 404, 'not_found', 'Unknown mock route');
     }
@@ -123,6 +163,19 @@ export function createMockServer(options = {}) {
         for (const field of ['balanceUsd', 'nanoBalance'])
             if (typeof patch[field] === 'number') state[field] = patch[field];
         if (typeof patch.paidSpendAllowed === 'boolean') state.paidSpendAllowed = patch.paidSpendAllowed;
+        if (Number.isInteger(patch.billingMisses) && patch.billingMisses >= 0)
+            state.billingMisses = patch.billingMisses;
+        // Media switches: the video status shape, how many polls a video needs, a relative link, a gone file, the 1.5x model.
+        const m = patch.media ?? {};
+        if (m.videoShape === 'guide' || m.videoShape === 'flat') state.media.videoShape = m.videoShape;
+        if (Number.isInteger(m.videoPollsToComplete) && m.videoPollsToComplete >= 1) {
+            state.media.videoPollsToComplete = m.videoPollsToComplete;
+        }
+        for (const flag of ['videoRelativeUrl', 'videoContentGone']) {
+            if (typeof m[flag] === 'boolean') state.media[flag] = m[flag];
+        }
+        if (typeof m.lookupFactorModel === 'string') state.media.lookupFactorModel = m.lookupFactorModel;
+        if (typeof m.lookupFactor === 'number' && m.lookupFactor > 0) state.media.lookupFactor = m.lookupFactor;
         for (const [field, value] of Object.entries(patch.subscription ?? {})) {
             if (
                 field in state.subscription &&
@@ -134,7 +187,9 @@ export function createMockServer(options = {}) {
 
     async function handle(req, res) {
         const url = new URL(req.url ?? '/', 'http://mock');
-        const text = ['GET', 'HEAD', 'OPTIONS'].includes(req.method ?? 'GET') ? '' : await readBody(req);
+        const raw = ['GET', 'HEAD', 'OPTIONS'].includes(req.method ?? 'GET') ? Buffer.alloc(0) : await readBuffer(req);
+        const multipart = /^multipart\/form-data/i.test(header(req, 'content-type') ?? '');
+        const text = multipart ? '' : raw.toString('utf8');
         if (url.pathname.startsWith('/__mock/')) return handleMock(req, res, url, text);
 
         const management = url.pathname.startsWith('/api/management/');
@@ -142,18 +197,32 @@ export function createMockServer(options = {}) {
         res.setHeader('X-Request-ID', requestId);
         if (!management) applyCors(req, res);
 
-        const parsed = parseBody(text);
+        const parsed = multipart ? { body: null, invalidJson: false } : parseBody(text);
+        // A multipart body is logged as its text fields and the size of each file (never the recording itself).
+        const form = multipart ? parseMultipart(raw, header(req, 'content-type')) : null;
         const entry = {
             n: ++state.counter,
             at: new Date().toISOString(),
             method: req.method,
             path: url.pathname + url.search,
             headers: maskedHeaders(req.headers),
-            body: parsed.invalidJson
-                ? maskSecrets(text)
-                : parsed.body === null
-                  ? null
-                  : JSON.parse(maskSecrets(JSON.stringify(parsed.body))),
+            body: form
+                ? {
+                      multipart: {
+                          fields: JSON.parse(maskSecrets(JSON.stringify(form.fields))),
+                          files: form.files.map((f) => ({
+                              name: f.name,
+                              filename: f.filename,
+                              mime: f.mime,
+                              bytes: f.data.length,
+                          })),
+                      },
+                  }
+                : parsed.invalidJson
+                  ? maskSecrets(text).slice(0, 2000)
+                  : parsed.body === null
+                    ? null
+                    : JSON.parse(maskSecrets(JSON.stringify(parsed.body))),
             status: 0,
         };
         state.log.push(entry);
@@ -178,9 +247,11 @@ export function createMockServer(options = {}) {
             url,
             body: parsed.body,
             invalidJson: parsed.invalidJson,
+            raw,
             requestId,
             state,
             catalog,
+            media: mediaLists,
             management,
             params: {},
         };
@@ -193,10 +264,16 @@ export function createMockServer(options = {}) {
         }
         ctx.params = { ...route.re.exec(url.pathname)?.groups };
 
-        if (route.auth === 'key') {
+        if (route.auth === 'key' || route.auth === 'key-text') {
             const checked = checkInferenceKey(req);
-            if (!checked.key)
+            if (!checked.key) {
+                if (route.auth === 'key-text') {
+                    // LIVE: `POST /api/generate-video` without a key answers 401 `text/plain` "Invalid session".
+                    res.writeHead(401, { 'Content-Type': 'text/plain; charset=utf-8' });
+                    return void res.end('Invalid session');
+                }
                 return sendError(res, checked.status, checked.code, checked.message, { type: checked.type });
+            }
             ctx.keyId = fingerprint(checked.key);
         } else if (route.auth === 'mgmt') {
             const checked = checkMgmtToken(req);
@@ -221,6 +298,7 @@ export function createMockServer(options = {}) {
         server,
         state,
         catalog,
+        media: mediaLists,
         listen(port = DEFAULT_PORT, host = DEFAULT_HOST) {
             return new Promise((resolve, reject) => {
                 server.once('error', reject);

@@ -24,6 +24,23 @@ function initial() {
         },
         /** requestId -> primary charge, for `GET /api/v1/usage/requests/:id`. */
         billing: new Map(),
+        /** The next N billing lookups answer 404 ("not ready yet"), so a client's retries can be exercised. */
+        billingMisses: 0,
+        /**
+         * Media (stage 7): the image model whose billed price is 1.5x its list price (LIVE: rev-animated), the shape the
+         * video status answers in ('guide' = uppercase `data.status`, 'flat' = lowercase `status` + `videoUrl`), how many
+         * status polls a video needs to complete, whether the finished link is a path, and whether the file is gone.
+         */
+        media: {
+            lookupFactorModel: 'rev-animated',
+            lookupFactor: 1.5,
+            videoShape: 'guide',
+            videoPollsToComplete: 3,
+            videoRelativeUrl: false,
+            videoContentGone: false,
+        },
+        /** runId -> { keyId, model, at, polls, cost, fail } for the video jobs. */
+        videos: new Map(),
         /** One row per billed chat request, for `GET /api/v1/usage`. */
         records: [],
         keys: management.keys,

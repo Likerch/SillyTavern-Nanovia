@@ -1,6 +1,7 @@
 // Stage 0.4 contracts: balance, subscription quota, usage and cost summaries, request cost lookup. Types only; the
 // shared contract file of the stage so parallel branches never edit contracts.ts (docs/ARCHITECTURE.md §6).
 import type { UsageRecord, UsageTotals } from './contracts';
+import type { Medium } from './contracts-media';
 
 // Money is always USD unless a field says otherwise. `costUsd` is real money (0 = the subscription covered the request);
 // `equivalentUsd` is what the same request would cost at pay-as-you-go prices and never counts toward a spend cap.
@@ -67,6 +68,11 @@ export interface ModelUsage extends UsageTotals {
     model: string;
 }
 
+/** Stage 0.7: one kind of request (`chat` for the records without a `medium`). */
+export interface MediumUsage extends UsageTotals {
+    medium: Medium | 'chat';
+}
+
 /** Records with `from <= at < to`. byDay ascending by day; byConnection and byModel by real cost, then equivalent, then requests. */
 export interface UsageSummary {
     from: number;
@@ -75,6 +81,11 @@ export interface UsageSummary {
     byDay: DayUsage[];
     byConnection: ConnectionUsage[];
     byModel: ModelUsage[];
+    /**
+     * Stage 0.7, optional: per kind of request (chat, image, video, tts, stt), by real cost like byModel. Present only when
+     * at least one record in the range is a media record, so a log without media sums exactly as before.
+     */
+    byMedium?: MediumUsage[];
 }
 
 /** What `POST /lookup/:requestId` returns: NanoGPT's per-request cost (`GET /api/v1/usage/requests/{id}`). */

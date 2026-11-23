@@ -5,13 +5,23 @@ import { createReadStream } from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import readline from 'node:readline';
+import { applyUsageAdjustments, parseUsageAdjustment, type UsageAdjustment } from '../domain/media-wire';
 import type { BillingOutcome, RequestHints, UsageRecord } from '../shared/contracts';
+import { MEDIA_MEDIA } from '../shared/contracts-media';
 import { USER_DIR_NAME } from './store';
 import type { Logger } from './types';
 
 export interface UsageLog {
     append(userRoot: string, record: UsageRecord): Promise<void>;
-    /** Records with `from <= at < to`, oldest day first, in file order. Corrupt lines and unreadable files are skipped. */
+    /**
+     * Appends a correction (`{ adjust: true, requestId, costUsd, costSource, at }`) to the file of the day of the record it
+     * corrects (`recordAt` is that record's `at`). Stage 0.7: a media call's real charge is known only after the call.
+     */
+    adjust(userRoot: string, recordAt: number, adjustment: UsageAdjustment): Promise<void>;
+    /**
+     * Records with `from <= at < to`, oldest day first, in file order, with the corrections of their files applied (so
+     * every summary already sees the corrected cost). Corrupt lines and unreadable files are skipped.
+     */
     read(userRoot: string, range: { from: number; to: number }): Promise<UsageRecord[]>;
 }
 
@@ -31,6 +41,13 @@ export function utcDay(at: number): string {
 
 const OUTCOMES: readonly BillingOutcome[] = ['subscription', 'paygo', 'unknown'];
 const CONSUMERS: ReadonlyArray<RequestHints['consumer']> = ['main', 'background', 'unknown'];
+const MEDIUMS: ReadonlyArray<NonNullable<UsageRecord['medium']>> = [...MEDIA_MEDIA, 'chat'];
+const COST_SOURCES: ReadonlyArray<NonNullable<UsageRecord['costSource']>> = [
+    'response',
+    'lookup',
+    'estimate',
+    'unknown',
+];
 
 function count(value: unknown): number | null {
     return typeof value === 'number' && Number.isFinite(value) ? value : null;
@@ -50,10 +67,14 @@ export function parseUsageRecord(line: string): UsageRecord | null {
     }
     if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null;
     const r = raw as Record<string, unknown>;
+    if (r['adjust'] === true) return null; // a correction, not a request (see parseUsageLine)
     const at = count(r['at']);
     if (at === null) return null;
     const billing = OUTCOMES.find((o) => o === r['billing']);
     const consumer = CONSUMERS.find((c) => c === r['consumer']);
+    const medium = MEDIUMS.find((m) => m === r['medium']);
+    const costSource = COST_SOURCES.find((s) => s === r['costSource']);
+    const units = count(r['units']);
     return {
         at,
         connectionId: text(r['connectionId']),
@@ -71,18 +92,49 @@ export function parseUsageRecord(line: string): UsageRecord | null {
         stream: r['stream'] === true,
         consumer: consumer ?? 'unknown',
         error: text(r['error']),
+        // Stage 0.7 fields: present only when the line has them, so a chat record reads back exactly as before.
+        ...(medium ? { medium } : {}),
+        ...(r['units'] !== undefined ? { units } : {}),
+        ...(costSource ? { costSource } : {}),
     };
 }
 
+/** One line of a usage file: a request, a correction of one, or neither (null). */
+export type UsageLine = { kind: 'record'; record: UsageRecord } | { kind: 'adjust'; adjustment: UsageAdjustment };
+
+export function parseUsageLine(line: string): UsageLine | null {
+    let raw: unknown;
+    try {
+        raw = JSON.parse(line);
+    } catch {
+        return null;
+    }
+    const adjustment = parseUsageAdjustment(raw);
+    if (adjustment) return { kind: 'adjust', adjustment };
+    const record = parseUsageRecord(line);
+    return record ? { kind: 'record', record } : null;
+}
+
 export function createUsageLog(log: Logger): UsageLog {
+    const appendLine = async (userRoot: string, at: number, value: unknown): Promise<void> => {
+        const dir = path.join(userRoot, USER_DIR_NAME);
+        await fs.mkdir(dir, { recursive: true });
+        await fs.appendFile(path.join(dir, usageFileName(at)), `${JSON.stringify(value)}\n`, 'utf8');
+    };
     return {
         async append(userRoot, record) {
             try {
-                const dir = path.join(userRoot, USER_DIR_NAME);
-                await fs.mkdir(dir, { recursive: true });
-                await fs.appendFile(path.join(dir, usageFileName(record.at)), `${JSON.stringify(record)}\n`, 'utf8');
+                await appendLine(userRoot, record.at, record);
             } catch (error) {
                 log.warn(`usage record not written (${error instanceof Error ? error.message : 'unknown error'})`);
+            }
+        },
+
+        async adjust(userRoot, recordAt, adjustment) {
+            try {
+                await appendLine(userRoot, recordAt, adjustment);
+            } catch (error) {
+                log.warn(`usage correction not written (${error instanceof Error ? error.message : 'unknown error'})`);
             }
         },
 
@@ -103,11 +155,15 @@ export function createUsageLog(log: Logger): UsageLog {
                 })
                 .sort((a, b) => (a.day < b.day ? -1 : a.day > b.day ? 1 : 0));
             const records: UsageRecord[] = [];
+            const adjustments: UsageAdjustment[] = [];
             for (const file of files) {
                 try {
                     await readLines(path.join(dir, file.name), (line) => {
-                        const record = parseUsageRecord(line);
-                        if (record && record.at >= range.from && record.at < range.to) records.push(record);
+                        const parsed = parseUsageLine(line);
+                        if (!parsed) return;
+                        if (parsed.kind === 'adjust') adjustments.push(parsed.adjustment);
+                        else if (parsed.record.at >= range.from && parsed.record.at < range.to)
+                            records.push(parsed.record);
                     });
                 } catch (error) {
                     log.warn(
@@ -115,7 +171,7 @@ export function createUsageLog(log: Logger): UsageLog {
                     );
                 }
             }
-            return records;
+            return applyUsageAdjustments(records, adjustments);
         },
     };
 }

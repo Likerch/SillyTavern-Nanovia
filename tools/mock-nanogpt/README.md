@@ -8,7 +8,9 @@ node tools/mock-nanogpt/server.mjs --port 0 --quiet
 ```
 
 In code: `const mock = createMockServer(); const port = await mock.listen(0); … await mock.close()`; `mock.state` is the live
-state, `mock.catalog` the loaded fixtures. Start the plugin with `upstreamBase: http://127.0.0.1:5300/api/v1`.
+state, `mock.catalog` the loaded fixtures, `mock.media` the media lists. Start the plugin with `upstreamBase:
+http://127.0.0.1:5300/api/v1` and, for the media routes, `mediaBase: http://127.0.0.1:5300` (the media host has no path and no
+fallback: `NANOVIA_MEDIA`, `tools/stand` sets it).
 
 ## Data
 
@@ -22,19 +24,26 @@ mock models; any other catalog model gets a deterministic synthetic response, a 
 Claude, venice-uncensored and some others). `node tools/fixtures/refresh.mjs` refetches the public endpoints (no key needed);
 `--offline` rebuilds only the mock entries.
 
+`tools/fixtures/media/*.json`: the four media lists as NanoGPT serves them (real entries, 24 image, 30 video, 30 TTS and 13
+STT models, chosen by `node tools/fixtures/trim-media.mjs <snapshotDir>` to cover every price and parameter shape of the full
+lists, 264/222/101/24 models on 2026-11-23). The domain tests read the same files.
+
 ## Routes
 
-| Route                                                                                                        | Notes                                                                                                                                                 |
-| ------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET /api/v1/models[?detailed=true]`                                                                         | public; ids only, or the full catalog entries                                                                                                         |
-| `GET /api/models/<url-encoded id>/providers`                                                                 | public; snapshot, synthetic, or 404 for an unknown id                                                                                                 |
-| `POST /api/v1/chat/completions`                                                                              | key; stream and non-stream; see below                                                                                                                 |
-| `POST /api/check-balance`                                                                                    | key; `usd_balance`, `nano_balance` as strings                                                                                                         |
-| `GET /api/subscription/v1/usage` (alias `/api/v1/subscription/usage`)                                        | key; quotas and `routing.recommendedMode`                                                                                                             |
-| `GET /api/v1/usage`, `GET /api/v1/usage/requests/:id`                                                        | key; aggregates and one recorded charge (404 for unknown id or another key)                                                                           |
-| `POST /api/v1/images/generations`, `POST /api/v1/images`                                                     | key; stubs returning one tiny base64 PNG                                                                                                              |
-| `/api/management/v1/*`                                                                                       | `Authorization: Bearer sk-nano-mgmt-…`; api-keys CRUD (create needs `Idempotency-Key`), model-presets CRUD, `subscription/usage`; **no CORS headers** |
-| `GET /__mock/requests[?path=&limit=]`, `POST /__mock/reset`, `GET\|POST /__mock/state`, `GET /__mock/health` | the mock's own helpers                                                                                                                                |
+| Route                                                                                                                   | Notes                                                                                                                                                 |
+| ----------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/v1/models[?detailed=true]`                                                                                    | public; ids only, or the full catalog entries                                                                                                         |
+| `GET /api/models/<url-encoded id>/providers`                                                                            | public; snapshot, synthetic, or 404 for an unknown id                                                                                                 |
+| `POST /api/v1/chat/completions`                                                                                         | key; stream and non-stream; see below                                                                                                                 |
+| `POST /api/check-balance`                                                                                               | key; `usd_balance`, `nano_balance` as strings                                                                                                         |
+| `GET /api/subscription/v1/usage` (alias `/api/v1/subscription/usage`)                                                   | key; quotas and `routing.recommendedMode`                                                                                                             |
+| `GET /api/v1/usage`, `GET /api/v1/usage/requests/:id`                                                                   | key; aggregates and one recorded charge (404 for unknown id or another key)                                                                           |
+| `GET /api/v1/images/models` (`/api/v1/image-models`), `/api/v1/video-models`, `/api/v1/audio-models?type=tts\|stt\|all` | public; the trimmed media lists (envelope `{ object: "list", data, meta }`)                                                                           |
+| `POST /v1/images/generations`, `/api/v1/images/generations`, `/api/v1/images`                                           | key; tiny PNG as `b64_json` (or a `url` with `response_format: "url"`), cost = list price, `X-Request-ID` = body `requestId`                          |
+| `POST /v1/audio/speech` (+ `/api/v1/...`), `POST /v1/audio/transcriptions` (+ `/api/v1/...`)                            | key; WAV bytes as `audio/x-wav`; multipart `file` + `model` in, `{ text, language, duration, usage }` out                                             |
+| `POST /api/generate-video`, `GET /api/video/status?requestId=`, `GET /api/generate-video/content`                       | key (a refusal is the plain text `Invalid session`); submit 202 + `runId`, status over successive polls, the file link is public                      |
+| `/api/management/v1/*`                                                                                                  | `Authorization: Bearer sk-nano-mgmt-…`; api-keys CRUD (create needs `Idempotency-Key`), model-presets CRUD, `subscription/usage`; **no CORS headers** |
+| `GET /__mock/requests[?path=&limit=]`, `POST /__mock/reset`, `GET\|POST /__mock/state`, `GET /__mock/health`            | the mock's own helpers                                                                                                                                |
 
 Everything outside `/api/management` answers with `Access-Control-Allow-Origin: *`, echoes `Access-Control-Request-Headers`
 and exposes `X-Request-ID`. Every reply carries a fresh `X-Request-ID`.
@@ -78,9 +87,39 @@ presets (409), bodies up to 16 KiB (413). Codes the docs name are used as named 
   `X-Mock-Applied-Suffixes` response header. Unknown model: 404 `model_not_found`.
 - `mock/structured-unsupported` + `response_format`: 400 `model_response_format_unsupported`. `provider.data_collection: "deny"`: 400. `mock/paused`: 503 `model_not_available`. `max_tokens` below the reply: `finish_reason: "length"`.
 
+## Media behaviour (stage 7)
+
+Modelled on the live probe of 2026-11-23 (`docs/research/media-live-probe.md`) wherever it saw something; video follows the docs only.
+
+- **Images**: the body's `cost` is the model's list price (the exact size, else the cheapest; times `n`), `paymentSource: "USD"`;
+  the answer's `X-Request-ID` is `media-image:<uuid>:<epoch-ms>:<suffix>` and the same string is `requestId` in the body.
+  `GET /api/v1/usage/requests/<that id>` answers what was BILLED: 1.5x the list price for one model (`rev-animated`, as seen live),
+  the list price for every other. The balance is charged the billed amount. A prompt containing `forbidden` is refused
+  (400 `content_policy_violation`), a model that is not in the list is 404 `model_not_found`, an empty balance is the legacy
+  402 `{ error: "Insufficient balance", requiredBalance, status }`.
+- **Speech**: always WAV (`audio/x-wav`, 8 kHz 8-bit mono, 0.25-5 s depending on the input length), whatever `response_format` was
+  asked, and **no `X-Request-ID`**; cost = characters x the model's per-1k price (or its per-generation price).
+- **Transcription**: multipart `file` (+ `model`, `language`, `response_format`); the length of a WAV comes from its header
+  (else 1 s per 16 kB, or `x-mock-duration`), `usage.cost` = that length x the model's per-minute price; `verbose_json` adds
+  `segments`, `text` answers plain text; **no `X-Request-ID`**. The request log keeps the text fields and the size of each file,
+  never the recording.
+- **Video**: submit answers 202 `{ runId, id, status: "pending", model, cost, paymentSource, remainingBalance, prechargeLabel }`
+  and charges the estimate. Each `GET /api/video/status?requestId=` is one step: queued, running, then (after
+  `videoPollsToComplete` polls, default 3) completed with the file link and the final cost (the estimate x 1.1) in the guide
+  shape; `failed` (and a refund) for a prompt containing `failjob` or an `x-mock-video-fail` header on the submit. Another key
+  gets the legacy 404 `{ error: "Video generation request not found" }`. The link (`/api/generate-video/content?runId=...`) needs
+  no key and serves a 4 kB `video/mp4`-typed file with a counting pattern.
+- **Switches** (`POST /__mock/state`, also read back by `GET`): `billingMisses: N` (the next N billing lookups answer 404 with
+  `Retry-After: 30`), and under `media`: `videoShape: "guide" | "flat"` (the status in the guide's shape, uppercase
+  `data.status` + `data.output.video.url` + `data.cost`, or the OpenAPI's flat lowercase `status` + `progress` + `videoUrl`; a
+  request can override it with `x-mock-video-shape`), `videoPollsToComplete`, `videoRelativeUrl` (the link is a path on the
+  mock), `videoContentGone` (the file answers 404, as after the retention day), `lookupFactorModel` / `lookupFactor`.
+
 ## Test headers
 
-`x-mock-error: 401|402|429|500|502|502-empty` forces that error after authentication; `x-mock-delay-ms` delays the reply;
+`x-mock-error: 401|402|429|500|502|502-empty` forces that error after authentication (also `401-text`: the plain text `Invalid
+session`, `402-legacy`: `{ error: "Insufficient balance", requiredBalance, status }`, `400-policy`: a content-policy refusal in
+the OpenAI envelope: the three error shapes of the real service); `x-mock-delay-ms` delays the reply;
 `x-mock-chunk-delay-ms` slows a stream; `x-mock-reply` (URL-encoded) sets the reply text; `x-mock-cached-tokens` sets
 `cached_tokens`. The request log marks a request the client dropped with `aborted: true`.
 `POST /__mock/state` takes `{ balanceUsd, nanoBalance, paidSpendAllowed, subscription: { active, dailyLimit, weeklyLimit,
