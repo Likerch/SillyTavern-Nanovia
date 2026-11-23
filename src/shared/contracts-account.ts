@@ -1,6 +1,6 @@
 // Stage 0.4 contracts: balance, subscription quota, usage and cost summaries, request cost lookup. Types only; the
 // shared contract file of the stage so parallel branches never edit contracts.ts (docs/ARCHITECTURE.md §6).
-import type { UsageTotals } from './contracts';
+import type { UsageRecord, UsageTotals } from './contracts';
 
 // Money is always USD unless a field says otherwise. `costUsd` is real money (0 = the subscription covered the request);
 // `equivalentUsd` is what the same request would cost at pay-as-you-go prices and never counts toward a spend cap.
@@ -93,4 +93,11 @@ export interface RequestCostLookup {
  *   GET  /spend?from&to&connectionId               -> UsageSummary   (from/to ms since epoch, `from <= at < to`;
  *                                                     connectionId optional filter)
  *   POST /lookup/:requestId?keyId                  -> RequestCostLookup
+ *   GET  /usage/recent?limit&since&connectionId    -> RecentUsage    (newest first; limit 1..300, default 50; `since` =
+ *                                                     only records with `at > since`, ms since epoch; last 7 days at most)
  */
+
+/** What `GET /usage/recent` returns: individual usage records of the plugin's log, newest first. */
+export interface RecentUsage {
+    records: UsageRecord[];
+}

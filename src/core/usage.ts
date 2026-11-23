@@ -60,7 +60,7 @@ export interface UsageStore {
 
 export interface UsageStoreDeps {
     bus: Bus;
-    account: Pick<PluginAccount, 'spend'>;
+    account: Pick<PluginAccount, 'spend'> & Partial<Pick<PluginAccount, 'recent'>>;
     connections: Pick<ConnectionsService, 'pluginUp' | 'checked' | 'pluginError'>;
     log: Logger;
     now?: () => number;
@@ -181,6 +181,8 @@ export function createUsageStore(deps: UsageStoreDeps): UsageStore {
     let stale = false;
     let error: PluginError | null = null;
     let attemptedAt: number | null = null;
+    /** `at` of the newest plugin record taken into the recent list; the next ask is for what is newer. */
+    let recentSince: number | null = null;
     let inflight: Promise<void> | null = null;
     let watchers = 0;
     let timer: ReturnType<typeof setInterval> | null = null;
@@ -270,12 +272,28 @@ export function createUsageStore(deps: UsageStoreDeps): UsageStore {
             fetchedAt = now();
             stale = false;
             error = null;
+            await loadRecent();
         } else {
             error = result.error;
             stale = true;
             log.debug(`usage refresh failed: ${result.error.code}`);
         }
         changed();
+    }
+
+    /** The plugin's latest individual requests, for the recent list; only those newer than the last one taken. */
+    async function loadRecent(): Promise<void> {
+        if (!account.recent) return;
+        const result = await account.recent({ limit: 50, since: recentSince });
+        if (!result.ok) {
+            log.debug(`recent usage not loaded: ${result.error.code}`);
+            return;
+        }
+        // Newest first from the plugin; the store sorts by time itself.
+        const fresh = result.data.filter((record) => record.at > (recentSince ?? -1));
+        if (fresh.length === 0) return;
+        recentSince = Math.max(recentSince ?? 0, ...fresh.map((record) => record.at));
+        store.ingest(fresh);
     }
 
     function refresh(): Promise<void> {

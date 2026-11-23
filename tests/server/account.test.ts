@@ -576,6 +576,46 @@ describe('GET /spend', () => {
     });
 });
 
+describe('GET /usage/recent', () => {
+    it('returns the newest records first, within the limit, and honours `since`', async () => {
+        const site = await serve((_req, res) => json(res, 200, {}));
+        const h = await plugin(site);
+        writeUsage(h, '2026-03-14', [record(NOW - DAY), record(NOW - DAY + 1000)]);
+        writeUsage(h, '2026-03-15', [record(NOW - 3000), record(NOW - 2000), record(NOW - 1000)]);
+        const all = (await h.api('GET', '/usage/recent')).json['records'] as Array<{ at: number }>;
+        expect(all.map((r) => r.at)).toEqual([NOW - 1000, NOW - 2000, NOW - 3000, NOW - DAY + 1000, NOW - DAY]);
+        const two = (await h.api('GET', '/usage/recent?limit=2')).json['records'] as Array<{ at: number }>;
+        expect(two.map((r) => r.at)).toEqual([NOW - 1000, NOW - 2000]);
+        const fresh = (await h.api('GET', `/usage/recent?since=${NOW - 2000}`)).json['records'] as Array<{
+            at: number;
+        }>;
+        expect(fresh.map((r) => r.at)).toEqual([NOW - 1000]);
+        const none = (await h.api('GET', `/usage/recent?since=${NOW}`)).json['records'] as unknown[];
+        expect(none).toHaveLength(0);
+    });
+
+    it('leaves out what is older than a week, filters by connection and keeps users apart', async () => {
+        const site = await serve((_req, res) => json(res, 200, {}));
+        const h = await plugin(site);
+        writeUsage(h, '2026-03-01', [record(NOW - 14 * DAY)]);
+        writeUsage(h, '2026-03-15', [record(NOW - 2000), record(NOW - 1000, { connectionId: 'conn0002' })]);
+        writeUsage(h, '2026-03-15', [record(NOW - 500)], 'alice');
+        expect((await h.api('GET', '/usage/recent')).json['records']).toHaveLength(2);
+        expect((await h.api('GET', '/usage/recent?connectionId=conn0002')).json['records']).toHaveLength(1);
+        expect((await h.api('GET', '/usage/recent', undefined, 'alice')).json['records']).toHaveLength(1);
+        expect((await h.api('GET', '/usage/recent', undefined, 'bob')).json['records']).toHaveLength(0);
+    });
+
+    it('refuses nonsense parameters', async () => {
+        const site = await serve((_req, res) => json(res, 200, {}));
+        const h = await plugin(site);
+        const long = 'x'.repeat(65);
+        for (const query of ['limit=0', 'limit=301', 'limit=2.5', 'limit=abc', 'since=abc', `connectionId=${long}`]) {
+            expect((await h.api('GET', `/usage/recent?${query}`)).status, query).toBe(400);
+        }
+    });
+});
+
 describe('usage log reading helpers', () => {
     it('parseUsageRecord coerces what a hand-edited line may get wrong', () => {
         expect(parseUsageRecord('{"at": 5}')).toEqual({

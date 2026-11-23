@@ -79,6 +79,17 @@ export function createAccountFake(h: Harness): AccountFake {
             const day = (at: number): string => new Date(at).toISOString().slice(0, 10);
             return json(summarizeUsage(fake.records, { from, to }, day, connectionId ? { connectionId } : {}));
         }
+        if (method === 'GET' && path === '/usage/recent') {
+            const limit = Number(params.get('limit') ?? 50);
+            const since = params.get('since');
+            const connectionId = params.get('connectionId');
+            const wanted = fake.records
+                .filter((r) => (since === null ? true : r.at > Number(since)))
+                .filter((r) => (connectionId === null ? true : r.connectionId === connectionId))
+                .sort((a, b) => b.at - a.at)
+                .slice(0, limit);
+            return json({ records: wanted });
+        }
         const lookup = /^\/lookup\/([^/]+)$/.exec(path);
         if (method === 'POST' && lookup) {
             const requestId = decodeURIComponent(lookup[1] ?? '');

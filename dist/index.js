@@ -946,6 +946,54 @@ function parseSpend(raw) {
 		} : null)
 	};
 }
+var OUTCOMES = [
+	"subscription",
+	"paygo",
+	"unknown"
+];
+var CONSUMERS = [
+	"main",
+	"background",
+	"unknown"
+];
+/** One record of `GET /usage/recent`; null when it is not a record. The plugin already normalised it, this only guards. */
+function parseRecord(raw) {
+	if (!isRecord$9(raw)) return null;
+	const at = numberOf(raw["at"]);
+	if (at === null || at < 0) return null;
+	const text = (value) => typeof value === "string" && value ? value : null;
+	const count = (value) => {
+		const n = numberOf(value);
+		return n !== null && n >= 0 ? n : null;
+	};
+	return {
+		at,
+		connectionId: text(raw["connectionId"]),
+		requestId: text(raw["requestId"]),
+		model: text(raw["model"]) ?? "unknown",
+		billing: OUTCOMES.find((o) => o === raw["billing"]) ?? "unknown",
+		costUsd: count(raw["costUsd"]),
+		equivalentUsd: count(raw["equivalentUsd"]),
+		promptTokens: count(raw["promptTokens"]),
+		completionTokens: count(raw["completionTokens"]),
+		cachedTokens: count(raw["cachedTokens"]),
+		reasoningTokens: count(raw["reasoningTokens"]),
+		latencyMs: count(raw["latencyMs"]) ?? 0,
+		status: count(raw["status"]) ?? 0,
+		stream: raw["stream"] === true,
+		consumer: CONSUMERS.find((c) => c === raw["consumer"]) ?? "unknown",
+		error: text(raw["error"])
+	};
+}
+function parseRecent(raw) {
+	if (!isRecord$9(raw) || !Array.isArray(raw["records"])) return null;
+	const out = [];
+	for (const item of raw["records"]) {
+		const record = parseRecord(item);
+		if (record) out.push(record);
+	}
+	return out;
+}
 function parseLookup(raw) {
 	if (!isRecord$9(raw) || typeof raw["requestId"] !== "string" || typeof raw["ready"] !== "boolean") return null;
 	const cost = numberOf(raw["costUsd"]);
@@ -990,6 +1038,14 @@ function createPluginAccount(deps) {
 				connectionId
 			})}`;
 			return map(await client.request("GET", path, { timeoutMs: SPEND_TIMEOUT_MS }), parseSpend, "spend summary");
+		},
+		async recent(options) {
+			const path = `/usage/recent${query({
+				limit: options?.limit,
+				since: options?.since,
+				connectionId: options?.connectionId
+			})}`;
+			return map(await client.request("GET", path, { timeoutMs: SPEND_TIMEOUT_MS }), parseRecent, "recent usage");
 		},
 		async lookup(requestId, keyId) {
 			const path = `/lookup/${encodeURIComponent(requestId)}${query({ keyId })}`;
@@ -4972,6 +5028,8 @@ function createUsageStore(deps) {
 	let stale = false;
 	let error = null;
 	let attemptedAt = null;
+	/** `at` of the newest plugin record taken into the recent list; the next ask is for what is newer. */
+	let recentSince = null;
 	let inflight = null;
 	let watchers = 0;
 	let timer = null;
@@ -5059,12 +5117,29 @@ function createUsageStore(deps) {
 			fetchedAt = now();
 			stale = false;
 			error = null;
+			await loadRecent();
 		} else {
 			error = result.error;
 			stale = true;
 			log.debug(`usage refresh failed: ${result.error.code}`);
 		}
 		changed();
+	}
+	/** The plugin's latest individual requests, for the recent list; only those newer than the last one taken. */
+	async function loadRecent() {
+		if (!account.recent) return;
+		const result = await account.recent({
+			limit: 50,
+			since: recentSince
+		});
+		if (!result.ok) {
+			log.debug(`recent usage not loaded: ${result.error.code}`);
+			return;
+		}
+		const fresh = result.data.filter((record) => record.at > (recentSince ?? -1));
+		if (fresh.length === 0) return;
+		recentSince = Math.max(recentSince ?? 0, ...fresh.map((record) => record.at));
+		store.ingest(fresh);
 	}
 	function refresh() {
 		if (inflight) return inflight;
@@ -5084,7 +5159,7 @@ function createUsageStore(deps) {
 	function localSummary(range, connectionId, withPlugin) {
 		return summarizeUsage(ring.filter((entry) => withPlugin || entry.origin === "browser").map((entry) => entry.record), range, utcDay, connectionId === null ? {} : { connectionId });
 	}
-	return {
+	const store = {
 		today() {
 			const midnight = today0();
 			revalidate();
@@ -5181,6 +5256,7 @@ function createUsageStore(deps) {
 			changeListeners.clear();
 		}
 	};
+	return store;
 }
 // src/features/account/strings.ts
 var ACCOUNT_STRINGS = {

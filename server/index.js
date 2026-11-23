@@ -5104,6 +5104,9 @@ async function readLines(file, onLine) {
 var DAY_MS = 864e5;
 var DEFAULT_SPAN_DAYS = 30;
 var MAX_CONNECTION_ID_LENGTH = 64;
+var RECENT_DAYS = 7;
+var RECENT_DEFAULT_LIMIT = 50;
+var RECENT_MAX_LIMIT = 300;
 function instant(raw, name) {
 	if (raw === null) return null;
 	const value = Number(raw);
@@ -5124,6 +5127,25 @@ var spendRoutes = (router, deps) => {
 			to
 		};
 		sendJson(res, 200, summarizeUsage(await deps.usage.read(user.root, range), range, utcDay, connectionId === null ? {} : { connectionId }));
+	}));
+	router.get("/usage/recent", route(deps.log, async (req, res) => {
+		const user = userOf(req, deps);
+		const limitRaw = queryText(req, "limit");
+		let limit = RECENT_DEFAULT_LIMIT;
+		if (limitRaw !== null) {
+			const n = Number(limitRaw);
+			if (!Number.isInteger(n) || n < 1 || n > RECENT_MAX_LIMIT) throw new HttpError(400, "invalid_request", `"limit" must be an integer 1..${RECENT_MAX_LIMIT}`);
+			limit = n;
+		}
+		const since = instant(queryText(req, "since"), "since");
+		const connectionId = queryText(req, "connectionId");
+		if (connectionId !== null && connectionId.length > MAX_CONNECTION_ID_LENGTH) throw new HttpError(400, "invalid_request", "\"connectionId\" is not a connection id");
+		const to = deps.now() + 1;
+		const from = Math.max(to - RECENT_DAYS * DAY_MS, since === null ? 0 : since + 1);
+		sendJson(res, 200, { records: (await deps.usage.read(user.root, {
+			from,
+			to
+		})).filter((r) => connectionId === null || r.connectionId === connectionId).slice(-limit).reverse() });
 	}));
 };
 // src/server/routes/status.ts

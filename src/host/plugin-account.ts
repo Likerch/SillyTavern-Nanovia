@@ -3,6 +3,7 @@
 // `request`, so the same rules hold: nothing throws, a dead plugin is an ordinary error value, and an answer that is
 // not what the contract says becomes `invalid_response` instead of a half-filled object.
 import { isRecord } from '../domain/usage';
+import type { UsageRecord } from '../shared/contracts';
 import type {
     AccountBalance,
     ConnectionUsage,
@@ -24,6 +25,13 @@ export interface SpendRange {
     to: number;
 }
 
+export interface RecentOptions {
+    limit?: number;
+    /** ms since epoch, exclusive. */
+    since?: number | null;
+    connectionId?: string | null;
+}
+
 export interface PluginAccount {
     /** GET /account/balance. `keyId` is an id from GET /keys; null/absent = the active key. */
     balance(keyId?: string | null): Promise<PluginResult<AccountBalance>>;
@@ -31,6 +39,11 @@ export interface PluginAccount {
     subscription(keyId?: string | null): Promise<PluginResult<SubscriptionState>>;
     /** GET /spend: the plugin's usage log summed over `range`, optionally for one connection. */
     spend(range: SpendRange, connectionId?: string | null): Promise<PluginResult<UsageSummary>>;
+    /**
+     * GET /usage/recent: individual records of the plugin's log, newest first. `since` keeps only records with `at > since`.
+     * A record that cannot be read is dropped.
+     */
+    recent(options?: RecentOptions): Promise<PluginResult<UsageRecord[]>>;
     /** POST /lookup/:requestId: NanoGPT's own figure for one request. `ready: false` is "ask again later". */
     lookup(requestId: string, keyId?: string | null): Promise<PluginResult<RequestCostLookup>>;
 }
@@ -154,6 +167,49 @@ export function parseSpend(raw: unknown): UsageSummary | null {
     };
 }
 
+const OUTCOMES = ['subscription', 'paygo', 'unknown'] as const;
+const CONSUMERS = ['main', 'background', 'unknown'] as const;
+
+/** One record of `GET /usage/recent`; null when it is not a record. The plugin already normalised it, this only guards. */
+export function parseRecord(raw: unknown): UsageRecord | null {
+    if (!isRecord(raw)) return null;
+    const at = numberOf(raw['at']);
+    if (at === null || at < 0) return null;
+    const text = (value: unknown): string | null => (typeof value === 'string' && value ? value : null);
+    const count = (value: unknown): number | null => {
+        const n = numberOf(value);
+        return n !== null && n >= 0 ? n : null;
+    };
+    return {
+        at,
+        connectionId: text(raw['connectionId']),
+        requestId: text(raw['requestId']),
+        model: text(raw['model']) ?? 'unknown',
+        billing: OUTCOMES.find((o) => o === raw['billing']) ?? 'unknown',
+        costUsd: count(raw['costUsd']),
+        equivalentUsd: count(raw['equivalentUsd']),
+        promptTokens: count(raw['promptTokens']),
+        completionTokens: count(raw['completionTokens']),
+        cachedTokens: count(raw['cachedTokens']),
+        reasoningTokens: count(raw['reasoningTokens']),
+        latencyMs: count(raw['latencyMs']) ?? 0,
+        status: count(raw['status']) ?? 0,
+        stream: raw['stream'] === true,
+        consumer: CONSUMERS.find((c) => c === raw['consumer']) ?? 'unknown',
+        error: text(raw['error']),
+    };
+}
+
+export function parseRecent(raw: unknown): UsageRecord[] | null {
+    if (!isRecord(raw) || !Array.isArray(raw['records'])) return null;
+    const out: UsageRecord[] = [];
+    for (const item of raw['records']) {
+        const record = parseRecord(item);
+        if (record) out.push(record);
+    }
+    return out;
+}
+
 export function parseLookup(raw: unknown): RequestCostLookup | null {
     if (!isRecord(raw) || typeof raw['requestId'] !== 'string' || typeof raw['ready'] !== 'boolean') return null;
     const cost = numberOf(raw['costUsd']);
@@ -205,6 +261,11 @@ export function createPluginAccount(deps: PluginAccountDeps): PluginAccount {
         async spend(range, connectionId) {
             const path = `/spend${query({ from: range.from, to: range.to, connectionId })}`;
             return map(await client.request('GET', path, { timeoutMs: SPEND_TIMEOUT_MS }), parseSpend, 'spend summary');
+        },
+
+        async recent(options) {
+            const path = `/usage/recent${query({ limit: options?.limit, since: options?.since, connectionId: options?.connectionId })}`;
+            return map(await client.request('GET', path, { timeoutMs: SPEND_TIMEOUT_MS }), parseRecent, 'recent usage');
         },
 
         async lookup(requestId, keyId) {

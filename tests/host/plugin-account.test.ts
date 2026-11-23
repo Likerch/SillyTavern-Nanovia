@@ -4,6 +4,8 @@ import {
     createPluginAccount,
     parseBalance,
     parseLookup,
+    parseRecent,
+    parseRecord,
     parseSpend,
     parseSubscriptionState,
 } from '../../src/host/plugin-account';
@@ -188,5 +190,61 @@ describe('lookup', () => {
     it('passes a plugin failure through', async () => {
         fake.fail.set('POST /lookup', { status: 502, code: 'key_rejected' });
         expect(await fake.account.lookup('req-1')).toMatchObject({ ok: false, error: { code: 'key_rejected' } });
+    });
+});
+
+describe('recent usage', () => {
+    it('reads the newest records, newest first, with limit, since and connection filters', async () => {
+        fake.records.push(
+            usageRecord({ at: 1_000, requestId: 'a', connectionId: 'c1' }),
+            usageRecord({ at: 3_000, requestId: 'c', connectionId: 'c2' }),
+            usageRecord({ at: 2_000, requestId: 'b', connectionId: 'c1' }),
+        );
+        const all = await fake.account.recent();
+        expect(all.ok && all.data.map((r) => r.requestId)).toEqual(['c', 'b', 'a']);
+        const two = await fake.account.recent({ limit: 2 });
+        expect(two.ok && two.data.map((r) => r.requestId)).toEqual(['c', 'b']);
+        const since = await fake.account.recent({ since: 1_500 });
+        expect(since.ok && since.data.map((r) => r.requestId)).toEqual(['c', 'b']);
+        const one = await fake.account.recent({ connectionId: 'c1' });
+        expect(one.ok && one.data.map((r) => r.requestId)).toEqual(['b', 'a']);
+        expect(fake.callsTo('GET /usage/recent').map((call) => call.path)).toEqual([
+            '/usage/recent',
+            '/usage/recent?limit=2',
+            '/usage/recent?since=1500',
+            '/usage/recent?connectionId=c1',
+        ]);
+    });
+
+    it('passes a plugin error through and reports a garbled answer as invalid', async () => {
+        fake.fail.set('GET /usage/recent', { status: 502, code: 'upstream' });
+        expect(await fake.account.recent()).toMatchObject({ ok: false, error: { code: 'upstream' } });
+        expect(parseRecent({ nope: true })).toBeNull();
+        expect(parseRecent(null)).toBeNull();
+    });
+
+    it('drops what is not a record and fills what a hand-edited line may lack', () => {
+        expect(parseRecord(null)).toBeNull();
+        expect(parseRecord({ model: 'x' })).toBeNull();
+        expect(parseRecord({ at: -1 })).toBeNull();
+        expect(parseRecord({ at: 5, costUsd: '0.5', billing: 'bogus', consumer: 'background', stream: true })).toEqual({
+            at: 5,
+            connectionId: null,
+            requestId: null,
+            model: 'unknown',
+            billing: 'unknown',
+            costUsd: 0.5,
+            equivalentUsd: null,
+            promptTokens: null,
+            completionTokens: null,
+            cachedTokens: null,
+            reasoningTokens: null,
+            latencyMs: 0,
+            status: 0,
+            stream: true,
+            consumer: 'background',
+            error: null,
+        });
+        expect(parseRecent({ records: [{ at: 1 }, 'junk', { at: 2, model: 'm' }] })).toHaveLength(2);
     });
 });

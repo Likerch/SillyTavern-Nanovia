@@ -31,6 +31,7 @@ interface Rig {
     store: UsageStore;
     bus: ReturnType<typeof createBus>;
     spend: ReturnType<typeof vi.fn<PluginAccount['spend']>>;
+    recent: ReturnType<typeof vi.fn<NonNullable<PluginAccount['recent']>>>;
     plugin: { up: boolean; checked: boolean; error: PluginError | null };
     setNow(value: number): void;
 }
@@ -41,15 +42,16 @@ function rig(options: { ringSize?: number; staleMs?: number } = {}): Rig {
     const bus = createBus(log);
     const plugin = { up: true, checked: true, error: null as PluginError | null };
     const spend = vi.fn<PluginAccount['spend']>(async () => ({ ok: true, data: summary(totals(0, 0, 0)) }));
+    const recent = vi.fn<NonNullable<PluginAccount['recent']>>(async () => ({ ok: true, data: [] }));
     const store = createUsageStore({
         bus,
-        account: { spend },
+        account: { spend, recent },
         connections: { pluginUp: () => plugin.up, checked: () => plugin.checked, pluginError: () => plugin.error },
         log,
         now: () => t,
         ...options,
     });
-    return { store, bus, spend, plugin, setNow: (value) => void (t = value) };
+    return { store, bus, spend, recent, plugin, setNow: (value) => void (t = value) };
 }
 
 let r: Rig;
@@ -480,5 +482,55 @@ describe('merging', () => {
             ['2026-11-22', 4],
         ]);
         expect(merged.byConnection.map((row) => row.connectionId)).toEqual(['abc12345', null]);
+    });
+});
+
+describe("the plugin's recent requests", () => {
+    it('shows them in the list without counting them twice in today', async () => {
+        r.spend.mockResolvedValue({ ok: true, data: summary(totals(2, 0.5, 0.5)) });
+        r.recent.mockResolvedValue({
+            ok: true,
+            data: [
+                usageRecord({ at: NOW - 1, requestId: 'b', costUsd: 0.25 }),
+                usageRecord({ at: NOW - 2, requestId: 'a', costUsd: 0.25 }),
+            ],
+        });
+        await r.store.refresh();
+        expect(r.store.recent().map((rec) => rec.requestId)).toEqual(['b', 'a']);
+        expect(r.store.today()).toMatchObject({ requests: 2, costUsd: 0.5 });
+    });
+
+    it('asks only for what is newer than the last record it took', async () => {
+        r.recent.mockResolvedValueOnce({ ok: true, data: [usageRecord({ at: NOW - 5, requestId: 'a' })] });
+        await r.store.refresh();
+        expect(r.recent).toHaveBeenLastCalledWith({ limit: 50, since: null });
+        r.recent.mockResolvedValueOnce({ ok: true, data: [usageRecord({ at: NOW - 1, requestId: 'b' })] });
+        await r.store.refresh();
+        expect(r.recent).toHaveBeenLastCalledWith({ limit: 50, since: NOW - 5 });
+        expect(r.store.recent().map((rec) => rec.requestId)).toEqual(['b', 'a']);
+    });
+
+    it('does not take a record twice, and keeps going when the call fails', async () => {
+        r.recent.mockResolvedValueOnce({ ok: true, data: [usageRecord({ at: NOW - 5, requestId: 'a' })] });
+        await r.store.refresh();
+        r.recent.mockResolvedValueOnce({ ok: true, data: [usageRecord({ at: NOW - 5, requestId: 'a' })] });
+        await r.store.refresh();
+        expect(r.store.recent()).toHaveLength(1);
+        r.recent.mockResolvedValueOnce({ ok: false, error: down('boom') });
+        await r.store.refresh();
+        expect(r.store.recent()).toHaveLength(1);
+        expect(r.store.state().stale).toBe(false);
+    });
+
+    it('works with an account that has no recent call', async () => {
+        const bare = createUsageStore({
+            bus: createBus(memoryLogger()),
+            account: { spend: r.spend },
+            connections: { pluginUp: () => true, checked: () => true, pluginError: () => null },
+            log: memoryLogger(),
+            now: () => NOW,
+        });
+        await bare.refresh();
+        expect(bare.recent()).toEqual([]);
     });
 });
