@@ -110,9 +110,9 @@ describe('run', () => {
         ]);
         expect(report.summary).toEqual({ ok: 4, info: 1, warn: 0, error: 0 });
         expect(report.checks.find((item) => item.code === 'keys_ok')?.params).toEqual({ count: 1, passed: 1 });
-        expect(pluginPaths().some((call) => call.endsWith('POST /keys/key-1/check') || call.includes('/keys/key-1/check'))).toBe(
-            true,
-        );
+        expect(
+            pluginPaths().some((call) => call.endsWith('POST /keys/key-1/check') || call.includes('/keys/key-1/check')),
+        ).toBe(true);
     });
 
     it('asks a plugin that was never asked before it looks', async () => {
@@ -359,10 +359,7 @@ describe('what it reads', () => {
     it('the catalog: an unlisted model, and a model that always reasons through the background advice', async () => {
         await addConnection({ name: 'Ghost', modelId: 'vendor/ghost' });
         await addConnection({ name: 'Thinker', modelId: 'vendor/thinker' });
-        catalog = fakeCatalog([
-            model('vendor/model'),
-            model('vendor/thinker', { reasoningEfforts: ['low', 'high'] }),
-        ]);
+        catalog = fakeCatalog([model('vendor/model'), model('vendor/thinker', { reasoningEfforts: ['low', 'high'] })]);
         const doctor = service();
         const report = await doctor.run();
         const byCode = (code: string) => report.checks.filter((item) => item.code === code);
@@ -550,7 +547,11 @@ describe('applyFix', () => {
     it('carries the parameters of a refusal along', async () => {
         const doctor = service();
         const id = await addConnection();
-        h.backend.plugin.failNext.set(`PUT /connections/${id}`, { status: 500, code: 'internal', message: 'disk full' });
+        h.backend.plugin.failNext.set(`PUT /connections/${id}`, {
+            status: 500,
+            code: 'internal',
+            message: 'disk full',
+        });
         h.settings.update((s) => {
             s.directSecrets[id] = 'secret-direct';
         });

@@ -285,7 +285,9 @@ function environment(input: DoctorInput, needsPlugin: boolean, checks: DoctorChe
         if (order !== null) {
             checks.push(
                 order < 0
-                    ? check('st_version_old', 'warn', { params: { version: input.stVersion, required: MIN_ST_VERSION } })
+                    ? check('st_version_old', 'warn', {
+                          params: { version: input.stVersion, required: MIN_ST_VERSION },
+                      })
                     : check('st_version_ok', 'ok', { params: { version: input.stVersion } }),
             );
         }
@@ -445,9 +447,7 @@ function connectionChecks(
     if (config.memory.enabled) {
         checks.push(check('memory_on', 'info', { scope, params: base }));
         if (input.qvink === 'present') {
-            checks.push(
-                check('memory_overlaps_qvink', 'warn', { scope, params: base, fix: openConnections }),
-            );
+            checks.push(check('memory_overlaps_qvink', 'warn', { scope, params: base, fix: openConnections }));
         }
     }
 

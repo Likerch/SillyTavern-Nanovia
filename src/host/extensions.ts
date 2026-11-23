@@ -45,7 +45,8 @@ export async function readStVersion(
         const response = await fetchImpl('/version', { cache: 'no-cache', signal: controller.signal });
         if (!response.ok) return null;
         const data: unknown = await response.json();
-        const version = typeof data === 'object' && data !== null ? (data as Record<string, unknown>)['pkgVersion'] : null;
+        const version =
+            typeof data === 'object' && data !== null ? (data as Record<string, unknown>)['pkgVersion'] : null;
         return typeof version === 'string' && version.trim() ? version.trim() : null;
     } catch {
         return null;

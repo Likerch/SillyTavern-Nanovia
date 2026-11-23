@@ -15,13 +15,7 @@ import {
     runChecks,
     summarizeChecks,
 } from '../../src/domain/doctor';
-import type {
-    DoctorAccount,
-    DoctorCheck,
-    DoctorConnection,
-    DoctorInput,
-    DoctorKey,
-} from '../../src/domain/doctor';
+import type { DoctorAccount, DoctorCheck, DoctorConnection, DoctorInput, DoctorKey } from '../../src/domain/doctor';
 import type { CatalogModel, ConnectionConfig } from '../../src/shared/contracts';
 
 const NOW = 1_800_000_000_000;
@@ -152,7 +146,9 @@ describe('the plugin', () => {
         expect(find({ plugin: { ...DOWN, errorCode: 'not_installed' } }, 'plugin_down')?.params).toEqual({
             reason: 'not_installed',
         });
-        expect(find({ plugin: { ...DOWN, errorCode: null } }, 'plugin_down')?.params).toEqual({ reason: 'unreachable' });
+        expect(find({ plugin: { ...DOWN, errorCode: null } }, 'plugin_down')?.params).toEqual({
+            reason: 'unreachable',
+        });
     });
 
     it('proxy_down (error): plugin-mode connections cannot work; (warn) when nothing uses the plugin', () => {
@@ -289,7 +285,10 @@ describe('the catalog', () => {
             find({ catalog: { loaded: false, count: 0, fetchedAt: null, source: null, error: null } }, 'catalog_empty'),
         ).toMatchObject({ level: 'info', params: { reason: '' }, fix });
         expect(
-            find({ catalog: { loaded: false, count: 0, fetchedAt: null, source: null, error: 'HTTP 502' } }, 'catalog_empty'),
+            find(
+                { catalog: { loaded: false, count: 0, fetchedAt: null, source: null, error: 'HTTP 502' } },
+                'catalog_empty',
+            ),
         ).toMatchObject({ level: 'warn', params: { reason: 'HTTP 502' }, fix });
         expect(find({ catalog: { ...fresh, count: 0 } }, 'catalog_empty')).toMatchObject({ level: 'warn' });
     });
@@ -434,7 +433,11 @@ describe('a connection', () => {
     describe('leaves_subscription', () => {
         const subscribed = account();
         const explicit = {
-            routing: { ...createConnection({ name: 'x', modelId: 'm' }, 'abc12345', 1).routing, enabled: true, sort: 'price' as const },
+            routing: {
+                ...createConnection({ name: 'x', modelId: 'm' }, 'abc12345', 1).routing,
+                enabled: true,
+                sort: 'price' as const,
+            },
         };
 
         it('(warn) when routing settings move requests off an active subscription, with the field names', () => {

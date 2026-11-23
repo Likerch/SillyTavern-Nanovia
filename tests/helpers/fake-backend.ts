@@ -209,7 +209,9 @@ export function createFakeBackend(): FakeBackend {
                 return json({ ok: true });
             }
             if (method === 'POST' && keyItem[2]) {
-                return json(plugin.keyChecks.get(id) ?? { ok: true, usdBalance: '1.50', nanoBalance: null, error: null });
+                return json(
+                    plugin.keyChecks.get(id) ?? { ok: true, usdBalance: '1.50', nanoBalance: null, error: null },
+                );
             }
         }
         return errorBody(404, 'not_found', 'no such route');
