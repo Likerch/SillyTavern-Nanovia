@@ -57,10 +57,10 @@ describe('startNanovia', () => {
     it('asks the plugin once at start, in the background', async () => {
         seedConnection(backend, { name: 'Main', modelId: 'm' }, 'seed000001');
         runtime = await startNanovia();
-        await flush();
-        await flush();
+        const started = runtime;
+        // The first ask is a chain of awaits (status, list, secret refresh); wait for its outcome, not a fixed tick count.
+        await vi.waitFor(() => expect(started.connections.list().map((e) => e.config.id)).toEqual(['seed000001']));
         expect(runtime.connections.pluginUp()).toBe(true);
-        expect(runtime.connections.list().map((e) => e.config.id)).toEqual(['seed000001']);
         expect((globals[NANOVIA_API_GLOBAL] as NanoviaApi).connections()).toHaveLength(1);
         expect(document.querySelector('[data-connection="seed000001"]')).not.toBeNull();
     });
