@@ -188,7 +188,7 @@ function recording(seconds: number): Buffer {
 function upload(fields: Record<string, string>, file: Buffer | null, headers: Record<string, string> = auth()) {
     const form = new FormData();
     for (const [name, value] of Object.entries(fields)) form.append(name, value);
-    if (file) form.append('file', new Blob([file], { type: 'audio/wav' }), 'speech.wav');
+    if (file) form.append('file', new Blob([new Uint8Array(file)], { type: 'audio/wav' }), 'speech.wav');
     return fetch(`${base}/v1/audio/transcriptions`, { method: 'POST', headers, body: form });
 }
 

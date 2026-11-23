@@ -11,6 +11,7 @@ import type { CatalogModel, ConnectionView } from '../../src/shared/contracts';
 import { SECRET_KEY_CUSTOM, SECRET_KEY_NANOGPT } from '../../src/shared/constants';
 import { startNanovia, type Nanovia } from '../../src/server/app';
 import { defaultConfig, type ServerConfig } from '../../src/server/config';
+import type { MediaTuning } from '../../src/server/media';
 import type { PipelineSteps } from '../../src/server/proxy';
 import type { FetchLike, Logger, SecretEntry, StServices } from '../../src/server/types';
 
@@ -211,6 +212,8 @@ export interface BootOptions {
     /** The catalog seam; absent = the catalog knows nothing. */
     lookupModel?: (modelId: string) => CatalogModel | null;
     providerSelection?: (modelId: string) => boolean | null;
+    /** Stage 0.7 knobs: media timeouts, billing-lookup delays and timers, poll interval, size caps. */
+    media?: MediaTuning;
 }
 
 export interface Harness {
@@ -262,11 +265,13 @@ export async function boot(options: BootOptions = {}): Promise<Harness> {
         now: options.now,
         lookupModel: options.lookupModel,
         providerSelection: options.providerSelection,
+        ...(options.media ? { media: options.media } : {}),
         version: '9.9.9-test',
     });
 
     const express_ = express();
-    express_.use(express.json());
+    // ST raises the JSON body limit far above express's 100 kB default; media requests carry recordings and images.
+    express_.use(express.json({ limit: '64mb' }));
     express_.use((req, _res, next) => {
         const user = req.headers['x-test-user'];
         if (typeof user === 'string') Object.assign(req, { user: { profile: { handle: user } } });

@@ -36,6 +36,7 @@ export async function startMockStack(options: MockStackOptions = {}): Promise<Mo
             upstreamFallbackBase: null,
             siteBase: origin,
             mgmtBase: `${origin}/api/management/v1`,
+            mediaBase: origin,
             ...options.config,
         },
     });

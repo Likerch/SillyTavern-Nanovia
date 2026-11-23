@@ -4,6 +4,7 @@ import { accountRoutes } from './account';
 import { catalogRoutes } from './catalog';
 import { connectionRoutes } from './connections';
 import { keyRoutes } from './keys';
+import { mediaRoutes } from './media';
 import { mgmtRoutes } from './mgmt';
 import { spendRoutes } from './spend';
 import { statusRoutes } from './status';
@@ -16,4 +17,5 @@ export const ROUTE_MODULES: RouteModule[] = [
     accountRoutes,
     spendRoutes,
     mgmtRoutes,
+    mediaRoutes,
 ];
