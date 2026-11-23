@@ -2,8 +2,8 @@ import fs, { createReadStream } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { createHash, randomBytes, randomInt, randomUUID } from "node:crypto";
+import fsp from "node:fs/promises";
 import http from "node:http";
-import fs$1 from "node:fs/promises";
 import readline from "node:readline";
 // src/shared/constants.ts
 /** Server plugin id (ST mounts its router at `/api/plugins/<id>`). */
@@ -15,6 +15,12 @@ var DEFAULT_PROXY_PORT = 8787;
 var NANOGPT_API_BASE = "https://api.nano-gpt.com/api/v1";
 var NANOGPT_API_BASE_FALLBACK = "https://nano-gpt.com/api/v1";
 var NANOGPT_SITE = "https://nano-gpt.com";
+/**
+* The media API (images, speech, transcription, video and their model lists), WITHOUT a path: the routes sit under `/v1/...`
+* and `/api/...` of this host. A different host from the chat upstream (`NANOGPT_API_BASE` carries `/api/v1`); the website
+* host rejects bodies over about 4.5 MB, so media always goes to `api.nano-gpt.com`. No fallback host.
+*/
+var NANOGPT_MEDIA_BASE = "https://api.nano-gpt.com";
 /** The Management API (API keys with limits, model presets). Its own host path, no CORS, no fallback host. */
 var NANOGPT_MGMT_BASE = "https://nano-gpt.com/api/management/v1";
 /** Every Management token starts with this; a normal inference key (`sk-nano-<uuid>`) does not work there. */
@@ -41,7 +47,9 @@ var RESPONSE_HEADERS = {
 	connection: "x-nanovia-connection",
 	billing: "x-nanovia-billing",
 	requestId: "x-nanovia-request-id",
-	warnings: "x-nanovia-warnings"
+	warnings: "x-nanovia-warnings",
+	/** Stage 0.7, media endpoints of the proxy: the cost in USD when one is known (images: the response's own figure, speech: the catalog estimate). */
+	cost: "x-nanovia-cost"
 };
 // src/domain/catalog.ts
 /** Weight precisions from the coarsest to the finest. `unknown` is outside the scale. */
@@ -61,25 +69,25 @@ function isRecord$7(value) {
 function record(value) {
 	return isRecord$7(value) ? value : {};
 }
-function finite(value) {
+function finite$1(value) {
 	return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 function nonNegative(value) {
-	const n = finite(value);
+	const n = finite$1(value);
 	return n !== null && n >= 0 ? n : null;
 }
-function positive(value) {
-	const n = finite(value);
+function positive$1(value) {
+	const n = finite$1(value);
 	return n !== null && n > 0 ? n : null;
 }
-function text$2(value) {
+function text$3(value) {
 	return typeof value === "string" ? value.trim() : "";
 }
-function strings(value) {
+function strings$1(value) {
 	if (!Array.isArray(value)) return [];
 	const out = [];
 	for (const item of value) {
-		const s = text$2(item);
+		const s = text$3(item);
 		if (s) out.push(s);
 	}
 	return out;
@@ -94,7 +102,7 @@ function per1kToPer1m(value) {
 }
 /** `created` is seconds in NanoGPT's list; a millisecond value is tolerated. */
 function toSeconds(value) {
-	const n = positive(value);
+	const n = positive$1(value);
 	if (n === null) return null;
 	return n > 1e11 ? Math.floor(n / 1e3) : Math.floor(n);
 }
@@ -105,7 +113,7 @@ function toSeconds(value) {
 */
 function normalizeCatalogModel(raw) {
 	if (!isRecord$7(raw)) return null;
-	const id = text$2(raw["id"]);
+	const id = text$3(raw["id"]);
 	if (!id) return null;
 	const caps = record(raw["capabilities"]);
 	const price = record(raw["pricing"]);
@@ -113,29 +121,29 @@ function normalizeCatalogModel(raw) {
 	const cacheRead = nonNegative(price["cacheReadInputPer1kTokens"]);
 	return {
 		id,
-		name: text$2(raw["name"]) || id,
-		description: text$2(raw["description"]),
-		contextLength: positive(raw["context_length"]),
-		maxOutputTokens: positive(raw["max_output_tokens"]),
+		name: text$3(raw["name"]) || id,
+		description: text$3(raw["description"]),
+		contextLength: positive$1(raw["context_length"]),
+		maxOutputTokens: positive$1(raw["max_output_tokens"]),
 		capabilities: {
 			vision: caps["vision"] === true,
 			reasoning: caps["reasoning"] === true,
 			toolCalling: caps["tool_calling"] === true,
 			structuredOutput: caps["structured_output"] === true
 		},
-		reasoningEfforts: strings(raw["reasoning_efforts"]),
+		reasoningEfforts: strings$1(raw["reasoning_efforts"]),
 		openWeights: raw["open_weights"] === true,
 		pricing: {
 			prompt: roundUsd$1(nonNegative(price["prompt"]) ?? 0),
 			completion: roundUsd$1(nonNegative(price["completion"]) ?? 0),
 			cacheRead: cacheRead === null ? null : per1kToPer1m(cacheRead)
 		},
-		category: text$2(raw["category"]) || null,
+		category: text$3(raw["category"]) || null,
 		subscription: {
 			included: sub["included"] === true,
-			inputTokenMultiplier: positive(sub["inputTokenMultiplier"]) ?? 1
+			inputTokenMultiplier: positive$1(sub["inputTokenMultiplier"]) ?? 1
 		},
-		providerIds: strings(raw["providers"]),
+		providerIds: strings$1(raw["providers"]),
 		created: toSeconds(raw["created"])
 	};
 }
@@ -185,7 +193,7 @@ var QUANTIZATION_ALIASES = {
 * `rawQuantization` keeps the label as the host wrote it.
 */
 function mapQuantization(raw) {
-	const label = text$2(raw);
+	const label = text$3(raw);
 	if (!label) return {
 		quantization: null,
 		rawQuantization: null
@@ -195,7 +203,7 @@ function mapQuantization(raw) {
 		rawQuantization: label
 	};
 }
-function priceOf(raw) {
+function priceOf$1(raw) {
 	const p = record(raw);
 	const input = nonNegative(p["inputPer1kTokens"]);
 	const output = nonNegative(p["outputPer1kTokens"]);
@@ -214,24 +222,24 @@ function uptimeOf(raw) {
 }
 /** `features` is an object of flags (`{ toolCalling: true, … }`): the names that are true. A list of names is kept. */
 function featuresOf(raw) {
-	if (Array.isArray(raw)) return strings(raw);
+	if (Array.isArray(raw)) return strings$1(raw);
 	if (!isRecord$7(raw)) return [];
 	return Object.keys(raw).filter((key) => raw[key] === true);
 }
 function normalizeEndpoint(raw) {
 	if (!isRecord$7(raw)) return null;
-	const id = text$2(raw["provider"]);
+	const id = text$3(raw["provider"]);
 	if (!id || raw["available"] === false) return null;
 	const { quantization, rawQuantization } = mapQuantization(raw["quantization"]);
 	return {
 		id,
 		quantization,
 		rawQuantization,
-		pricing: priceOf(raw["pricing"]),
-		tps: positive(raw["tps"]),
-		ttftMs: positive(raw["ttftMs"]),
+		pricing: priceOf$1(raw["pricing"]),
+		tps: positive$1(raw["tps"]),
+		ttftMs: positive$1(raw["ttftMs"]),
 		uptime: uptimeOf(raw["uptime"]),
-		maxOutputTokens: positive(raw["maxOutputTokens"]),
+		maxOutputTokens: positive$1(raw["maxOutputTokens"]),
 		features: featuresOf(raw["features"])
 	};
 }
@@ -245,9 +253,9 @@ function normalizeModelProviders(modelId, raw) {
 	if (!isRecord$7(raw)) return null;
 	const hosts = raw["providers"];
 	if (!(Array.isArray(hosts) || typeof raw["supportsProviderSelection"] === "boolean" || typeof raw["canonicalId"] === "string")) return null;
-	const id = text$2(modelId) || text$2(raw["canonicalId"]);
+	const id = text$3(modelId) || text$3(raw["canonicalId"]);
 	if (!id) return null;
-	const rate = finite(raw["autoCacheReadRate"]);
+	const rate = finite$1(raw["autoCacheReadRate"]);
 	const seen = /* @__PURE__ */ new Set();
 	const providers = [];
 	for (const item of Array.isArray(hosts) ? hosts : []) {
@@ -260,8 +268,8 @@ function normalizeModelProviders(modelId, raw) {
 		modelId: id,
 		supportsProviderSelection: raw["supportsProviderSelection"] !== false,
 		autoCacheReadRate: rate !== null && rate >= 0 && rate <= 1 ? rate : null,
-		autoTps: positive(raw["autoTps"]),
-		autoTtftMs: positive(raw["autoTtftMs"]),
+		autoTps: positive$1(raw["autoTps"]),
+		autoTtftMs: positive$1(raw["autoTtftMs"]),
 		providers
 	};
 }
@@ -861,7 +869,7 @@ async function* emptyBody() {}
 // src/server/catalog.ts
 var CATALOG_FILE = "catalog.json";
 /** A fetch that did not give usable data; `reason` is a short code for the log. */
-var FetchFailure = class extends Error {
+var FetchFailure$1 = class extends Error {
 	reason;
 	constructor(reason) {
 		super(reason);
@@ -889,13 +897,13 @@ function createCatalogService(options) {
 	const controllers = /* @__PURE__ */ new Set();
 	/** One public GET. 2xx bodies are parsed as JSON; any other status comes back with `json: null`. */
 	async function getJson(url) {
-		if (closed) throw new FetchFailure("closed");
+		if (closed) throw new FetchFailure$1("closed");
 		const controller = new AbortController();
 		controllers.add(controller);
 		let timer;
 		const timeout = new Promise((_resolve, reject) => {
 			timer = setTimeout(() => {
-				reject(new FetchFailure("timeout"));
+				reject(new FetchFailure$1("timeout"));
 				controller.abort();
 			}, timeoutMs);
 			timer.unref?.();
@@ -928,11 +936,11 @@ function createCatalogService(options) {
 					json: JSON.parse(body)
 				};
 			} catch {
-				throw new FetchFailure("invalid JSON");
+				throw new FetchFailure$1("invalid JSON");
 			}
 		} catch (error) {
-			if (error instanceof FetchFailure) throw error;
-			throw new FetchFailure(closed ? "closed" : errorCode(error) ?? "unreachable");
+			if (error instanceof FetchFailure$1) throw error;
+			throw new FetchFailure$1(closed ? "closed" : errorCode(error) ?? "unreachable");
 		} finally {
 			if (timer !== void 0) clearTimeout(timer);
 			controllers.delete(controller);
@@ -975,7 +983,7 @@ function createCatalogService(options) {
 		const seen = /* @__PURE__ */ new Set();
 		const models = [];
 		for (const item of raw["models"]) {
-			if (!isStoredModel(item) || seen.has(item.id)) continue;
+			if (!isStoredModel$1(item) || seen.has(item.id)) continue;
 			seen.add(item.id);
 			models.push(item);
 		}
@@ -984,9 +992,9 @@ function createCatalogService(options) {
 	async function fetchCatalog() {
 		try {
 			const { status, json } = await getJson(`${siteBase}/api/v1/models?detailed=true`);
-			if (status < 200 || status >= 300) throw new FetchFailure(`http ${status}`);
+			if (status < 200 || status >= 300) throw new FetchFailure$1(`http ${status}`);
 			const models = normalizeCatalog(json);
-			if (models.length === 0) throw new FetchFailure("no models in the answer");
+			if (models.length === 0) throw new FetchFailure$1("no models in the answer");
 			const next = makeSnapshot(models, now());
 			if (closed) return false;
 			const quiet = announced && failedAt === null;
@@ -998,7 +1006,7 @@ function createCatalogService(options) {
 			return true;
 		} catch (error) {
 			if (closed) return false;
-			const reason = error instanceof FetchFailure ? error.reason : errorCode(error) ?? "error";
+			const reason = error instanceof FetchFailure$1 ? error.reason : errorCode(error) ?? "error";
 			if (failedAt === null) log.warn(`catalog fetch failed (${reason})${snapshot ? "; the stored copy is used" : ""}`);
 			failedAt = now();
 			return false;
@@ -1098,9 +1106,9 @@ function createCatalogService(options) {
 				noteProvidersFailure(key, "not_found");
 				return false;
 			}
-			if (status < 200 || status >= 300) throw new FetchFailure(`http ${status}`);
+			if (status < 200 || status >= 300) throw new FetchFailure$1(`http ${status}`);
 			const value = normalizeModelProviders(key, json);
-			if (!value) throw new FetchFailure("unrecognised answer");
+			if (!value) throw new FetchFailure$1("unrecognised answer");
 			if (closed) return false;
 			putEntry(key, {
 				value,
@@ -1111,7 +1119,7 @@ function createCatalogService(options) {
 			return true;
 		} catch (error) {
 			if (closed) return false;
-			const reason = error instanceof FetchFailure ? error.reason : errorCode(error) ?? "error";
+			const reason = error instanceof FetchFailure$1 ? error.reason : errorCode(error) ?? "error";
 			if (!providerEntries.get(key)?.failedAt) log.warn(`providers fetch failed (${reason})`);
 			noteProvidersFailure(key, "unavailable");
 			return false;
@@ -1188,80 +1196,9 @@ function isRecord$4(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** The fields the rest of the plugin reads from a stored model; the file is ours but may be edited or truncated. */
-function isStoredModel(value) {
+function isStoredModel$1(value) {
 	if (!isRecord$4(value)) return false;
 	return typeof value["id"] === "string" && value["id"] !== "" && typeof value["name"] === "string" && isRecord$4(value["capabilities"]) && isRecord$4(value["pricing"]) && typeof value["pricing"]["prompt"] === "number" && typeof value["pricing"]["completion"] === "number" && isRecord$4(value["subscription"]) && Array.isArray(value["providerIds"]) && Array.isArray(value["reasoningEfforts"]);
-}
-// src/server/context.ts
-function unknownBilling() {
-	return {
-		outcome: "unknown",
-		markupPercent: 0,
-		subscriptionSafe: false,
-		reasons: [],
-		stripped: []
-	};
-}
-/** `RequestHints` from the HINT_HEADERS of a request (header names lower case). */
-function parseHints(headers) {
-	const first = (name) => {
-		const raw = headers[name];
-		const value = Array.isArray(raw) ? raw[0] : raw;
-		return typeof value === "string" && value.trim() ? value.trim().slice(0, 40) : null;
-	};
-	const consumer = first(HINT_HEADERS.consumer);
-	const thoughts = first(HINT_HEADERS.thoughts);
-	return {
-		effort: first(HINT_HEADERS.effort),
-		consumer: consumer === "main" || consumer === "background" ? consumer : "unknown",
-		thoughts: thoughts === "1" || thoughts === "true"
-	};
-}
-function createProxyContext(init) {
-	const { connection, body } = init;
-	const requestedModel = typeof body["model"] === "string" && body["model"] ? body["model"] : connection.modelId;
-	const plan = {
-		model: requestedModel,
-		body: { ...body },
-		headers: {},
-		billing: unknownBilling(),
-		warnings: []
-	};
-	return {
-		localId: init.localId,
-		startedAt: init.now,
-		user: init.user,
-		connection,
-		key: init.key,
-		model: init.model,
-		providerSelection: init.providerSelection ?? null,
-		hints: init.hints,
-		body,
-		stream: body["stream"] === true,
-		signal: init.signal,
-		plan,
-		upstream: null,
-		responseHeaders: {},
-		usage: {
-			at: init.now,
-			connectionId: connection.id,
-			requestId: null,
-			model: requestedModel,
-			billing: "unknown",
-			costUsd: null,
-			equivalentUsd: null,
-			promptTokens: null,
-			completionTokens: null,
-			cachedTokens: null,
-			reasoningTokens: null,
-			latencyMs: 0,
-			status: 0,
-			stream: body["stream"] === true,
-			consumer: init.hints.consumer,
-			error: null
-		},
-		resolved: null
-	};
 }
 // src/domain/usage.ts
 function emptyUsage() {
@@ -1364,6 +1301,8 @@ function summarizeUsage(records, range, dayOf, filter = {}) {
 	const days = /* @__PURE__ */ new Map();
 	const connections = /* @__PURE__ */ new Map();
 	const models = /* @__PURE__ */ new Map();
+	const media = /* @__PURE__ */ new Map();
+	let hasMedia = false;
 	for (const record of records) {
 		if (!(record.at >= range.from && record.at < range.to)) continue;
 		if (filter.connectionId !== void 0 && record.connectionId !== filter.connectionId) continue;
@@ -1371,27 +1310,35 @@ function summarizeUsage(records, range, dayOf, filter = {}) {
 		addRecord(bucket(days, dayOf(record.at)), record);
 		addRecord(bucket(connections, record.connectionId), record);
 		addRecord(bucket(models, record.model), record);
+		const medium = record.medium ?? "chat";
+		if (medium !== "chat") hasMedia = true;
+		addRecord(bucket(media, medium), record);
 	}
 	const byDay = [...days].map(([day, totals]) => ({
 		day,
-		...finish(totals)
+		...finish$1(totals)
 	})).sort((a, b) => compareText(a.day, b.day));
 	const byConnection = [...connections].map(([connectionId, totals]) => ({
 		connectionId,
-		...finish(totals)
+		...finish$1(totals)
 	})).sort((a, b) => byWeight(a, b) || compareText(a.connectionId ?? "", b.connectionId ?? ""));
 	const byModel = [...models].map(([model, totals]) => ({
 		model,
-		...finish(totals)
+		...finish$1(totals)
 	})).sort((a, b) => byWeight(a, b) || compareText(a.model, b.model));
-	return {
+	const summary = {
 		from: range.from,
 		to: range.to,
-		total: finish(total),
+		total: finish$1(total),
 		byDay,
 		byConnection,
 		byModel
 	};
+	if (hasMedia) summary.byMedium = [...media].map(([medium, totals]) => ({
+		medium,
+		...finish$1(totals)
+	})).sort((a, b) => byWeight(a, b) || compareText(a.medium, b.medium));
+	return summary;
 }
 function emptyTotals() {
 	return {
@@ -1419,7 +1366,7 @@ function addRecord(totals, record) {
 	totals.completionTokens += amount$2(record.completionTokens);
 	totals.cachedTokens += amount$2(record.cachedTokens);
 }
-function finish(totals) {
+function finish$1(totals) {
 	return {
 		...totals,
 		costUsd: roundUsd(totals.costUsd),
@@ -1477,6 +1424,2947 @@ function preferPositive(...values) {
 		zero = 0;
 	}
 	return zero;
+}
+// src/domain/media-wire.ts
+var MAX_TEXT = 300;
+function str(value) {
+	return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+function num(value) {
+	return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+/** One printable line of at most `MAX_TEXT` characters: no control characters, no markup, runs of blanks collapsed. */
+function cleanText(value, limit = MAX_TEXT) {
+	return value.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, limit);
+}
+/** `paymentSource` / `currency` saying the figure is not dollars (NanoGPT also bills in XNO). */
+function isOtherCurrency(label) {
+	return label !== null && /^(xno|nano)$/i.test(label);
+}
+/** A USD amount that came with its currency label: `null` for a figure in another currency. */
+function dollars(value, label) {
+	const amount = parseCost(value);
+	if (amount === null) return null;
+	return isOtherCurrency(label) && amount !== 0 ? null : amount;
+}
+/** USD as a header/log value: at most 10 decimals, trailing zeros trimmed, never an exponent (`0.00000666`). */
+function formatUsd(value) {
+	const fixed = roundUsd(value).toFixed(10);
+	return fixed.includes(".") ? fixed.replace(/0+$/, "").replace(/\.$/, "") : fixed;
+}
+var B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+/** Strips a `data:<mime>;base64,` prefix; returns the bare base64 and the mime the prefix named (or null). */
+function splitDataUrl(value) {
+	const m = /^data:([^;,]*)(?:;[^,]*)?;base64,/i.exec(value);
+	if (!m) return {
+		base64: value,
+		mime: null
+	};
+	return {
+		base64: value.slice(m[0].length),
+		mime: m[1] ? m[1].toLowerCase() : null
+	};
+}
+/** How many bytes a base64 string decodes to, without decoding it. */
+function base64ByteLength(base64) {
+	const clean = base64.replace(/[\s=]+$/g, "");
+	return Math.floor(clean.length * 3 / 4);
+}
+/** True when the text is plain base64 (standard alphabet, optional padding, whitespace allowed). */
+function isBase64(value) {
+	return value.length > 0 && /^[A-Za-z0-9+/\s]*={0,2}\s*$/.test(value);
+}
+/** The first bytes of a base64 string (enough to recognise a file type). */
+function base64Prefix(base64, bytes = 12) {
+	const out = [];
+	let acc = 0;
+	let bits = 0;
+	for (const ch of base64) {
+		const v = B64.indexOf(ch);
+		if (v < 0) break;
+		acc = acc << 6 | v;
+		bits += 6;
+		if (bits >= 8) {
+			bits -= 8;
+			out.push(acc >> bits & 255);
+			if (out.length >= bytes) break;
+		}
+	}
+	return out;
+}
+var ascii = (bytes, from, to) => String.fromCharCode(...bytes.slice(from, to));
+/** The image type a base64 body starts with (PNG, JPEG, GIF, WebP); null when it is none of them. */
+function sniffImageMime(base64) {
+	const b = base64Prefix(base64);
+	if (b.length >= 8 && b[0] === 137 && ascii(b, 1, 4) === "PNG") return "image/png";
+	if (b.length >= 3 && b[0] === 255 && b[1] === 216 && b[2] === 255) return "image/jpeg";
+	if (b.length >= 4 && ascii(b, 0, 3) === "GIF") return "image/gif";
+	if (b.length >= 12 && ascii(b, 0, 4) === "RIFF" && ascii(b, 8, 12) === "WEBP") return "image/webp";
+	return null;
+}
+/** The image type a file name or URL path ends with; null when unknown. */
+function imageMimeFromName(name) {
+	const m = /\.(png|jpe?g|webp|gif|avif|svg)(?:[?#].*)?$/i.exec(name);
+	if (!m) return null;
+	const ext = (m[1] ?? "").toLowerCase();
+	if (ext === "jpg" || ext === "jpeg") return "image/jpeg";
+	if (ext === "svg") return "image/svg+xml";
+	return `image/${ext}`;
+}
+function imageOutput(item) {
+	if (!isRecord$3(item)) return null;
+	const b64 = str(item["b64_json"]) ?? str(item["b64"]) ?? str(item["base64"]);
+	if (b64) {
+		const { base64, mime } = splitDataUrl(b64);
+		return base64 ? {
+			dataBase64: base64,
+			...mime ? { mime } : {}
+		} : null;
+	}
+	const direct = str(item["url"]);
+	const nested = isRecord$3(item["image_url"]) ? str(item["image_url"]["url"]) : str(item["image_url"]);
+	const url = direct ?? nested;
+	return url ? { url } : null;
+}
+/** `{ created, data: [{ b64_json | url }], cost, paymentSource, remainingBalance, requestId }` (LIVE on both image routes). */
+function parseImageBody(body) {
+	const empty = {
+		outputs: [],
+		usd: null,
+		paymentSource: null,
+		remainingUsd: null,
+		requestId: null,
+		created: null
+	};
+	if (!isRecord$3(body)) return empty;
+	const items = Array.isArray(body["data"]) ? body["data"] : [];
+	const outputs = [];
+	for (const item of items) {
+		const output = imageOutput(item);
+		if (output) outputs.push(output);
+	}
+	const paymentSource = str(body["paymentSource"]) ?? str(body["payment_source"]);
+	return {
+		outputs,
+		usd: dollars(body["cost"], paymentSource),
+		paymentSource,
+		remainingUsd: dollars(body["remainingBalance"] ?? body["remaining_balance"], paymentSource),
+		requestId: str(body["requestId"]) ?? str(body["request_id"]),
+		created: num(body["created"])
+	};
+}
+function segmentOf(item) {
+	if (!isRecord$3(item)) return null;
+	const words = str(item["text"]);
+	if (words === null) return null;
+	return {
+		start: num(item["start"]),
+		end: num(item["end"]),
+		text: words,
+		speaker: str(item["speaker"]) ?? str(item["speaker_id"])
+	};
+}
+function segmentsOf(value) {
+	if (!Array.isArray(value)) return [];
+	const out = [];
+	for (const item of value) {
+		const segment = segmentOf(item);
+		if (segment) out.push(segment);
+	}
+	return out;
+}
+/**
+* A transcription answer in either shape: the OpenAI-compatible one (LIVE: `{ text, language, duration, usage: { seconds,
+* type, cost, currency } }`, `segments` with `verbose_json`) or the native one (DOC: `{ transcription, metadata: { cost,
+* currency, actualDuration (minutes), chargedDuration, language } , diarization: { segments } }`). A bare string (the `text`
+* response format) is a transcript with nothing else. null: no transcript in it.
+*/
+function parseSttBody(body) {
+	if (typeof body === "string") return {
+		text: body.trim(),
+		language: "",
+		durationSec: null,
+		segments: [],
+		usd: null,
+		currency: null
+	};
+	if (!isRecord$3(body)) return null;
+	const transcript = body["text"] ?? body["transcription"] ?? body["transcript"];
+	if (typeof transcript !== "string") return null;
+	const usage = isRecord$3(body["usage"]) ? body["usage"] : {};
+	const metadata = isRecord$3(body["metadata"]) ? body["metadata"] : {};
+	const currency = str(usage["currency"]) ?? str(metadata["currency"]) ?? str(body["currency"]);
+	const minutes = num(metadata["actualDuration"]) ?? num(metadata["chargedDuration"]);
+	const diarization = isRecord$3(body["diarization"]) ? segmentsOf(body["diarization"]["segments"]) : [];
+	return {
+		text: transcript.trim(),
+		language: str(body["language"]) ?? str(metadata["language"]) ?? "",
+		durationSec: num(body["duration"]) ?? num(usage["seconds"]) ?? (minutes !== null ? roundUsd(minutes * 60) : null),
+		segments: diarization.length > 0 ? diarization : segmentsOf(body["segments"]),
+		usd: dollars(usage["cost"] ?? metadata["cost"] ?? body["cost"], currency),
+		currency: currency ? currency.toUpperCase() : null
+	};
+}
+/** `POST /api/generate-video` answer, HTTP 202 (DOC): `{ runId, id, status: "pending", model, cost, paymentSource, remainingBalance, prechargeLabel }`. */
+function parseVideoSubmit(body) {
+	if (!isRecord$3(body)) return {
+		runId: null,
+		usd: null,
+		paymentSource: null,
+		remainingUsd: null
+	};
+	const paymentSource = str(body["paymentSource"]) ?? str(body["payment_source"]);
+	return {
+		runId: str(body["runId"]) ?? str(body["id"]) ?? str(body["requestId"]),
+		usd: dollars(body["cost"], paymentSource),
+		paymentSource,
+		remainingUsd: dollars(body["remainingBalance"], paymentSource)
+	};
+}
+var QUEUED = /* @__PURE__ */ new Set([
+	"queued",
+	"in_queue",
+	"inqueue",
+	"pending",
+	"waiting",
+	"submitted",
+	"created",
+	"accepted",
+	"scheduled"
+]);
+var RUNNING = /* @__PURE__ */ new Set([
+	"running",
+	"processing",
+	"in_progress",
+	"inprogress",
+	"generating",
+	"delivering",
+	"started",
+	"active",
+	"rendering"
+]);
+var COMPLETED = /* @__PURE__ */ new Set([
+	"completed",
+	"complete",
+	"succeeded",
+	"success",
+	"done",
+	"finished",
+	"ready"
+]);
+var FAILED = /* @__PURE__ */ new Set([
+	"failed",
+	"failure",
+	"error",
+	"errored",
+	"rejected"
+]);
+var CANCELED = /* @__PURE__ */ new Set(["canceled", "cancelled"]);
+var TIMED_OUT = /* @__PURE__ */ new Set([
+	"timed_out",
+	"timedout",
+	"timeout"
+]);
+/** A status word of either documented spelling (`IN_QUEUE`, `processing`, `COMPLETED`, `cancelled` …); null = not recognised. */
+function mapVideoStatus(raw) {
+	const word = str(raw)?.toLowerCase().replace(/[\s-]+/g, "_");
+	if (!word) return null;
+	if (QUEUED.has(word)) return "queued";
+	if (RUNNING.has(word)) return "running";
+	if (COMPLETED.has(word)) return "completed";
+	if (FAILED.has(word) || CANCELED.has(word) || TIMED_OUT.has(word)) return "failed";
+	if (word === "expired") return "expired";
+	return null;
+}
+/** 0-100 (OpenAPI) or 0..1 (a fraction) -> 0..1. A whole number counts as a percent, so `1` is 1%. */
+function progressOf(value) {
+	const n = num(value);
+	if (n === null || n < 0) return null;
+	const fraction = n > 1 || Number.isInteger(n) ? n / 100 : n;
+	return Math.min(1, fraction);
+}
+function videoUrlOf(...sources) {
+	for (const source of sources) {
+		const output = isRecord$3(source["output"]) ? source["output"] : {};
+		const url = str((isRecord$3(output["video"]) ? output["video"] : isRecord$3(source["video"]) ? source["video"] : {})["url"]) ?? str(output["url"]) ?? str(source["videoUrl"]) ?? str(source["video_url"]);
+		if (url && (/^https?:\/\//i.test(url) || /^\/(?!\/)/.test(url))) return url;
+	}
+	return null;
+}
+function errorOf(...sources) {
+	for (const source of sources) {
+		const error = source["error"];
+		const text = typeof error === "string" ? error : isRecord$3(error) ? str(error["message"]) : null;
+		const found = str(source["userFriendlyError"]) ?? (text ? text : null);
+		if (found) return cleanText(found);
+	}
+	return null;
+}
+/**
+* The status of a video job in BOTH documented shapes (neither was seen live):
+*   guide:    `{ requestId, model, data: { status: "IN_QUEUE|IN_PROGRESS|COMPLETED|FAILED|CANCELED", output: { video: { url } }, cost, error } }`
+*   OpenAPI:  `{ requestId, status: "queued|processing|completed|failed|cancelled", progress (0-100|null), videoUrl, error }`
+* The status word is normalised, a URL with no recognised status means completed, an unknown word leaves `status` null.
+*/
+function parseVideoStatus(body) {
+	const none = {
+		status: null,
+		progress: null,
+		url: null,
+		error: null,
+		usd: null
+	};
+	if (!isRecord$3(body)) return none;
+	const inner = isRecord$3(body["data"]) ? body["data"] : {};
+	const url = videoUrlOf(inner, body);
+	let status = mapVideoStatus(inner["status"] ?? body["status"]);
+	if (status === null && url !== null) status = "completed";
+	const word = str(inner["status"] ?? body["status"])?.toLowerCase() ?? "";
+	let error = errorOf(inner, body);
+	if (status === "failed" && error === null) error = CANCELED.has(word) ? "The job was canceled" : TIMED_OUT.has(word) ? "The job timed out" : "The job failed";
+	const paymentSource = str(inner["paymentSource"]) ?? str(body["paymentSource"]);
+	return {
+		status,
+		progress: progressOf(inner["progress"] ?? body["progress"]),
+		url,
+		error,
+		usd: dollars(inner["cost"] ?? body["cost"], paymentSource)
+	};
+}
+/** The three shapes: `{ error: { message, type, code } }`, `{ error: "text", code?, requiredBalance? }`, and anything else as text. */
+function readErrorBody(bodyText) {
+	let json = null;
+	try {
+		json = JSON.parse(bodyText);
+	} catch {}
+	if (isRecord$3(json)) {
+		const error = json["error"];
+		if (isRecord$3(error)) {
+			const code = error["code"];
+			return {
+				text: cleanText(str(error["message"]) ?? ""),
+				code: typeof code === "string" || typeof code === "number" ? String(code) : null,
+				type: str(error["type"]),
+				required: parseCost(json["requiredBalance"] ?? error["requiredBalance"])
+			};
+		}
+		const code = json["code"];
+		return {
+			text: cleanText(str(error) ?? str(json["message"]) ?? ""),
+			code: typeof code === "string" || typeof code === "number" ? String(code) : null,
+			type: str(json["type"]),
+			required: parseCost(json["requiredBalance"])
+		};
+	}
+	return {
+		text: cleanText(bodyText),
+		code: null,
+		type: null,
+		required: null
+	};
+}
+var POLICY = /content[_\s-]?policy|policy[_\s-]?violation/i;
+var BALANCE = /insufficient[_\s-]?(balance|funds)/i;
+var RATE = /rate[_\s-]?limit/i;
+/**
+* An upstream error (status and body text, already scrubbed of the key) as the admin API's failure: NanoGPT's own text,
+* a contract code. 400 `content_policy_violation` (not charged), 402 `insufficient_balance` (with the amount NanoGPT
+* asked for when it said), 429 `rate_limited`, 413 `payload_too_large`, 408/504 `upstream_timeout`; everything else,
+* including a refused key (401/403, where ST would read the status as "log in again"), is 502 `upstream_error`.
+*/
+function mediaFailure(upstreamStatus, bodyText) {
+	const read = readErrorBody(bodyText);
+	const label = `${read.code ?? ""} ${read.type ?? ""}`;
+	const said = read.text;
+	if (POLICY.test(label) || upstreamStatus === 400 && POLICY.test(said)) return {
+		status: 400,
+		code: "content_policy_violation",
+		message: said ? `NanoGPT refused the prompt (content policy): ${said}` : "NanoGPT refused the prompt (content policy)"
+	};
+	if (upstreamStatus === 402 || BALANCE.test(label)) return {
+		status: 402,
+		code: "insufficient_balance",
+		message: `Insufficient balance${read.required !== null ? ` (NanoGPT asks for ${formatUsd(read.required)} USD)` : ""}${said ? `: ${said}` : ""}`
+	};
+	if (upstreamStatus === 429 || RATE.test(label)) return {
+		status: 429,
+		code: "rate_limited",
+		message: said ? `NanoGPT is rate limiting this key: ${said}` : "NanoGPT is rate limiting this key"
+	};
+	if (upstreamStatus === 413) return {
+		status: 413,
+		code: "payload_too_large",
+		message: said ? `NanoGPT refused the size of the request: ${said}` : "NanoGPT refused the size of the request"
+	};
+	if (upstreamStatus === 408 || upstreamStatus === 504) return {
+		status: 504,
+		code: "upstream_timeout",
+		message: said ? `NanoGPT did not answer in time: ${said}` : "NanoGPT did not answer in time"
+	};
+	const lead = upstreamStatus === 401 || upstreamStatus === 403 ? `NanoGPT rejected the key (HTTP ${upstreamStatus})` : `NanoGPT answered HTTP ${upstreamStatus}`;
+	return {
+		status: 502,
+		code: "upstream_error",
+		message: said ? `${lead}: ${said}` : lead
+	};
+}
+/**
+* `GET /api/v1/usage/requests/{id}` (LIVE for images): `{ object: "request_billing", request_id, cost: "0.00255" (decimal
+* string), currency: "USD", cost_scope: "primary_charge", usage: { ... null ... } }`. A currency other than USD gives null:
+* the amount is real but not dollars.
+*/
+function parseBillingLookup(body) {
+	if (!isRecord$3(body)) return {
+		usd: null,
+		currency: null
+	};
+	const currency = str(body["currency"]);
+	return {
+		usd: dollars(body["cost"], currency),
+		currency: currency ? currency.toUpperCase() : null
+	};
+}
+/**
+* The usage record of one media call. Real money in `costUsd`; `equivalentUsd` repeats it for pay-as-you-go (there is no
+* token price to recompute from); `billing` is paygo for a positive cost, subscription for a zero cost under a
+* subscription payment source, otherwise unknown. A failed call has no cost: nothing proves it was billed.
+*/
+function buildMediaUsageRecord(args) {
+	const usd = args.error !== null || args.status >= 400 ? null : args.usd;
+	let billing = "unknown";
+	if (usd !== null && usd > 0) billing = "paygo";
+	else if (usd === 0 && args.paymentSource !== null && /subscription/i.test(args.paymentSource)) billing = "subscription";
+	return {
+		at: args.at,
+		connectionId: args.connectionId,
+		requestId: args.requestId,
+		model: args.model,
+		billing,
+		costUsd: usd,
+		equivalentUsd: billing === "paygo" ? usd : null,
+		promptTokens: null,
+		completionTokens: null,
+		cachedTokens: null,
+		reasoningTokens: null,
+		latencyMs: Math.max(0, args.latencyMs),
+		status: args.status,
+		stream: false,
+		consumer: "unknown",
+		error: args.error,
+		medium: args.medium,
+		units: args.units,
+		costSource: usd === null ? "unknown" : args.costSource
+	};
+}
+var COST_SOURCES$1 = [
+	"response",
+	"lookup",
+	"estimate",
+	"unknown"
+];
+/** One parsed line of a usage file as an adjustment; null when it is not a valid one. */
+function parseUsageAdjustment(raw) {
+	if (!isRecord$3(raw) || raw["adjust"] !== true) return null;
+	const requestId = str(raw["requestId"]);
+	const costUsd = parseCost(raw["costUsd"]);
+	const at = num(raw["at"]);
+	if (requestId === null || costUsd === null || at === null) return null;
+	return {
+		adjust: true,
+		requestId,
+		costUsd,
+		costSource: COST_SOURCES$1.find((source) => source === raw["costSource"]) ?? "lookup",
+		at
+	};
+}
+/**
+* The records with their corrections applied: a record whose `requestId` has an adjustment takes its `costUsd` and
+* `costSource` (the latest adjustment wins; a paygo media record's `equivalentUsd` follows, and an unknown billing outcome
+* becomes paygo for a positive figure). Neither input is mutated; untouched records are returned as they are.
+*/
+function applyUsageAdjustments(records, adjustments) {
+	if (adjustments.length === 0) return [...records];
+	const latest = /* @__PURE__ */ new Map();
+	for (const adjustment of [...adjustments].sort((a, b) => a.at - b.at)) latest.set(adjustment.requestId, adjustment);
+	return records.map((record) => {
+		const adjustment = record.requestId === null ? void 0 : latest.get(record.requestId);
+		if (!adjustment) return record;
+		const media = record.medium !== void 0 && record.medium !== "chat";
+		const billing = record.billing === "unknown" && adjustment.costUsd > 0 ? "paygo" : record.billing;
+		return {
+			...record,
+			billing,
+			costUsd: adjustment.costUsd,
+			costSource: adjustment.costSource,
+			equivalentUsd: media && billing === "paygo" ? adjustment.costUsd : record.equivalentUsd
+		};
+	});
+}
+// src/server/media-call.ts
+var DEFAULT_MEDIA_TIMEOUTS = {
+	imageMs: 18e4,
+	ttsMs: 12e4,
+	sttMs: 18e4,
+	videoSubmitMs: 3e4,
+	videoStatusMs: 2e4,
+	videoDownloadMs: 6e4,
+	lookupMs: 15e3
+};
+/** Largest answer the admin routes buffer: a 4K image as base64, a long piece of music. */
+var MAX_ANSWER_BYTES = 67108864;
+/** Largest error body worth reading. */
+var MAX_ERROR_BYTES = 262144;
+var MediaCallError = class extends Error {
+	kind;
+	code;
+	constructor(kind, code = null) {
+		super(`media call ${kind}${code ? ` (${code})` : ""}`);
+		this.kind = kind;
+		this.code = code;
+		this.name = "MediaCallError";
+	}
+};
+/**
+* Opens one request on the media host and resolves with the answer's head and a body to iterate. Rejects with a
+* MediaCallError: `timeout` (nothing arrived in `timeoutMs`), `unreachable`, `aborted` (the caller's signal fired).
+*/
+function openMedia(env, key, init) {
+	const headers = {
+		authorization: `Bearer ${key.reveal()}`,
+		accept: init.accept ?? "application/json",
+		"accept-encoding": "identity",
+		"user-agent": `Nanovia/${env.version}`
+	};
+	if (init.body !== void 0) headers["content-type"] = init.contentType ?? "application/json";
+	if (init.billing === "paygo") headers["x-billing-mode"] = "paygo";
+	return openRaw(env, `${env.mediaBase.replace(/\/+$/, "")}${init.path}`, headers, init);
+}
+/**
+* A GET of a URL NanoGPT handed out (the signed link of a finished video) WITHOUT the key: the link is public for its
+* lifetime, and a URL that came out of an answer must never receive the Authorization header. `url` may be relative to
+* the media host. Only http(s) is opened.
+*/
+function openPublic(env, url, timeoutMs, signal) {
+	let target;
+	try {
+		target = new URL(url, `${env.mediaBase.replace(/\/+$/, "")}/`);
+	} catch {
+		return Promise.reject(new MediaCallError("unreachable", "EINVAL"));
+	}
+	if (target.protocol !== "https:" && target.protocol !== "http:") return Promise.reject(new MediaCallError("unreachable", "EINVAL"));
+	const headers = {
+		accept: "*/*",
+		"accept-encoding": "identity",
+		"user-agent": `Nanovia/${env.version}`
+	};
+	return openRaw(env, target.toString(), headers, {
+		timeoutMs,
+		...signal ? { signal } : {},
+		method: "GET"
+	});
+}
+async function openRaw(env, url, headers, init) {
+	if (init.signal?.aborted) throw new MediaCallError("aborted");
+	const controller = new AbortController();
+	let timedOut = false;
+	let timer;
+	let closed = false;
+	let finished = false;
+	const clear = () => {
+		if (timer !== void 0) clearTimeout(timer);
+		timer = void 0;
+	};
+	const arm = () => {
+		clear();
+		timer = setTimeout(() => {
+			timedOut = true;
+			controller.abort();
+		}, init.timeoutMs);
+		timer.unref?.();
+	};
+	const onAbort = () => controller.abort();
+	init.signal?.addEventListener("abort", onAbort, { once: true });
+	const release = () => {
+		clear();
+		init.signal?.removeEventListener("abort", onAbort);
+	};
+	arm();
+	let response;
+	try {
+		const timeout = new Promise((_resolve, reject) => {
+			controller.signal.addEventListener("abort", () => reject(new MediaCallError("timeout")), { once: true });
+		});
+		timeout.catch(() => {});
+		const attempt = env.fetch(url, {
+			method: init.method,
+			headers,
+			...init.body !== void 0 ? { body: init.body } : {},
+			signal: controller.signal
+		});
+		attempt.catch(() => {});
+		response = await Promise.race([attempt, timeout]);
+	} catch (error) {
+		release();
+		if (init.signal?.aborted) throw new MediaCallError("aborted");
+		if (timedOut) throw new MediaCallError("timeout");
+		throw new MediaCallError("unreachable", errorCode(error));
+	}
+	const responseHeaders = {};
+	response.headers.forEach((value, name) => {
+		responseHeaders[name.toLowerCase()] = value;
+	});
+	arm();
+	const source = response.body;
+	async function* body() {
+		try {
+			if (source) for await (const chunk of source) yield chunk;
+			finished = true;
+		} catch (error) {
+			if (init.signal?.aborted) throw new MediaCallError("aborted");
+			if (timedOut) throw new MediaCallError("timeout");
+			throw new MediaCallError("unreachable", errorCode(error));
+		}
+	}
+	return {
+		status: response.status,
+		headers: responseHeaders,
+		body: body(),
+		touch() {
+			if (!closed) arm();
+		},
+		close() {
+			if (closed) return;
+			closed = true;
+			release();
+			if (!finished) controller.abort();
+		}
+	};
+}
+/**
+* One whole call: the answer's body is read to the end, at most `maxBytes` of it (more is a `too_large` failure and the
+* request is aborted). Rejects with a MediaCallError.
+*/
+async function callMedia(env, key, init, maxBytes = MAX_ANSWER_BYTES) {
+	const handle = await openMedia(env, key, init);
+	try {
+		const chunks = [];
+		let size = 0;
+		for await (const chunk of handle.body) {
+			handle.touch();
+			size += chunk.length;
+			if (size > maxBytes) throw new MediaCallError("too_large");
+			chunks.push(Buffer.from(chunk));
+		}
+		return {
+			status: handle.status,
+			headers: handle.headers,
+			body: Buffer.concat(chunks)
+		};
+	} finally {
+		handle.close();
+	}
+}
+/** The media type of an answer without its parameters (`audio/x-wav; charset=…` -> `audio/x-wav`); null when absent or odd. */
+function contentTypeOf(headers) {
+	const raw = headers["content-type"];
+	if (!raw) return null;
+	const type = raw.split(";")[0]?.trim().toLowerCase() ?? "";
+	return /^[a-z0-9][a-z0-9.+-]*\/[a-z0-9][a-z0-9.+-]*$/.test(type) ? type : null;
+}
+/** A `multipart/form-data` body for NanoGPT: text fields first, then the file. Header values never take a CR, LF or quote. */
+function buildMultipart(fields, file) {
+	const boundary = `----nanovia${randomBytes(12).toString("hex")}`;
+	const token = (value) => value.replace(/[\r\n"\\]/g, "_");
+	const parts = [];
+	for (const [name, value] of fields) parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="${token(name)}"\r\n\r\n${value}\r\n`, "utf8"));
+	parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="${token(file.name)}"; filename="${token(file.filename)}"\r\nContent-Type: ${token(file.mime)}\r\n\r\n`, "utf8"), file.data, Buffer.from(`\r\n--${boundary}--\r\n`, "utf8"));
+	return {
+		body: Buffer.concat(parts),
+		contentType: `multipart/form-data; boundary=${boundary}`
+	};
+}
+/** The boundary of a `multipart/form-data` content type; null when there is none. */
+function boundaryOf(contentType) {
+	if (!contentType || !/^multipart\/form-data/i.test(contentType)) return null;
+	const m = /boundary=(?:"([^"]{1,200})"|([^;\s]{1,200}))/i.exec(contentType);
+	return m ? m[1] ?? m[2] ?? null : null;
+}
+/**
+* The text value of one non-file field of a multipart body (the proxy needs `model` without parsing the recording). Scans
+* the part headers only; the binary parts are skipped by searching for the next boundary. null: no such field.
+*/
+function multipartField(body, boundary, field) {
+	const delimiter = Buffer.from(`--${boundary}`, "latin1");
+	const wanted = `name="${field}"`;
+	let at = body.indexOf(delimiter);
+	while (at !== -1) {
+		const headStart = at + delimiter.length;
+		if (body[headStart] === 45 && body[headStart + 1] === 45) return null;
+		const headEnd = body.indexOf("\r\n\r\n", headStart, "latin1");
+		if (headEnd === -1) return null;
+		const head = body.subarray(headStart, headEnd).toString("latin1");
+		const next = body.indexOf(delimiter, headEnd + 4);
+		if (head.includes(wanted) && !/filename=/i.test(head)) {
+			const valueEnd = next === -1 ? body.length : Math.max(headEnd + 4, next - 2);
+			return body.subarray(headEnd + 4, valueEnd).toString("utf8");
+		}
+		at = next;
+	}
+	return null;
+}
+// src/server/media-billing.ts
+/** First try, then the pauses between the retries (ms). Five tries in all, about eight minutes. */
+var DEFAULT_RECONCILE_DELAYS_MS = [
+	15e3,
+	3e4,
+	6e4,
+	12e4,
+	24e4
+];
+var realTimers = {
+	set(callback, ms) {
+		const handle = setTimeout(callback, ms);
+		handle.unref?.();
+		return handle;
+	},
+	clear(handle) {
+		clearTimeout(handle);
+	}
+};
+function createBillingReconciler(options) {
+	const { env, usage, log, now } = options;
+	const delays = options.delaysMs && options.delaysMs.length > 0 ? options.delaysMs : DEFAULT_RECONCILE_DELAYS_MS;
+	const timers = options.timers ?? realTimers;
+	const entries = /* @__PURE__ */ new Set();
+	const running = /* @__PURE__ */ new Set();
+	let closed = false;
+	/** One lookup: what to do next. Never throws. */
+	async function lookup(job) {
+		let answer;
+		try {
+			answer = await callMedia(env, job.key, {
+				method: "GET",
+				path: `/api/v1/usage/requests/${encodeURIComponent(job.requestId)}`,
+				timeoutMs: options.timeoutMs
+			}, 1048576);
+		} catch (error) {
+			return error instanceof MediaCallError ? "retry" : "give-up";
+		}
+		if (answer.status >= 200 && answer.status < 300) {
+			let json;
+			try {
+				json = JSON.parse(job.key.redact(answer.body.toString("utf8")));
+			} catch {
+				return "retry";
+			}
+			const { usd } = parseBillingLookup(json);
+			if (usd === null) return "give-up";
+			await usage.adjust(job.userRoot, job.recordAt, {
+				adjust: true,
+				requestId: job.requestId,
+				costUsd: usd,
+				costSource: "lookup",
+				at: now()
+			});
+			return "done";
+		}
+		if (answer.status === 404 || answer.status === 408 || answer.status === 425 || answer.status === 429 || answer.status >= 500) return "retry";
+		return "give-up";
+	}
+	function arm(entry) {
+		const delay = delays[Math.min(entry.attempt, delays.length - 1)] ?? 15e3;
+		entry.handle = timers.set(() => {
+			const work = attempt(entry).finally(() => running.delete(work));
+			running.add(work);
+		}, delay);
+	}
+	async function attempt(entry) {
+		entry.handle = null;
+		if (closed) {
+			entries.delete(entry);
+			return;
+		}
+		entry.attempt += 1;
+		let outcome;
+		try {
+			outcome = await lookup(entry.job);
+		} catch {
+			outcome = "give-up";
+		}
+		if (outcome === "retry" && entry.attempt < delays.length && !closed) {
+			arm(entry);
+			return;
+		}
+		entries.delete(entry);
+		if (outcome !== "done") log.info("the billing lookup of a media call gave no figure; the response figure stays");
+	}
+	return {
+		schedule(job) {
+			if (closed) return;
+			const entry = {
+				job,
+				attempt: 0,
+				handle: null
+			};
+			entries.add(entry);
+			arm(entry);
+		},
+		pending: () => entries.size,
+		async idle() {
+			while (running.size > 0) await Promise.all([...running]);
+		},
+		close() {
+			closed = true;
+			for (const entry of entries) if (entry.handle !== null) timers.clear(entry.handle);
+			entries.clear();
+		}
+	};
+}
+// src/domain/media.ts
+function text$2(value) {
+	return typeof value === "string" ? value.trim() : "";
+}
+function finite(value) {
+	return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+function strings(value) {
+	if (!Array.isArray(value)) return [];
+	const out = [];
+	for (const item of value) {
+		const s = text$2(item);
+		if (s) out.push(s);
+	}
+	return out;
+}
+function booleanOf(value) {
+	return typeof value === "boolean" ? value : void 0;
+}
+function recordOf(value) {
+	return isRecord$3(value) ? value : {};
+}
+/** A price figure: a non-negative number or decimal string. */
+function priceOf(value) {
+	return parseCost(value);
+}
+/** The numeric entries of an object (`{ '1024x1024': 0.0034 }`), keys renamed by `rename`. */
+function priceMap(value, rename = (key) => key) {
+	const out = {};
+	if (!isRecord$3(value)) return out;
+	for (const [key, raw] of Object.entries(value)) {
+		const n = priceOf(raw);
+		if (n !== null) out[rename(key)] = n;
+	}
+	return out;
+}
+var hasKeys = (map) => Object.keys(map).length > 0;
+function flatPrice(unit, value) {
+	return {
+		unit,
+		from: value,
+		to: value,
+		byKey: {},
+		raw: null
+	};
+}
+function spreadPrice(unit, byKey) {
+	const values = Object.values(byKey);
+	return {
+		unit,
+		from: Math.min(...values),
+		to: Math.max(...values),
+		byKey: { ...byKey },
+		raw: null
+	};
+}
+function unknownPrice(raw, from = null, to = from) {
+	return {
+		unit: "unknown",
+		from,
+		to,
+		byKey: {},
+		raw
+	};
+}
+/** `supported_parameters` keys that describe limits or inputs, not request fields a user can set. */
+var META_KEYS = /* @__PURE__ */ new Set([
+	"required",
+	"max_prompt_characters",
+	"min_prompt_characters",
+	"prompt_length",
+	"max_images",
+	"max_output_images",
+	"max_input_images",
+	"input_image_constraints",
+	"fixed_image_count",
+	"quote_source_dimensions",
+	"max_output_pixels",
+	"target_only_algorithms",
+	"exact_factor_target_algorithms",
+	"fixed_upscale_factor",
+	"optional_prompt",
+	"voices",
+	"default_voice",
+	"max_chars",
+	"max_input_bytes",
+	"payment_modes",
+	"languages",
+	"output_formats",
+	"sample_rates",
+	"sample_count_parameter",
+	"generation_count_parameter",
+	"max_generations",
+	"min_samples",
+	"max_samples",
+	"min_duration",
+	"max_duration",
+	"duration_step",
+	"default_duration",
+	"default_text_duration",
+	"default_video_duration",
+	"video_min_duration",
+	"duration_requires_no_audio_input",
+	"return_url",
+	"streaming",
+	"stream",
+	"music_mode",
+	"resolutions"
+]);
+function scalarOf(value) {
+	if (typeof value === "string" || typeof value === "boolean" || value === null) return value;
+	if (typeof value === "number" && Number.isFinite(value)) return value;
+}
+/** The values of an enumerated option list: `[{ value, label }]`, `['a', 'b']` or `[1, 2]`, as strings. */
+function optionValues(value) {
+	if (!Array.isArray(value)) return [];
+	const out = [];
+	for (const item of value) {
+		const raw = isRecord$3(item) ? item["value"] : item;
+		if (typeof raw === "string" || typeof raw === "number" || typeof raw === "boolean") out.push(String(raw));
+	}
+	return out;
+}
+/** The request fields that a bare `true` in the list says "supported" about, with the type they obviously have. */
+function typeForBareFlag(key) {
+	if (key === "seed") return "integer";
+	if (/negative|prompt|instruction|style|lyrics/.test(key)) return "text";
+	return "boolean";
+}
+function boundsOf(source) {
+	const min = finite(source["min"] ?? source["minimum"]);
+	const max = finite(source["max"] ?? source["maximum"]);
+	const step = finite(source["step"]);
+	return {
+		...min !== null ? { min } : {},
+		...max !== null ? { max } : {},
+		...step !== null ? { step } : {}
+	};
+}
+function withDefault(spec, value) {
+	const scalar = scalarOf(value);
+	if (scalar !== void 0) spec.default = scalar;
+	return spec;
+}
+/** One entry of `supported_parameters` (an array, a descriptor object, a bare flag) as a ParamSpec; null = not a setting. */
+function specFromValue(key, value, fallbackDefault) {
+	if (!key || key.length > 64) return null;
+	if (value === true) return {
+		key,
+		type: typeForBareFlag(key)
+	};
+	if (value === false || value === null || value === void 0) return null;
+	if (Array.isArray(value)) {
+		const values = optionValues(value);
+		return values.length > 0 ? {
+			key,
+			type: "enum",
+			values
+		} : null;
+	}
+	if (!isRecord$3(value)) return null;
+	const kind = text$2(value["type"]).toLowerCase();
+	const values = optionValues(value["options"] ?? value["values"] ?? value["enum"]);
+	const defaultValue = value["default"] ?? fallbackDefault;
+	const required = value["required"] === true ? { required: true } : {};
+	if (values.length > 0) {
+		const named = typeof defaultValue === "number" || typeof defaultValue === "boolean" ? String(defaultValue) : defaultValue;
+		return withDefault({
+			key,
+			type: "enum",
+			values,
+			...required
+		}, named);
+	}
+	const bounds = boundsOf(value);
+	if (kind === "switch" || kind === "boolean") return withDefault({
+		key,
+		type: "boolean",
+		...required
+	}, defaultValue);
+	if (kind === "integer") return withDefault({
+		key,
+		type: "integer",
+		...bounds,
+		...required
+	}, defaultValue);
+	if (kind === "number" || kind === "") {
+		if (bounds.min !== void 0 && bounds.max !== void 0) return withDefault({
+			key,
+			type: "range",
+			...bounds,
+			...required
+		}, defaultValue);
+		if (kind === "number" || bounds.min !== void 0 || bounds.max !== void 0) return withDefault({
+			key,
+			type: "number",
+			...bounds,
+			...required
+		}, defaultValue);
+		if (typeof defaultValue === "boolean") return withDefault({
+			key,
+			type: "boolean",
+			...required
+		}, defaultValue);
+		if (typeof defaultValue === "number") return withDefault({
+			key,
+			type: "number",
+			...required
+		}, defaultValue);
+		if (typeof defaultValue === "string") return withDefault({
+			key,
+			type: "text",
+			...required
+		}, defaultValue);
+		return {
+			key,
+			type: typeForBareFlag(key) === "text" ? "text" : "unknown",
+			...required
+		};
+	}
+	if (kind === "text" || kind === "string") return withDefault({
+		key,
+		type: "text",
+		...required
+	}, defaultValue);
+	return {
+		key,
+		type: "unknown",
+		...required
+	};
+}
+/** Every setting of a `supported_parameters` bag except the limit-like keys. */
+function collectParams(sp) {
+	const params = [];
+	const seen = /* @__PURE__ */ new Set();
+	for (const [key, value] of Object.entries(sp)) {
+		if (META_KEYS.has(key) || seen.has(key)) continue;
+		const spec = specFromValue(key, value);
+		if (!spec) continue;
+		seen.add(key);
+		params.push(spec);
+	}
+	return params;
+}
+/** The `required: ['voice', …]` list of a `supported_parameters` bag marks those settings. */
+function markRequired(params, sp) {
+	const required = new Set(strings(sp["required"]));
+	return required.size === 0 ? params : params.map((spec) => required.has(spec.key) ? {
+		...spec,
+		required: true
+	} : spec);
+}
+function baseOf(entry) {
+	const id = text$2(entry["id"]);
+	if (!id) return null;
+	const subscription = recordOf(entry["subscription"]);
+	return {
+		id,
+		name: text$2(entry["name"]) || id,
+		description: text$2(entry["description"]),
+		owner: text$2(entry["owned_by"]),
+		category: text$2(entry["category"]),
+		tags: strings(entry["tags"]),
+		subscriptionIncluded: booleanOf(subscription["included"]) ?? null
+	};
+}
+function modalitiesOf(entry) {
+	const arch = recordOf(entry["architecture"]);
+	let inputs = strings(arch["input_modalities"]);
+	let outputs = strings(arch["output_modalities"]);
+	const modality = text$2(arch["modality"]);
+	const [from = "", to = ""] = modality.includes("->") ? modality.split("->") : [];
+	const primary = from.split("+").map((s) => s.trim()).filter(Boolean);
+	if (inputs.length === 0) inputs = primary;
+	if (outputs.length === 0) outputs = to.split("+").map((s) => s.trim());
+	return {
+		inputs: inputs.filter(Boolean),
+		outputs: outputs.filter(Boolean),
+		primary
+	};
+}
+/** Sets a flag only when the list said something about it. */
+function listed(caps, ...keys) {
+	for (const key of keys) {
+		const value = booleanOf(caps[key]);
+		if (value !== void 0) return value;
+	}
+}
+function putFlags(target, flags) {
+	for (const [key, value] of Object.entries(flags)) if (value !== void 0) target[key] = value;
+}
+function assemble(medium, base, parts) {
+	return {
+		id: base.id,
+		medium,
+		name: base.name,
+		description: base.description,
+		owner: base.owner,
+		category: base.category,
+		tags: base.tags,
+		price: parts.price,
+		capabilities: parts.capabilities,
+		params: parts.params,
+		voices: parts.voices ?? [],
+		formats: parts.formats ?? [],
+		maxInputImages: parts.maxInputImages ?? 0,
+		subscriptionIncluded: base.subscriptionIncluded,
+		priceIsApproximate: parts.priceIsApproximate ?? false
+	};
+}
+function imagePrice(pricing) {
+	const perImage = priceMap(pricing["per_image"]);
+	if (hasKeys(perImage)) return spreadPrice("image", perImage);
+	const perMegapixel = priceOf(pricing["per_megapixel"]);
+	if (perMegapixel !== null) return flatPrice("megapixel", perMegapixel);
+	return unknownPrice(pricing, priceOf(pricing["starting_at"]));
+}
+function imageModel(base, entry) {
+	const caps = recordOf(entry["capabilities"]);
+	const sp = recordOf(entry["supported_parameters"]);
+	const { inputs } = modalitiesOf(entry);
+	const acceptsText = inputs.length === 0 || inputs.includes("text");
+	const editOnly = !base.tags.includes("text-to-image") && (base.tags.includes("image-edit") || base.tags.includes("image-to-image"));
+	const maxIn = finite(sp["max_input_images"]);
+	const imageToImage = caps["image_to_image"] === true || maxIn !== null && maxIn > 0;
+	const maxInputImages = maxIn !== null && maxIn >= 0 ? Math.floor(maxIn) : imageToImage ? 1 : 0;
+	const capabilities = {
+		textToImage: acceptsText && !editOnly && caps["image_generation"] !== false,
+		imageToImage,
+		inpainting: caps["inpainting"] === true
+	};
+	putFlags(capabilities, { nsfw: listed(caps, "nsfw") });
+	const params = [];
+	const sizes = strings(sp["resolutions"]);
+	if (sizes.length > 0) params.push({
+		key: "size",
+		type: "enum",
+		values: sizes
+	});
+	const fixed = finite(sp["fixed_image_count"]);
+	const maxImages = finite(sp["max_images"]) ?? finite(sp["max_output_images"]);
+	if (fixed !== null && fixed >= 1) params.push({
+		key: "n",
+		type: "integer",
+		min: Math.floor(fixed),
+		max: Math.floor(fixed),
+		default: Math.floor(fixed)
+	});
+	else if (maxImages !== null && maxImages >= 1) params.push({
+		key: "n",
+		type: "integer",
+		min: 1,
+		max: Math.floor(maxImages),
+		default: 1
+	});
+	params.push(...collectParams(sp));
+	return assemble("image", base, {
+		price: imagePrice(recordOf(entry["pricing"])),
+		capabilities,
+		params: markRequired(params, sp),
+		maxInputImages
+	});
+}
+/** Pricing keys that say nothing about the price itself (limits, defaults, descriptions). */
+var NEUTRAL_PRICE_KEY = /^(currency|note|unit|billing|available|type|variant|resolution|outputs|formula|source_metadata_required|num_inference_steps|duration_step|maxSeconds|maxMinutes)$|^(minimum|maximum)(_|$)|^(min|max)_|^default_|^supported_|^fixed_duration|^frame_limits|^durations_seconds|^reference_(video|image)_(min|max)/;
+var PRICE_LEAF_KEY = /(per_|price|rate|fee|usd|cost)/i;
+var NOT_A_PRICE_KEY = /(multiplier|threshold|limit|max|min|ratio|count|bytes|frames|fps|steps)/i;
+/** The cheapest and dearest figure found under price-like keys of an unreadable price block (depth <= 3). */
+function scanPrices(value, depth = 0, under = false) {
+	if (depth > 3) return [];
+	if (typeof value === "number") return under && Number.isFinite(value) && value >= 0 ? [value] : [];
+	if (!isRecord$3(value)) return [];
+	const found = [];
+	for (const [key, item] of Object.entries(value)) {
+		if (NOT_A_PRICE_KEY.test(key) || NEUTRAL_PRICE_KEY.test(key)) continue;
+		found.push(...scanPrices(item, depth + 1, under || PRICE_LEAF_KEY.test(key)));
+	}
+	return found;
+}
+var durationKey = (key) => /^\d+(\.\d+)?$/.test(key.trim()) ? `${key.trim()}s` : key;
+function videoPrice(pricing) {
+	const used = /* @__PURE__ */ new Set(["currency"]);
+	const use = (key) => void used.add(key);
+	let price = null;
+	/** The shape is known but one figure cannot stand for every option (audio on/off, duration overrides). */
+	let forced = false;
+	const perSecondTable = priceMap(pricing["per_second_by_resolution"]);
+	const perSecond = pricing["per_second"];
+	const perDuration = priceMap(pricing["per_duration"], durationKey);
+	const baseTable = priceMap(pricing["base_prices_by_resolution"]);
+	if (hasKeys(perSecondTable)) {
+		price = spreadPrice("second", perSecondTable);
+		use("per_second_by_resolution");
+	} else if (isRecord$3(perSecond) && hasKeys(priceMap(perSecond))) {
+		price = spreadPrice("second", priceMap(perSecond));
+		use("per_second");
+	} else if (priceOf(perSecond) !== null) {
+		price = flatPrice("second", priceOf(perSecond));
+		use("per_second");
+	} else if (priceOf(pricing["pricePerSecond"]) !== null) {
+		price = flatPrice("second", priceOf(pricing["pricePerSecond"]));
+		use("pricePerSecond");
+	} else if (priceOf(pricing["pricePerMinute"]) !== null) {
+		price = flatPrice("minute", priceOf(pricing["pricePerMinute"]));
+		use("pricePerMinute");
+	} else if (hasKeys(perDuration)) {
+		price = spreadPrice("request", perDuration);
+		use("per_duration");
+	} else if (priceOf(pricing["per_video"]) !== null) {
+		price = flatPrice("request", priceOf(pricing["per_video"]));
+		use("per_video");
+	} else if (priceOf(pricing["with_audio"]) !== null && priceOf(pricing["without_audio"]) !== null) {
+		price = spreadPrice("request", {
+			with_audio: priceOf(pricing["with_audio"]),
+			without_audio: priceOf(pricing["without_audio"])
+		});
+		use("with_audio");
+		use("without_audio");
+		forced = true;
+	} else if (hasKeys(baseTable)) {
+		price = spreadPrice("request", baseTable);
+		use("base_prices_by_resolution");
+		forced = true;
+	} else if (priceOf(pricing["base_price"]) !== null) {
+		const base = priceOf(pricing["base_price"]);
+		const extra = priceOf(pricing["per_extra_second"]);
+		const baseSeconds = finite(pricing["base_duration"]);
+		const maxSeconds = finite(pricing["max_duration"]);
+		price = {
+			unit: "request",
+			from: base,
+			to: extra !== null && baseSeconds !== null && maxSeconds !== null && maxSeconds > baseSeconds ? roundUsd(base + extra * (maxSeconds - baseSeconds)) : base,
+			byKey: {},
+			raw: null
+		};
+		for (const key of [
+			"base_price",
+			"per_extra_second",
+			"base_duration"
+		]) use(key);
+		forced = true;
+	}
+	if (!price) {
+		const found = scanPrices(pricing);
+		return {
+			price: unknownPrice(pricing, found.length > 0 ? Math.min(...found) : null, found.length > 0 ? Math.max(...found) : null),
+			approximate: true
+		};
+	}
+	const leftover = Object.entries(pricing).some(([key, value]) => !used.has(key) && !NEUTRAL_PRICE_KEY.test(key) && (typeof value === "number" && value !== 0 || typeof value === "object" && value !== null));
+	return {
+		price,
+		approximate: forced || leftover
+	};
+}
+function videoModel(base, entry) {
+	const caps = recordOf(entry["capabilities"]);
+	const sp = recordOf(entry["supported_parameters"]);
+	const descriptors = recordOf(sp["parameters"]);
+	const defaults = recordOf(sp["defaults"]);
+	const { inputs } = modalitiesOf(entry);
+	const capabilities = {};
+	putFlags(capabilities, {
+		textToVideo: listed(caps, "text_to_video"),
+		imageToVideo: listed(caps, "image_to_video"),
+		videoToVideo: listed(caps, "video_to_video"),
+		audioInput: listed(caps, "audio_input"),
+		nsfw: listed(caps, "nsfw")
+	});
+	const takesImage = capabilities.imageToVideo === true || inputs.includes("image");
+	const maxReferences = finite(recordOf(descriptors["reference_images"])["max_items"]);
+	const maxInputImages = takesImage ? Math.max(1, maxReferences !== null ? Math.floor(maxReferences) : 1) : 0;
+	const params = [];
+	for (const [key, descriptor] of Object.entries(descriptors)) {
+		const spec = specFromValue(key, descriptor, defaults[key]);
+		if (spec) params.push(spec);
+	}
+	const { price, approximate } = videoPrice(recordOf(entry["pricing"]));
+	return assemble("video", base, {
+		price,
+		capabilities,
+		params,
+		maxInputImages,
+		priceIsApproximate: approximate
+	});
+}
+function ttsPrice(pricing) {
+	const perChars = priceOf(pricing["per_thousand_chars"]);
+	const perBytes = priceOf(pricing["per_thousand_utf8_bytes"]);
+	const perGeneration = priceOf(pricing["per_generation"]);
+	const perSecond = priceOf(pricing["per_second"]);
+	const perInterval = priceOf(pricing["per_billing_interval"]);
+	const interval = finite(pricing["billing_interval_seconds"]);
+	const prompt = priceOf(pricing["prompt"]);
+	const completion = priceOf(pricing["completion"]);
+	if (perChars !== null && (perChars > 0 || perGeneration === null && perBytes === null)) return flatPrice("thousand_chars", perChars);
+	if (perBytes !== null) return flatPrice("thousand_bytes", perBytes);
+	if (perGeneration !== null) return flatPrice("request", perGeneration);
+	if (perSecond !== null) return flatPrice("second", perSecond);
+	if (perInterval !== null && interval !== null && interval > 0) return interval === 60 ? flatPrice("minute", perInterval) : flatPrice("second", perInterval / interval);
+	if (prompt !== null || completion !== null) {
+		const byKey = {};
+		if (prompt !== null) byKey["prompt"] = prompt;
+		if (completion !== null) byKey["completion"] = completion;
+		return spreadPrice("million_tokens", byKey);
+	}
+	return unknownPrice(pricing);
+}
+/** `output_format`/`response_format` as the list gives it: `{ values }`, `{ values, default }` or a bare array. */
+function formatsOf(sp) {
+	for (const key of [
+		"response_format",
+		"output_format",
+		"output_formats"
+	]) {
+		const value = sp[key];
+		const list = isRecord$3(value) ? optionValues(value["values"] ?? value["options"]) : optionValues(value);
+		if (list.length > 0) return list;
+	}
+	return [];
+}
+function ttsModel(base, entry) {
+	const caps = recordOf(entry["capabilities"]);
+	const sp = recordOf(entry["supported_parameters"]);
+	const { inputs, outputs, primary } = modalitiesOf(entry);
+	const speech = caps["text_to_speech"] === true;
+	const acceptsText = primary.length > 0 ? primary.includes("text") : inputs.length === 0 || inputs.includes("text");
+	const makesAudioFromText = caps["text_to_music"] === true || caps["text_to_audio"] === true || acceptsText && (outputs.includes("audio") || outputs.includes("music"));
+	if (!speech && !makesAudioFromText) return null;
+	const capabilities = { music: !speech };
+	putFlags(capabilities, {
+		voiceCloning: listed(caps, "voice_cloning", "voice_clone"),
+		streaming: listed(caps, "streaming")
+	});
+	const voices = strings(sp["voices"]);
+	const params = [];
+	if (voices.length > 0) {
+		const preferred = text$2(sp["default_voice"]);
+		params.push(preferred && voices.includes(preferred) ? {
+			key: "voice",
+			type: "enum",
+			values: voices,
+			default: preferred
+		} : {
+			key: "voice",
+			type: "enum",
+			values: voices
+		});
+	}
+	const formats = formatsOf(sp);
+	const formatSpec = specFromValue("response_format", sp["response_format"]);
+	if (formatSpec?.type === "enum") params.push(formatSpec);
+	else if (formats.length > 0) params.push({
+		key: "response_format",
+		type: "enum",
+		values: formats
+	});
+	params.push(...collectParams(sp).filter((spec) => spec.key !== "response_format" && spec.key !== "output_format"));
+	return assemble("tts", base, {
+		price: ttsPrice(recordOf(entry["pricing"])),
+		capabilities,
+		params: markRequired(params, sp),
+		voices,
+		formats
+	});
+}
+function sttPrice(pricing) {
+	const perMinute = priceOf(pricing["per_minute"]);
+	if (perMinute !== null) return flatPrice("minute", perMinute);
+	const perSecond = priceOf(pricing["per_second"]);
+	if (perSecond !== null) return flatPrice("second", perSecond);
+	const perGeneration = priceOf(pricing["per_generation"]);
+	if (perGeneration !== null) return flatPrice("request", perGeneration);
+	return unknownPrice(pricing);
+}
+function sttModel(base, entry) {
+	const caps = recordOf(entry["capabilities"]);
+	const sp = recordOf(entry["supported_parameters"]);
+	const features = strings(sp["features"]).join(" ");
+	const cloning = /voice[-_ ]?clon/i.test(base.id) || /voice[-_ ]?clon/i.test(features);
+	const capabilities = { audioInput: true };
+	putFlags(capabilities, {
+		diarization: listed(caps, "diarization", "diarization_beta"),
+		streaming: listed(caps, "realtime"),
+		voiceCloning: cloning ? true : void 0
+	});
+	const params = [];
+	const languages = strings(sp["supported_languages"]);
+	params.push(languages.length > 0 ? {
+		key: "language",
+		type: "enum",
+		values: languages,
+		default: languages.includes("auto") ? "auto" : null
+	} : {
+		key: "language",
+		type: "text"
+	});
+	const responseFormats = strings(sp["response_formats"]);
+	if (responseFormats.length > 0) params.push({
+		key: "response_format",
+		type: "enum",
+		values: responseFormats,
+		default: responseFormats[0] ?? null
+	});
+	if (capabilities.diarization === true) params.push({
+		key: "diarize",
+		type: "boolean",
+		default: false
+	});
+	const accepted = strings(sp["supported_formats"]).map((format) => format.toLowerCase());
+	if (accepted.length > 0) params.push({
+		key: "input_format",
+		type: "enum",
+		values: accepted
+	});
+	const limits = [finite(sp["max_file_size_mb"]), finite(sp["max_request_body_mb"])].filter((n) => n !== null && n > 0);
+	if (limits.length > 0) params.push({
+		key: "file_size_mb",
+		type: "number",
+		min: 0,
+		max: Math.min(...limits)
+	});
+	return assemble("stt", base, {
+		price: sttPrice(recordOf(entry["pricing"])),
+		capabilities,
+		params
+	});
+}
+function entriesOf(raw) {
+	if (Array.isArray(raw)) return raw;
+	if (isRecord$3(raw)) {
+		if (Array.isArray(raw["data"])) return raw["data"];
+		if (Array.isArray(raw["models"])) return raw["models"];
+	}
+	return [];
+}
+function normalizeEntry(medium, entry) {
+	if (!isRecord$3(entry)) return null;
+	const base = baseOf(entry);
+	if (!base) return null;
+	switch (medium) {
+		case "image": return imageModel(base, entry);
+		case "video": return videoModel(base, entry);
+		case "tts": return ttsModel(base, entry);
+		case "stt": return sttModel(base, entry);
+		default: return null;
+	}
+}
+/**
+* One model list as NanoGPT sent it (`data` array of `GET /api/v1/images/models`, `/video-models`,
+* `/audio-models?type=tts|stt`) -> MediaModel[]. Tolerant: an entry that cannot be read is dropped, a field that cannot be
+* read gets its neutral value; never throws.
+*
+* For `tts` the list mixes three kinds of entry: speech (`capabilities.text_to_speech`), music and sound generation from
+* a text prompt (`capabilities.music: true`) and audio processing/lyrics/analysis that no speech call can drive (dropped).
+* For `stt` the voice-cloning ids that ride on the same list are kept but flagged `capabilities.voiceCloning`.
+* `ParamSpec.key` is the upstream request field (`size`, `aspect_ratio`, `duration`, `voice`, `response_format` …); the
+* image `resolutions` become `size` and `max_images` become `n`; for `stt` the extra keys `input_format` (accepted file
+* types, lower case) and `file_size_mb` (the smallest size limit) describe the recording.
+*/
+function normalizeMediaList(medium, raw) {
+	const seen = /* @__PURE__ */ new Set();
+	const out = [];
+	for (const entry of entriesOf(raw)) {
+		let model;
+		try {
+			model = normalizeEntry(medium, entry);
+		} catch {
+			model = null;
+		}
+		if (!model || seen.has(model.id)) continue;
+		seen.add(model.id);
+		out.push(model);
+	}
+	return out;
+}
+/** `1024*1024`, `1024X1024`, `1024×1024` -> `1024x1024`; everything else lower-cased. */
+function sizeKey(size) {
+	return size.trim().toLowerCase().replace(/[×*]/g, "x");
+}
+function parseSize(size) {
+	const m = /^(\d{1,5})x(\d{1,5})$/.exec(sizeKey(size));
+	if (!m) return null;
+	return {
+		width: Number(m[1]),
+		height: Number(m[2])
+	};
+}
+/** The figure for a named option (size, resolution): the exact entry, else the cheapest the list gives. */
+function figureFor(price, name, normalize) {
+	if (name !== void 0 && name.trim() !== "") {
+		const wanted = normalize(name);
+		for (const [key, value] of Object.entries(price.byKey)) if (normalize(key) === wanted) return value;
+	}
+	return price.from;
+}
+function positive(value) {
+	return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : null;
+}
+/** USD for `n` images of `size` (`WxH` or a size token the price list names); null when not computable. */
+function estimateImageCost(model, request) {
+	const n = typeof request.n === "number" && Number.isInteger(request.n) && request.n >= 1 ? request.n : 1;
+	const { price } = model;
+	if (price.unit === "image") {
+		const each = figureFor(price, request.size, sizeKey);
+		return each === null ? null : roundUsd(each * n);
+	}
+	if (price.unit === "megapixel" && price.from !== null && request.size) {
+		const size = parseSize(request.size);
+		return size ? roundUsd(price.from * (size.width * size.height / 1e6) * n) : null;
+	}
+	return null;
+}
+/**
+* USD for a video of `duration` seconds at `resolution`; null when not computable: the price is approximate (a floor, a
+* multiplier, per-mode tables …) or missing, the duration is not given for a per-second price, or a per-duration price
+* has no entry for it. A resolution the list does not name falls back to the cheapest one.
+*/
+function estimateVideoCost(model, request) {
+	const { price } = model;
+	if (model.priceIsApproximate || price.from === null) return null;
+	if (price.unit === "second" || price.unit === "minute") {
+		const seconds = positive(request.duration);
+		const rate = price.unit === "second" ? figureFor(price, request.resolution, (k) => k.trim().toLowerCase()) : price.from;
+		if (seconds === null || rate === null) return null;
+		return roundUsd(rate * (price.unit === "second" ? seconds : seconds / 60));
+	}
+	if (price.unit === "request") {
+		if (!hasKeys(price.byKey)) return price.from;
+		const seconds = positive(request.duration);
+		if (seconds === null) return price.from;
+		const exact = price.byKey[`${seconds}s`];
+		return exact === void 0 ? null : exact;
+	}
+	return null;
+}
+/** USD for `chars` characters of speech; null when not computable. */
+function estimateTtsCost(model, chars) {
+	const { price } = model;
+	if (price.from === null || !Number.isFinite(chars) || chars < 0) return null;
+	if (price.unit === "thousand_chars") return roundUsd(chars / 1e3 * price.from);
+	if (price.unit === "request") return price.from;
+	return null;
+}
+/** USD for `seconds` of audio to transcribe; null when not computable. */
+function estimateSttCost(model, seconds) {
+	const { price } = model;
+	if (price.from === null || !Number.isFinite(seconds) || seconds < 0) return null;
+	if (price.unit === "minute") return roundUsd(seconds / 60 * price.from);
+	if (price.unit === "second") return roundUsd(seconds * price.from);
+	if (price.unit === "request") return price.from;
+	return null;
+}
+// src/shared/contracts-media.ts
+var MEDIA_MEDIA = [
+	"image",
+	"video",
+	"tts",
+	"stt"
+];
+var mediaCacheFile = (medium) => `media-${medium}.json`;
+/** The list URL of a medium below the media host. */
+function mediaListUrl(base, medium) {
+	const root = base.replace(/\/+$/, "");
+	switch (medium) {
+		case "image": return `${root}/api/v1/images/models`;
+		case "video": return `${root}/api/v1/video-models?detailed=true`;
+		case "tts": return `${root}/api/v1/audio-models?type=tts&detailed=true`;
+		case "stt": return `${root}/api/v1/audio-models?type=stt&detailed=true`;
+	}
+}
+var FetchFailure = class extends Error {
+	reason;
+	constructor(reason) {
+		super(reason);
+		this.reason = reason;
+		this.name = "FetchFailure";
+	}
+};
+/** The fields the plugin reads from a stored model; the file is ours but may be edited or truncated. */
+function isStoredModel(value, medium) {
+	if (!isRecord$3(value)) return false;
+	return typeof value["id"] === "string" && value["id"] !== "" && value["medium"] === medium && typeof value["name"] === "string" && isRecord$3(value["price"]) && isRecord$3(value["price"]["byKey"]) && isRecord$3(value["capabilities"]) && Array.isArray(value["params"]) && Array.isArray(value["tags"]) && Array.isArray(value["voices"]) && Array.isArray(value["formats"]);
+}
+function createMediaCatalog(options) {
+	const { fetch, log, now } = options;
+	const base = options.mediaBase.replace(/\/+$/, "");
+	const autoFetch = options.autoFetch ?? false;
+	const ttlMs = options.ttlMs ?? 36e5;
+	const timeoutMs = options.timeoutMs ?? 2e4;
+	const backoffMs = options.failureBackoffMs ?? 6e4;
+	const snapshots = /* @__PURE__ */ new Map();
+	const flights = /* @__PURE__ */ new Map();
+	const failedAt = /* @__PURE__ */ new Map();
+	const announced = /* @__PURE__ */ new Set();
+	const controllers = /* @__PURE__ */ new Set();
+	let closed = false;
+	const makeSnapshot = (models, fetchedAt) => ({
+		models,
+		fetchedAt,
+		byId: new Map(models.map((m) => [m.id, m]))
+	});
+	const isExpired = (value) => now() - value.fetchedAt >= ttlMs;
+	const backingOff = (medium) => {
+		const at = failedAt.get(medium);
+		return at !== void 0 && now() - at < backoffMs;
+	};
+	/** One public GET of a list; the answer is parsed as JSON, any other status is a failure. */
+	async function getJson(url) {
+		if (closed) throw new FetchFailure("closed");
+		const controller = new AbortController();
+		controllers.add(controller);
+		let timer;
+		const timeout = new Promise((_resolve, reject) => {
+			timer = setTimeout(() => {
+				reject(new FetchFailure("timeout"));
+				controller.abort();
+			}, timeoutMs);
+			timer.unref?.();
+		});
+		const work = (async () => {
+			const response = await fetch(url, {
+				method: "GET",
+				headers: {
+					accept: "application/json",
+					"user-agent": `Nanovia/${options.version}`
+				},
+				signal: controller.signal
+			});
+			const ok = response.status >= 200 && response.status < 300;
+			return {
+				status: response.status,
+				body: ok ? await response.text() : ""
+			};
+		})();
+		work.catch(() => {});
+		try {
+			const { status, body } = await Promise.race([work, timeout]);
+			if (status < 200 || status >= 300) throw new FetchFailure(`http ${status}`);
+			try {
+				return JSON.parse(body);
+			} catch {
+				throw new FetchFailure("invalid JSON");
+			}
+		} catch (error) {
+			if (error instanceof FetchFailure) throw error;
+			throw new FetchFailure(closed ? "closed" : errorCode(error) ?? "unreachable");
+		} finally {
+			if (timer !== void 0) clearTimeout(timer);
+			controllers.delete(controller);
+		}
+	}
+	function cachePath(medium) {
+		return path.join(options.dataRoot(), GLOBAL_DIR_NAME, mediaCacheFile(medium));
+	}
+	function persist(medium, value) {
+		try {
+			const file = cachePath(medium);
+			fs.mkdirSync(path.dirname(file), { recursive: true });
+			writeFileAtomic(file, JSON.stringify({
+				version: 1,
+				fetchedAt: value.fetchedAt,
+				models: value.models
+			}));
+		} catch (error) {
+			log.warn(`media catalog cache (${medium}) could not be written (${errorCode(error) ?? "io error"})`);
+		}
+	}
+	function loadCache(medium) {
+		let raw;
+		try {
+			raw = JSON.parse(fs.readFileSync(cachePath(medium), "utf8"));
+		} catch (error) {
+			if (errorCode(error) !== "ENOENT") log.warn(`media catalog cache (${medium}) is unreadable and is ignored`);
+			return null;
+		}
+		if (!isRecord$3(raw) || raw["version"] !== 1 || !Array.isArray(raw["models"])) return null;
+		const at = raw["fetchedAt"];
+		if (typeof at !== "number" || !Number.isFinite(at) || at <= 0) return null;
+		const seen = /* @__PURE__ */ new Set();
+		const models = [];
+		for (const item of raw["models"]) {
+			if (!isStoredModel(item, medium) || seen.has(item.id)) continue;
+			seen.add(item.id);
+			models.push(item);
+		}
+		return models.length > 0 ? makeSnapshot(models, Math.min(at, now())) : null;
+	}
+	async function fetchMedium(medium) {
+		try {
+			const models = normalizeMediaList(medium, await getJson(mediaListUrl(base, medium)));
+			if (models.length === 0) throw new FetchFailure("no models in the answer");
+			if (closed) return false;
+			const quiet = announced.has(medium) && !failedAt.has(medium);
+			const next = makeSnapshot(models, now());
+			snapshots.set(medium, next);
+			failedAt.delete(medium);
+			announced.add(medium);
+			persist(medium, next);
+			if (!quiet) log.info(`media catalog loaded: ${models.length} ${medium} models`);
+			return true;
+		} catch (error) {
+			if (closed) return false;
+			const reason = error instanceof FetchFailure ? error.reason : errorCode(error) ?? "error";
+			if (!failedAt.has(medium)) log.warn(`media catalog fetch failed for ${medium} (${reason})${snapshots.has(medium) ? "; the stored copy is used" : ""}`);
+			failedAt.set(medium, now());
+			return false;
+		}
+	}
+	/** Single-flight per medium: every caller during a fetch gets the same promise. Resolves true when new data arrived; never rejects. */
+	function refresh(medium) {
+		const running = flights.get(medium);
+		if (running) return running;
+		const flight = fetchMedium(medium).finally(() => {
+			if (flights.get(medium) === flight) flights.delete(medium);
+		});
+		flights.set(medium, flight);
+		return flight;
+	}
+	/** A fetch nobody waits for; honours `autoFetch`, a running fetch and the failure backoff. */
+	function kick(medium) {
+		if (!autoFetch || closed || flights.has(medium) || backingOff(medium)) return;
+		refresh(medium);
+	}
+	function respond(value, medium, source) {
+		return {
+			medium,
+			models: value.models,
+			fetchedAt: value.fetchedAt,
+			source
+		};
+	}
+	return {
+		start() {
+			if (closed) return;
+			for (const medium of MEDIA_MEDIA) {
+				if (!snapshots.has(medium)) {
+					const loaded = loadCache(medium);
+					if (loaded) snapshots.set(medium, loaded);
+				}
+				const held = snapshots.get(medium);
+				if (!held || isExpired(held)) kick(medium);
+			}
+		},
+		async catalog(medium, opts = {}) {
+			const held = snapshots.get(medium);
+			if (held && !opts.refresh) {
+				if (!isExpired(held)) return respond(held, medium, "cache");
+				if (flights.has(medium) || backingOff(medium)) return respond(held, medium, "stale");
+			}
+			const fetched = await refresh(medium);
+			const current = snapshots.get(medium);
+			if (!current) return null;
+			return respond(current, medium, fetched ? "live" : "stale");
+		},
+		lookup(medium, id) {
+			const held = snapshots.get(medium);
+			if (!held) {
+				kick(medium);
+				return null;
+			}
+			if (isExpired(held)) kick(medium);
+			return held.byId.get(typeof id === "string" ? id.trim() : "") ?? null;
+		},
+		models(medium) {
+			return snapshots.get(medium)?.models ?? [];
+		},
+		async settled() {
+			while (flights.size > 0) await Promise.all([...flights.values()]);
+		},
+		close() {
+			closed = true;
+			for (const controller of controllers) controller.abort();
+			controllers.clear();
+		}
+	};
+}
+// src/server/media-jobs.ts
+var JOBS_FILE = "media-jobs.json";
+var MEDIA_DIR = "media";
+/** Job ids come from NanoGPT (`vid_…`); anything else is refused before it can become a file name. */
+var ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
+var isJobId = (value) => typeof value === "string" && ID_PATTERN.test(value);
+var TERMINAL = [
+	"completed",
+	"failed",
+	"expired"
+];
+var isTerminal = (status) => TERMINAL.includes(status);
+var FileTooLarge = class extends Error {
+	constructor() {
+		super("file too large");
+		this.name = "FileTooLarge";
+	}
+};
+var STATUSES = [
+	"queued",
+	"running",
+	"completed",
+	"failed",
+	"expired"
+];
+var SOURCES = [
+	"response",
+	"lookup",
+	"estimate",
+	"unknown"
+];
+function number(value) {
+	return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+function costOf(raw) {
+	const c = isRecord$3(raw) ? raw : {};
+	const source = SOURCES.find((s) => s === c["source"]) ?? "unknown";
+	const usd = parseCost(c["usd"]);
+	return {
+		usd,
+		source: usd === null ? "unknown" : source,
+		estimateUsd: parseCost(c["estimateUsd"]),
+		paymentSource: typeof c["paymentSource"] === "string" ? c["paymentSource"] : null,
+		remainingUsd: parseCost(c["remainingUsd"])
+	};
+}
+function outputOf(raw) {
+	if (!isRecord$3(raw) || raw["kind"] !== "video") return null;
+	const url = typeof raw["url"] === "string" && /^https?:\/\//i.test(raw["url"]) ? raw["url"] : void 0;
+	const file = typeof raw["file"] === "string" ? raw["file"] : void 0;
+	const bytes = number(raw["bytes"]);
+	return {
+		kind: "video",
+		mime: typeof raw["mime"] === "string" && raw["mime"] ? raw["mime"] : "video/mp4",
+		...url ? { url } : {},
+		...file ? { file } : {},
+		...bytes !== null ? { bytes } : {}
+	};
+}
+/** One entry of the jobs file; null when it is not a usable job (a bad id never becomes a file name). */
+function normalizeStoredJob(raw) {
+	if (!isRecord$3(raw) || !isJobId(raw["id"])) return null;
+	const status = STATUSES.find((s) => s === raw["status"]);
+	const createdAt = number(raw["createdAt"]);
+	if (!status || createdAt === null || typeof raw["model"] !== "string") return null;
+	const progress = number(raw["progress"]);
+	return {
+		id: raw["id"],
+		model: raw["model"],
+		prompt: typeof raw["prompt"] === "string" ? raw["prompt"] : "",
+		status,
+		progress: progress === null ? null : Math.min(1, Math.max(0, progress)),
+		createdAt,
+		updatedAt: number(raw["updatedAt"]) ?? createdAt,
+		cost: costOf(raw["cost"]),
+		connectionId: typeof raw["connectionId"] === "string" ? raw["connectionId"] : null,
+		output: outputOf(raw["output"]),
+		error: typeof raw["error"] === "string" ? raw["error"] : null,
+		keyId: typeof raw["keyId"] === "string" ? raw["keyId"] : null,
+		usageAt: number(raw["usageAt"]) ?? createdAt,
+		adjusted: raw["adjusted"] === true
+	};
+}
+function createMediaJobStore(options) {
+	const { log } = options;
+	const maxJobs = Math.max(1, options.maxJobs ?? 100);
+	/** Loaded once per user root, then kept: every change goes through this store and is written at once. */
+	const cache = /* @__PURE__ */ new Map();
+	const dir = (userRoot) => path.join(userRoot, USER_DIR_NAME);
+	const mediaDir = (userRoot) => path.join(dir(userRoot), MEDIA_DIR);
+	const jobsFile = (userRoot) => path.join(dir(userRoot), JOBS_FILE);
+	function filePath(userRoot, id) {
+		if (!isJobId(id)) throw new Error("not a job id");
+		return path.join(mediaDir(userRoot), `${id}.mp4`);
+	}
+	function removeFile(userRoot, id) {
+		try {
+			fs.rmSync(filePath(userRoot, id), { force: true });
+		} catch (error) {
+			log.warn(`a saved video could not be deleted (${error instanceof Error ? error.message : "io error"})`);
+		}
+	}
+	function load(userRoot) {
+		const held = cache.get(userRoot);
+		if (held) return held;
+		let jobs = [];
+		try {
+			const raw = JSON.parse(fs.readFileSync(jobsFile(userRoot), "utf8"));
+			const list = isRecord$3(raw) && Array.isArray(raw["jobs"]) ? raw["jobs"] : [];
+			const seen = /* @__PURE__ */ new Set();
+			for (const item of list) {
+				const job = normalizeStoredJob(item);
+				if (!job || seen.has(job.id)) continue;
+				seen.add(job.id);
+				jobs.push(job);
+			}
+		} catch (error) {
+			if (error?.code !== "ENOENT") log.warn("media-jobs.json is unreadable and is treated as empty");
+			jobs = [];
+		}
+		jobs.sort((a, b) => b.createdAt - a.createdAt);
+		try {
+			for (const name of fs.readdirSync(mediaDir(userRoot))) if (name.endsWith(".part")) fs.rmSync(path.join(mediaDir(userRoot), name), { force: true });
+		} catch {}
+		cache.set(userRoot, jobs);
+		return jobs;
+	}
+	function persist(userRoot, jobs) {
+		fs.mkdirSync(dir(userRoot), { recursive: true });
+		writeFileAtomic(jobsFile(userRoot), `${JSON.stringify({
+			version: 1,
+			jobs
+		}, null, 1)}\n`);
+	}
+	return {
+		list: (userRoot) => load(userRoot).map((job) => structuredClone(job)),
+		get(userRoot, id) {
+			const job = load(userRoot).find((j) => j.id === id);
+			return job ? structuredClone(job) : null;
+		},
+		put(userRoot, job) {
+			const jobs = load(userRoot);
+			const index = jobs.findIndex((j) => j.id === job.id);
+			const next = structuredClone(job);
+			if (index >= 0) jobs[index] = next;
+			else jobs.unshift(next);
+			jobs.sort((a, b) => b.createdAt - a.createdAt);
+			while (jobs.length > maxJobs) {
+				const dropped = jobs.pop();
+				if (dropped) removeFile(userRoot, dropped.id);
+			}
+			persist(userRoot, jobs);
+		},
+		remove(userRoot, id) {
+			const jobs = load(userRoot);
+			const index = jobs.findIndex((j) => j.id === id);
+			if (index < 0) return null;
+			const [removed] = jobs.splice(index, 1);
+			persist(userRoot, jobs);
+			removeFile(userRoot, id);
+			return removed ? structuredClone(removed) : null;
+		},
+		filePath,
+		discardFile: removeFile,
+		hasFile(userRoot, id) {
+			try {
+				return fs.statSync(filePath(userRoot, id)).isFile();
+			} catch {
+				return false;
+			}
+		},
+		async saveFile(userRoot, id, source, maxBytes) {
+			const target = filePath(userRoot, id);
+			await fsp.mkdir(path.dirname(target), { recursive: true });
+			const part = `${target}.${randomBytes(4).toString("hex")}.part`;
+			const handle = await fsp.open(part, "w", 384);
+			let size = 0;
+			try {
+				for await (const chunk of source) {
+					size += chunk.length;
+					if (size > maxBytes) throw new FileTooLarge();
+					await handle.write(chunk);
+				}
+				await handle.close();
+				await fsp.rename(part, target);
+				return size;
+			} catch (error) {
+				await handle.close().catch(() => {});
+				await fsp.rm(part, { force: true });
+				throw error;
+			}
+		}
+	};
+}
+function createMediaDeps(options) {
+	const { config, fetch, version, now, log } = options;
+	const tuning = options.tuning ?? {};
+	const timeouts = {
+		...DEFAULT_MEDIA_TIMEOUTS,
+		...tuning.timeouts
+	};
+	const env = {
+		fetch,
+		mediaBase: config.mediaBase,
+		version
+	};
+	const catalog = createMediaCatalog({
+		...tuning.catalog,
+		mediaBase: config.mediaBase,
+		dataRoot: options.dataRoot,
+		fetch,
+		version,
+		now,
+		log
+	});
+	const reconciler = createBillingReconciler({
+		env,
+		usage: options.usage,
+		log,
+		now,
+		timeoutMs: timeouts.lookupMs,
+		...tuning.reconcileDelaysMs ? { delaysMs: tuning.reconcileDelaysMs } : {},
+		...tuning.timers ? { timers: tuning.timers } : {}
+	});
+	return {
+		catalog,
+		jobs: createMediaJobStore({
+			log,
+			...tuning.maxJobs !== void 0 ? { maxJobs: tuning.maxJobs } : {}
+		}),
+		reconciler,
+		timeouts,
+		pollIntervalMs: tuning.pollIntervalMs ?? 3e3,
+		maxVideoBytes: tuning.maxVideoBytes ?? 209715200,
+		env,
+		close() {
+			catalog.close();
+			reconciler.close();
+		}
+	};
+}
+// src/server/context.ts
+function unknownBilling() {
+	return {
+		outcome: "unknown",
+		markupPercent: 0,
+		subscriptionSafe: false,
+		reasons: [],
+		stripped: []
+	};
+}
+/** `RequestHints` from the HINT_HEADERS of a request (header names lower case). */
+function parseHints(headers) {
+	const first = (name) => {
+		const raw = headers[name];
+		const value = Array.isArray(raw) ? raw[0] : raw;
+		return typeof value === "string" && value.trim() ? value.trim().slice(0, 40) : null;
+	};
+	const consumer = first(HINT_HEADERS.consumer);
+	const thoughts = first(HINT_HEADERS.thoughts);
+	return {
+		effort: first(HINT_HEADERS.effort),
+		consumer: consumer === "main" || consumer === "background" ? consumer : "unknown",
+		thoughts: thoughts === "1" || thoughts === "true"
+	};
+}
+function createProxyContext(init) {
+	const { connection, body } = init;
+	const requestedModel = typeof body["model"] === "string" && body["model"] ? body["model"] : connection.modelId;
+	const plan = {
+		model: requestedModel,
+		body: { ...body },
+		headers: {},
+		billing: unknownBilling(),
+		warnings: []
+	};
+	return {
+		localId: init.localId,
+		startedAt: init.now,
+		user: init.user,
+		connection,
+		key: init.key,
+		model: init.model,
+		providerSelection: init.providerSelection ?? null,
+		hints: init.hints,
+		body,
+		stream: body["stream"] === true,
+		signal: init.signal,
+		plan,
+		upstream: null,
+		responseHeaders: {},
+		usage: {
+			at: init.now,
+			connectionId: connection.id,
+			requestId: null,
+			model: requestedModel,
+			billing: "unknown",
+			costUsd: null,
+			equivalentUsd: null,
+			promptTokens: null,
+			completionTokens: null,
+			cachedTokens: null,
+			reasoningTokens: null,
+			latencyMs: 0,
+			status: 0,
+			stream: body["stream"] === true,
+			consumer: init.hints.consumer,
+			error: null
+		},
+		resolved: null
+	};
+}
+var MAX_PROMPT_CHARS = 5e4;
+var MAX_TTS_CHARS = 1e5;
+var invalid$1 = (message) => ({
+	ok: false,
+	status: 400,
+	code: "invalid_request",
+	message
+});
+var tooLarge$1 = (message) => ({
+	ok: false,
+	status: 413,
+	code: "payload_too_large",
+	message
+});
+var CONTROL = /[\u0000-\u001f\u007f]/;
+/** A short single-line string; undefined when absent, null when present but unusable. */
+function line(value, max) {
+	if (value === void 0 || value === null) return void 0;
+	if (typeof value !== "string") return null;
+	const s = value.trim();
+	if (s === "") return void 0;
+	return s.length > max || CONTROL.test(s) ? null : s;
+}
+function integer(value, min, max) {
+	if (value === void 0 || value === null) return void 0;
+	return typeof value === "number" && Number.isInteger(value) && value >= min && value <= max ? value : null;
+}
+function decimal(value, min, max) {
+	if (value === void 0 || value === null) return void 0;
+	return typeof value === "number" && Number.isFinite(value) && value >= min && value <= max ? value : null;
+}
+/** Body text of any length up to `max` (a prompt may hold line breaks); undefined when absent. */
+function textField(value, max) {
+	if (value === void 0 || value === null) return void 0;
+	if (typeof value !== "string") return null;
+	return value.length > max ? null : value;
+}
+/** The options every media call shares. */
+function callOptions(body) {
+	const model = line(body["model"], 300);
+	if (model === void 0 || model === null) return invalid$1("\"model\" is required");
+	const keyId = line(body["keyId"], 200);
+	if (keyId === null) return invalid$1("\"keyId\" is not a key id");
+	const connectionId = line(body["connectionId"], 64);
+	if (connectionId === null) return invalid$1("\"connectionId\" is not a connection id");
+	const billing = body["billing"];
+	if (billing !== void 0 && billing !== null && billing !== "auto" && billing !== "paygo") return invalid$1("\"billing\" must be \"auto\" or \"paygo\"");
+	return {
+		ok: true,
+		value: {
+			model,
+			...keyId ? { keyId } : {},
+			...connectionId ? { connectionId } : {},
+			...billing === "auto" || billing === "paygo" ? { billing } : {}
+		}
+	};
+}
+var EXTRA_KEY = /^[A-Za-z0-9_.-]{1,64}$/;
+var MAX_EXTRA_KEYS = 40;
+var MAX_EXTRA_JSON = 16e3;
+function extraField(value) {
+	if (value === void 0 || value === null) return {
+		ok: true,
+		value: void 0
+	};
+	if (!isRecord$3(value)) return invalid$1("\"extra\" must be an object");
+	const entries = Object.entries(value);
+	if (entries.length > MAX_EXTRA_KEYS) return invalid$1("\"extra\" has too many fields");
+	for (const [key] of entries) if (!EXTRA_KEY.test(key) || key === "__proto__") return invalid$1("\"extra\" has a field name that is not allowed");
+	let size;
+	try {
+		size = JSON.stringify(value).length;
+	} catch {
+		return invalid$1("\"extra\" is not JSON");
+	}
+	if (size > MAX_EXTRA_JSON) return invalid$1("\"extra\" is too large");
+	return {
+		ok: true,
+		value: { ...value }
+	};
+}
+var DATA_IMAGE = /^data:image\/[a-z0-9.+-]+;base64,/i;
+var HTTPS_URL = /^https:\/\/[^\s]{1,2040}$/i;
+/** A data URL of an image, decoded size in bytes; null when it is not one. */
+function imageDataUrl(value) {
+	if (typeof value !== "string" || !DATA_IMAGE.test(value)) return null;
+	const { base64 } = splitDataUrl(value);
+	return isBase64(base64) ? base64ByteLength(base64) : null;
+}
+function checkImageRequest(raw) {
+	if (!isRecord$3(raw)) return invalid$1("The request body must be a JSON object");
+	const options = callOptions(raw);
+	if (!options.ok) return options;
+	const prompt = textField(raw["prompt"], MAX_PROMPT_CHARS);
+	if (typeof prompt !== "string" || prompt.trim() === "") return invalid$1("\"prompt\" is required (at most 50000 characters)");
+	const negative = textField(raw["negativePrompt"], MAX_PROMPT_CHARS);
+	const n = integer(raw["n"], 1, 100);
+	const size = line(raw["size"], 40);
+	const aspect = line(raw["aspectRatio"], 20);
+	const seed = integer(raw["seed"], -2147483648, 4294967295);
+	const steps = integer(raw["steps"], 1, 1e3);
+	const guidance = decimal(raw["guidance"], 0, 100);
+	if (negative === null) return invalid$1("\"negativePrompt\" must be text");
+	if (n === null) return invalid$1("\"n\" must be an integer 1..100");
+	if (size === null) return invalid$1("\"size\" is not a size");
+	if (aspect === null) return invalid$1("\"aspectRatio\" is not an aspect ratio");
+	if (seed === null) return invalid$1("\"seed\" must be an integer");
+	if (steps === null) return invalid$1("\"steps\" must be an integer 1..1000");
+	if (guidance === null) return invalid$1("\"guidance\" must be a number 0..100");
+	const extra = extraField(raw["extra"]);
+	if (!extra.ok) return extra;
+	let inputBytes = 0;
+	let inputImages;
+	const inputs = raw["inputImages"];
+	if (inputs !== void 0 && inputs !== null) {
+		if (!Array.isArray(inputs) || inputs.length > 16) return invalid$1(`"inputImages" must be a list of at most 16 images`);
+		for (const item of inputs) {
+			const bytes = imageDataUrl(item);
+			if (bytes !== null) inputBytes += bytes;
+			else if (!(typeof item === "string" && HTTPS_URL.test(item))) return invalid$1("\"inputImages\" holds data URLs of images or https URLs");
+		}
+		inputImages = inputs;
+	}
+	const mask = raw["mask"];
+	if (mask !== void 0 && mask !== null) {
+		const bytes = imageDataUrl(mask);
+		if (bytes === null) return invalid$1("\"mask\" must be a data URL of an image");
+		inputBytes += bytes;
+	}
+	if (inputBytes > 4194304) return tooLarge$1("The input images together are larger than 4 MB");
+	return {
+		ok: true,
+		value: {
+			...options.value,
+			prompt,
+			...negative ? { negativePrompt: negative } : {},
+			...n !== void 0 ? { n } : {},
+			...size ? { size } : {},
+			...aspect ? { aspectRatio: aspect } : {},
+			...seed !== void 0 ? { seed } : {},
+			...steps !== void 0 ? { steps } : {},
+			...guidance !== void 0 ? { guidance } : {},
+			...inputImages ? { inputImages } : {},
+			...typeof mask === "string" ? { mask } : {},
+			...extra.value ? { extra: extra.value } : {}
+		}
+	};
+}
+function checkTtsRequest(raw) {
+	if (!isRecord$3(raw)) return invalid$1("The request body must be a JSON object");
+	const options = callOptions(raw);
+	if (!options.ok) return options;
+	const input = textField(raw["input"], MAX_TTS_CHARS);
+	if (typeof input !== "string" || input.trim() === "") return invalid$1("\"input\" is required (at most 100000 characters)");
+	const voice = line(raw["voice"], 200);
+	const format = line(raw["format"], 10);
+	const speed = decimal(raw["speed"], .1, 5);
+	const instructions = textField(raw["instructions"], 5e3);
+	if (voice === null) return invalid$1("\"voice\" is not a voice name");
+	if (format === null || format !== void 0 && !/^[a-z0-9]{2,10}$/i.test(format)) return invalid$1("\"format\" is not an audio format");
+	if (speed === null) return invalid$1("\"speed\" must be a number 0.1..5");
+	if (instructions === null) return invalid$1("\"instructions\" must be text of at most 5000 characters");
+	const extra = extraField(raw["extra"]);
+	if (!extra.ok) return extra;
+	return {
+		ok: true,
+		value: {
+			...options.value,
+			input,
+			...voice ? { voice } : {},
+			...format ? { format: format.toLowerCase() } : {},
+			...speed !== void 0 ? { speed } : {},
+			...instructions ? { instructions } : {},
+			...extra.value ? { extra: extra.value } : {}
+		}
+	};
+}
+/** What counts as a character of speech for billing and the usage record: a Unicode code point. */
+function countChars(text) {
+	let count = 0;
+	for (const _ of text) count += 1;
+	return count;
+}
+var MIME = /^[a-z0-9][a-z0-9.+-]{0,60}\/[a-z0-9][a-z0-9.+-]{0,60}$/i;
+/** A file name with no path, quotes or control characters, safe inside a multipart header. */
+function safeFileName(value) {
+	const clean = ((value ?? "").split(/[\\/]/).pop() ?? "").replace(/[^A-Za-z0-9._ -]+/g, "_").replace(/^\.+/, "").trim().slice(0, 120);
+	return clean === "" ? "audio" : clean;
+}
+function checkSttRequest(raw) {
+	if (!isRecord$3(raw)) return invalid$1("The request body must be a JSON object");
+	const options = callOptions(raw);
+	if (!options.ok) return options;
+	const audio = raw["audioBase64"];
+	if (typeof audio !== "string" || audio === "") return invalid$1("\"audioBase64\" is required");
+	const { base64 } = splitDataUrl(audio);
+	if (!isBase64(base64)) return invalid$1("\"audioBase64\" must be base64 (without a data URL prefix)");
+	const bytes = base64ByteLength(base64);
+	if (bytes === 0) return invalid$1("\"audioBase64\" is empty");
+	if (bytes > 4194304) return tooLarge$1("The recording is larger than 4 MB");
+	const filename = line(raw["filename"], 255);
+	const mime = line(raw["mime"], 120);
+	const language = line(raw["language"], 20);
+	const prompt = textField(raw["prompt"], 2e3);
+	if (filename === null) return invalid$1("\"filename\" is not a file name");
+	if (mime === null || mime !== void 0 && !MIME.test(mime)) return invalid$1("\"mime\" is not a content type");
+	if (language === null) return invalid$1("\"language\" is not a language code");
+	if (prompt === null) return invalid$1("\"prompt\" must be text of at most 2000 characters");
+	const diarize = raw["diarize"];
+	if (diarize !== void 0 && diarize !== null && typeof diarize !== "boolean") return invalid$1("\"diarize\" must be true or false");
+	const extra = extraField(raw["extra"]);
+	if (!extra.ok) return extra;
+	return {
+		ok: true,
+		value: {
+			...options.value,
+			audioBase64: base64.replace(/\s+/g, ""),
+			filename: safeFileName(filename),
+			mime: (mime ?? "application/octet-stream").toLowerCase(),
+			...language ? { language } : {},
+			...prompt ? { prompt } : {},
+			...typeof diarize === "boolean" ? { diarize } : {},
+			...extra.value ? { extra: extra.value } : {}
+		}
+	};
+}
+function checkVideoRequest(raw) {
+	if (!isRecord$3(raw)) return invalid$1("The request body must be a JSON object");
+	const options = callOptions(raw);
+	if (!options.ok) return options;
+	const prompt = textField(raw["prompt"], MAX_PROMPT_CHARS);
+	if (prompt === null) return invalid$1("\"prompt\" must be text of at most 50000 characters");
+	const imageUrl = raw["imageUrl"];
+	let hasImage = false;
+	if (imageUrl !== void 0 && imageUrl !== null && imageUrl !== "") {
+		if (typeof imageUrl !== "string") return invalid$1("\"imageUrl\" must be a data URL or an https URL");
+		const bytes = imageDataUrl(imageUrl);
+		if (bytes !== null) {
+			if (bytes > 4194304) return tooLarge$1("The start image is larger than 4 MB");
+		} else if (!HTTPS_URL.test(imageUrl)) return invalid$1("\"imageUrl\" must be a data URL or an https URL");
+		hasImage = true;
+	}
+	if ((prompt ?? "").trim() === "" && !hasImage) return invalid$1("\"prompt\" is required (or an image to animate)");
+	const duration = decimal(raw["duration"], .001, 3600);
+	const aspect = line(raw["aspectRatio"], 20);
+	const resolution = line(raw["resolution"], 20);
+	const seed = integer(raw["seed"], -2147483648, 4294967295);
+	if (duration === null) return invalid$1("\"duration\" must be a number of seconds");
+	if (aspect === null) return invalid$1("\"aspectRatio\" is not an aspect ratio");
+	if (resolution === null) return invalid$1("\"resolution\" is not a resolution");
+	if (seed === null) return invalid$1("\"seed\" must be an integer");
+	const extra = extraField(raw["extra"]);
+	if (!extra.ok) return extra;
+	return {
+		ok: true,
+		value: {
+			...options.value,
+			prompt: prompt ?? "",
+			...hasImage ? { imageUrl } : {},
+			...duration !== void 0 ? { duration } : {},
+			...aspect ? { aspectRatio: aspect } : {},
+			...resolution ? { resolution } : {},
+			...seed !== void 0 ? { seed } : {},
+			...extra.value ? { extra: extra.value } : {}
+		}
+	};
+}
+/** Request fields a client's `extra` may never set: the plugin owns them. */
+var PROTECTED = /* @__PURE__ */ new Set([
+	"model",
+	"prompt",
+	"input",
+	"n",
+	"size",
+	"stream",
+	"response_format",
+	"billing_mode",
+	"billingMode",
+	"callback_url",
+	"user"
+]);
+/**
+* `extra` reduced to what the model's list names (so a typo or a field of another model never reaches NanoGPT and costs
+* a refusal), without the fields the plugin sets itself.
+*/
+function filterExtra(model, extra, alsoProtected = []) {
+	const out = {};
+	if (!extra || !model) return out;
+	const known = new Set(model.params.map((p) => p.key));
+	for (const [key, value] of Object.entries(extra)) {
+		if (!known.has(key) || PROTECTED.has(key) || alsoProtected.includes(key)) continue;
+		out[key] = value;
+	}
+	return out;
+}
+/** The body of `POST /v1/images/generations` (OpenAI-compatible). Both `b64_json` and `url` are handled on the way back. */
+function buildImageBody(model, request) {
+	const body = {
+		...filterExtra(model, request.extra),
+		model: request.model,
+		prompt: request.prompt,
+		n: request.n ?? 1,
+		response_format: "b64_json"
+	};
+	if (request.size) body["size"] = request.size;
+	if (request.negativePrompt) body["negative_prompt"] = request.negativePrompt;
+	if (request.aspectRatio) body["aspect_ratio"] = request.aspectRatio;
+	if (request.seed !== void 0) body["seed"] = request.seed;
+	if (request.steps !== void 0) body["num_inference_steps"] = request.steps;
+	if (request.guidance !== void 0) body["guidance_scale"] = request.guidance;
+	const inputs = request.inputImages ?? [];
+	if (inputs.length === 1) body["imageDataUrl"] = inputs[0];
+	else if (inputs.length > 1) body["imageDataUrls"] = inputs;
+	if (request.mask) body["maskDataUrl"] = request.mask;
+	return body;
+}
+/** The body of `POST /v1/audio/speech`. With no voice named, the model's default (else its first) voice is sent. */
+function buildTtsBody(model, request) {
+	const body = {
+		...filterExtra(model, request.extra, [
+			"voice",
+			"speed",
+			"instructions"
+		]),
+		model: request.model,
+		input: request.input
+	};
+	const spec = model?.params.find((p) => p.key === "voice");
+	const fallback = typeof spec?.default === "string" ? spec.default : model?.voices[0];
+	const voice = request.voice ?? fallback;
+	if (voice) body["voice"] = voice;
+	if (request.format) body["response_format"] = request.format;
+	if (request.speed !== void 0) body["speed"] = request.speed;
+	if (request.instructions) body["instructions"] = request.instructions;
+	return body;
+}
+/** The body of `POST /api/generate-video`: `duration` goes as a string like the docs show (whether an integer is accepted is unverified). */
+function buildVideoBody(model, request) {
+	const body = {
+		...filterExtra(model, request.extra, [
+			"duration",
+			"aspect_ratio",
+			"resolution",
+			"seed",
+			"imageUrl",
+			"imageDataUrl"
+		]),
+		model: request.model,
+		prompt: request.prompt
+	};
+	if (request.duration !== void 0) body["duration"] = String(request.duration);
+	if (request.aspectRatio) body["aspect_ratio"] = request.aspectRatio;
+	if (request.resolution) body["resolution"] = request.resolution;
+	if (request.seed !== void 0) body["seed"] = request.seed;
+	if (request.imageUrl) body[DATA_IMAGE.test(request.imageUrl) ? "imageDataUrl" : "imageUrl"] = request.imageUrl;
+	return body;
+}
+/**
+* The text fields of the multipart body of `POST /v1/audio/transcriptions` (the recording itself is the `file` part).
+* `verbose_json` is asked for only where the model's list offers it (it brings the segments); `diarize` only for models
+* that diarize.
+*/
+function buildSttFields(model, request) {
+	const fields = [["model", request.model]];
+	if (request.language) fields.push(["language", request.language]);
+	if (request.prompt) fields.push(["prompt", request.prompt]);
+	if ((model?.params.find((p) => p.key === "response_format")?.values ?? []).includes("verbose_json")) fields.push(["response_format", "verbose_json"]);
+	if (request.diarize === true && model?.capabilities.diarization === true) fields.push(["diarize", "true"]);
+	const taken = new Set(fields.map(([name]) => name));
+	for (const [key, value] of Object.entries(filterExtra(model, request.extra, [
+		"language",
+		"prompt",
+		"diarize"
+	]))) {
+		if (taken.has(key) || value === null || typeof value === "object") continue;
+		fields.push([key, String(value)]);
+	}
+	return fields;
+}
+/** The seconds a video request asks for, when it says (for the usage record's `units`). */
+function requestedSeconds(request) {
+	return typeof request.duration === "number" && request.duration > 0 ? request.duration : null;
+}
+// src/server/proxy-http.ts
+function errorBody$1(type, code, message) {
+	return { error: {
+		message,
+		type,
+		code
+	} };
+}
+function sendJson$1(res, status, body, headers = {}) {
+	if (res.headersSent || res.destroyed) return;
+	const payload = Buffer.from(JSON.stringify(body));
+	res.writeHead(status, {
+		"content-type": "application/json; charset=utf-8",
+		"content-length": String(payload.length),
+		"cache-control": "no-store",
+		...headers
+	});
+	res.end(payload);
+}
+function sendError$1(res, status, type, code, message, headers = {}) {
+	sendJson$1(res, status, errorBody$1(type, code, message), {
+		...headers,
+		...status === 413 ? { connection: "close" } : {}
+	});
+}
+function sendMethodNotAllowed(res, allow) {
+	sendError$1(res, 405, "invalid_request_error", "method_not_allowed", "Method not allowed", { allow });
+}
+/** A header value that cannot break the response: printable ASCII, at most 500 characters. */
+function headerSafe(value) {
+	return value.replace(/[^\x20-\x7e]/g, "").slice(0, 500);
+}
+/** Writes a chunk and waits for the socket to drain, so a slow client slows the upstream read instead of buffering. */
+function writeChunk(res, chunk) {
+	if (res.destroyed || res.writableEnded) return Promise.resolve();
+	if (res.write(chunk)) return Promise.resolve();
+	return new Promise((resolve) => {
+		const done = () => {
+			res.off("drain", done);
+			res.off("close", done);
+			resolve();
+		};
+		res.once("drain", done);
+		res.once("close", done);
+	});
+}
+// src/server/secret-value.ts
+var REDACTED = "[redacted]";
+var SecretValue = class {
+	#value;
+	constructor(value) {
+		this.#value = value;
+	}
+	/** The secret itself. Call it only at the moment the value goes on the wire. */
+	reveal() {
+		return this.#value;
+	}
+	/** Replaces every occurrence of the secret in a text (an upstream error message, say). */
+	redact(text) {
+		return this.#value && text.includes(this.#value) ? text.split(this.#value).join(REDACTED) : text;
+	}
+	toJSON() {
+		return REDACTED;
+	}
+	toString() {
+		return REDACTED;
+	}
+	[Symbol.for("nodejs.util.inspect.custom")]() {
+		return "SecretValue [redacted]";
+	}
+};
+/** Masks a secret for display: at most the first 8 and the last 4 characters, fewer for short values. */
+function maskSecret(value) {
+	if (!value) return "";
+	const head = Math.min(8, Math.floor(value.length / 3));
+	const tail = Math.min(4, Math.floor(value.length / 4));
+	return `${value.slice(0, head)}…${tail > 0 ? value.slice(value.length - tail) : ""}`;
+}
+// src/server/media-proxy.ts
+var MEDIA_ENDPOINTS = [
+	"audio/speech",
+	"audio/transcriptions",
+	"images/generations"
+];
+var META = {
+	"audio/speech": {
+		medium: "tts",
+		path: "/v1/audio/speech",
+		limit: 2097152,
+		answerLimit: 0
+	},
+	"audio/transcriptions": {
+		medium: "stt",
+		path: "/v1/audio/transcriptions",
+		limit: 4456448,
+		answerLimit: 8388608
+	},
+	"images/generations": {
+		medium: "image",
+		path: "/v1/images/generations",
+		limit: 8388608,
+		answerLimit: 67108864
+	}
+};
+/** The request body, at most `limit` bytes: a declared size over it is refused unread, one that grows past it is cut off. */
+function readBounded(req, limit) {
+	const refused = () => ({
+		ok: false,
+		status: 413,
+		code: "payload_too_large",
+		message: `The request body is larger than ${Math.round(limit / 1048576)} MB`
+	});
+	return new Promise((resolve) => {
+		const declared = Number(req.headers["content-length"]);
+		if (Number.isFinite(declared) && declared > limit) return resolve(refused());
+		const chunks = [];
+		let size = 0;
+		let done = false;
+		const settle = (result) => {
+			if (done) return;
+			done = true;
+			resolve(result);
+		};
+		req.on("data", (chunk) => {
+			if (done) return;
+			size += chunk.length;
+			if (size > limit) {
+				chunks.length = 0;
+				settle(refused());
+				return;
+			}
+			chunks.push(chunk);
+		});
+		req.on("end", () => {
+			if (size === 0) settle({
+				ok: false,
+				status: 400,
+				code: "invalid_request",
+				message: "The request body is empty"
+			});
+			else settle({
+				ok: true,
+				body: Buffer.concat(chunks)
+			});
+		});
+		req.on("error", () => settle({
+			ok: false,
+			status: 400,
+			code: "invalid_request",
+			message: "The request could not be read"
+		}));
+		req.on("close", () => settle({
+			ok: false,
+			status: 400,
+			code: "invalid_request",
+			message: "The request was cut off"
+		}));
+	});
+}
+/**
+* A non-2xx upstream body in the OpenAI envelope: an envelope passes through unchanged, the legacy `{ error: "text" }` and
+* plain text/HTML are wrapped so every client can read `error.message`.
+*/
+function openAiError(status, text) {
+	let json;
+	try {
+		json = JSON.parse(text);
+	} catch {
+		json = void 0;
+	}
+	if (isRecord$3(json) && isRecord$3(json["error"])) {
+		const code = json["error"]["code"];
+		return {
+			body: Buffer.from(text),
+			code: typeof code === "string" && code ? code.slice(0, 80) : typeof code === "number" ? String(code) : `http_${status}`
+		};
+	}
+	const said = ((isRecord$3(json) && typeof json["error"] === "string" ? json["error"] : null) ?? text).replace(/<[^>]*>/g, " ").replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, 300);
+	const legacyCode = isRecord$3(json) && typeof json["code"] === "string" ? json["code"].toLowerCase().slice(0, 80) : null;
+	const code = legacyCode && /^[a-z][a-z0-9_]*$/.test(legacyCode) ? legacyCode : "upstream_error";
+	const message = said ? `NanoGPT answered HTTP ${status}: ${said}` : `NanoGPT answered HTTP ${status}`;
+	return {
+		body: Buffer.from(JSON.stringify(errorBody$1("upstream_error", code, message))),
+		code
+	};
+}
+function createMediaProxy(deps) {
+	const { log } = deps;
+	function resolveKey(user, keyId) {
+		if (!deps.st.available) return deps.config.nanogptKey ? new SecretValue(deps.config.nanogptKey) : null;
+		const value = deps.st.readSecret(user, SECRET_KEY_NANOGPT, keyId);
+		return value ? new SecretValue(value) : null;
+	}
+	return async function handle(input) {
+		const { req, res, endpoint, user, userRoot, connection } = input;
+		const meta = META[endpoint];
+		const started = deps.now();
+		const clientAbort = new AbortController();
+		res.on("close", () => {
+			if (!res.writableFinished) clientAbort.abort();
+		});
+		const connectionHeader = { [RESPONSE_HEADERS.connection]: connection.id };
+		const hints = parseHints(req.headers);
+		let modelId = connection.modelId;
+		/** The one usage record of the call. Bookkeeping never fails a request. */
+		const record = async (outcome) => {
+			const entry = {
+				...buildMediaUsageRecord({
+					medium: meta.medium,
+					model: modelId,
+					at: started,
+					connectionId: connection.id,
+					latencyMs: deps.now() - started,
+					...outcome
+				}),
+				consumer: hints.consumer
+			};
+			try {
+				await deps.usage.append(userRoot, entry);
+			} catch (error) {
+				log.warn(`usage record not written (${error instanceof Error ? error.message : "unknown error"})`);
+			}
+		};
+		const nothing = {
+			requestId: null,
+			units: null,
+			usd: null,
+			costSource: "unknown",
+			paymentSource: null
+		};
+		const early = async (status, type, code, message) => {
+			await record({
+				...nothing,
+				status,
+				error: code
+			});
+			sendError$1(res, status, type, code, message, connectionHeader);
+		};
+		let contentType = "application/json";
+		let boundary = null;
+		if (endpoint === "audio/transcriptions") {
+			boundary = boundaryOf(req.headers["content-type"]);
+			if (!boundary) return early(400, "invalid_request_error", "invalid_request", "A multipart/form-data body with a file is required");
+			contentType = String(req.headers["content-type"]);
+		} else if (typeof req.headers["content-type"] === "string" && req.headers["content-type"].trim()) contentType = req.headers["content-type"];
+		const read = await readBounded(req, meta.limit);
+		if (!read.ok) return early(read.status, "invalid_request_error", read.code, read.message);
+		const body = read.body;
+		let wanted = null;
+		let chars = 0;
+		let imagesAsked = 1;
+		let size;
+		if (boundary) wanted = multipartField(body, boundary, "model")?.trim() || null;
+		else {
+			let json;
+			try {
+				json = JSON.parse(body.toString("utf8"));
+			} catch {
+				return early(400, "invalid_request_error", "invalid_json", "The request body is not valid JSON");
+			}
+			if (!isRecord$3(json)) return early(400, "invalid_request_error", "invalid_request", "The request body must be a JSON object");
+			wanted = typeof json["model"] === "string" && json["model"].trim() ? json["model"].trim() : null;
+			if (endpoint === "audio/speech") {
+				if (typeof json["input"] !== "string" || json["input"] === "") return early(400, "invalid_request_error", "invalid_request", "\"input\" is required");
+				chars = countChars(json["input"]);
+			} else {
+				const n = json["n"];
+				imagesAsked = typeof n === "number" && Number.isInteger(n) && n > 0 ? n : 1;
+				size = typeof json["size"] === "string" ? json["size"] : void 0;
+			}
+		}
+		if (!wanted) return early(400, "invalid_request_error", "missing_model", "The request needs a \"model\"");
+		modelId = wanted;
+		let key;
+		try {
+			key = resolveKey(user, connection.keyId);
+		} catch {
+			return early(500, "server_error", "secrets_error", "The secret store could not be read");
+		}
+		if (!key) return early(409, "invalid_request_error", "no_key", connection.keyId ? "The NanoGPT key chosen for this connection no longer exists" : "No NanoGPT key is stored; add one in SillyTavern");
+		const catalogModel = (() => {
+			try {
+				return deps.media.catalog.lookup(meta.medium, wanted);
+			} catch {
+				return null;
+			}
+		})();
+		const timeoutMs = {
+			tts: deps.media.timeouts.ttsMs,
+			stt: deps.media.timeouts.sttMs,
+			image: deps.media.timeouts.imageMs,
+			video: deps.media.timeouts.videoSubmitMs
+		}[meta.medium];
+		let upstream;
+		try {
+			upstream = await openMedia(deps.media.env, key, {
+				method: "POST",
+				path: meta.path,
+				body,
+				contentType,
+				accept: "*/*",
+				billing: connection.billing === "paygo" ? "paygo" : "auto",
+				timeoutMs,
+				signal: clientAbort.signal
+			});
+		} catch (error) {
+			const kind = error instanceof MediaCallError ? error.kind : "unreachable";
+			if (kind === "aborted") return record({
+				...nothing,
+				status: 499,
+				error: "client_aborted"
+			});
+			log.warn(`media upstream ${kind} for connection ${connection.id}`);
+			const timeout = kind === "timeout";
+			return early(timeout ? 504 : 502, "upstream_error", timeout ? "upstream_timeout" : "upstream_unreachable", timeout ? "NanoGPT did not answer in time" : "NanoGPT could not be reached");
+		}
+		try {
+			const upstreamId = upstream.headers["x-request-id"] ?? null;
+			const common = { ...connectionHeader };
+			if (upstreamId) common[RESPONSE_HEADERS.requestId] = headerSafe(upstreamId);
+			const ok = upstream.status >= 200 && upstream.status < 300;
+			/** The answer, read whole up to `limit` bytes; null when it was cut off or too big (the reply is already sent). */
+			const readAll = async (limit) => {
+				const chunks = [];
+				let total = 0;
+				try {
+					for await (const chunk of upstream.body) {
+						upstream.touch();
+						total += chunk.length;
+						if (total > limit) throw new MediaCallError("too_large");
+						chunks.push(Buffer.from(chunk));
+					}
+				} catch (error) {
+					const kind = error instanceof MediaCallError ? error.kind : "unreachable";
+					if (kind === "aborted") await record({
+						...nothing,
+						status: 499,
+						error: "client_aborted"
+					});
+					else {
+						const timeout = kind === "timeout";
+						await early(timeout ? 504 : 502, "upstream_error", kind === "too_large" ? "upstream_error" : timeout ? "upstream_timeout" : "upstream_unreachable", kind === "too_large" ? "NanoGPT answered with more data than the plugin accepts" : timeout ? "NanoGPT stopped sending data" : "The NanoGPT connection broke");
+					}
+					return null;
+				}
+				return Buffer.concat(chunks);
+			};
+			if (!ok) {
+				const raw = await readAll(MAX_ERROR_BYTES);
+				if (raw === null) return;
+				const failure = openAiError(upstream.status, key.redact(raw.toString("utf8")));
+				const headers = {
+					...common,
+					"content-type": "application/json; charset=utf-8",
+					"content-length": String(failure.body.length),
+					"cache-control": "no-store"
+				};
+				const retryAfter = upstream.headers["retry-after"];
+				if (retryAfter) headers["retry-after"] = headerSafe(retryAfter);
+				await record({
+					...nothing,
+					status: upstream.status,
+					error: key.redact(failure.code)
+				});
+				if (!res.destroyed) {
+					res.writeHead(upstream.status, headers);
+					res.end(failure.body);
+				}
+				return;
+			}
+			if (endpoint === "audio/speech") {
+				const estimate = catalogModel ? estimateTtsCost(catalogModel, chars) : null;
+				const headers = {
+					...common,
+					"content-type": upstream.headers["content-type"] ?? "application/octet-stream",
+					"cache-control": "no-store"
+				};
+				const length = upstream.headers["content-length"];
+				if (length && /^\d+$/.test(length)) headers["content-length"] = length;
+				if (estimate !== null) headers[RESPONSE_HEADERS.cost] = formatUsd(estimate);
+				res.writeHead(upstream.status, headers);
+				res.flushHeaders();
+				res.socket?.setNoDelay(true);
+				let failure = null;
+				try {
+					for await (const chunk of upstream.body) {
+						upstream.touch();
+						await writeChunk(res, chunk);
+						if (clientAbort.signal.aborted) break;
+					}
+				} catch (error) {
+					failure = error instanceof MediaCallError ? error : new MediaCallError("unreachable");
+				}
+				const aborted = clientAbort.signal.aborted || failure?.kind === "aborted";
+				if (failure && !aborted) res.destroy();
+				else if (!res.writableEnded && !res.destroyed) res.end();
+				await record({
+					requestId: null,
+					units: chars,
+					usd: aborted || failure ? null : estimate,
+					costSource: estimate === null ? "unknown" : "estimate",
+					paymentSource: null,
+					status: aborted ? 499 : failure ? failure.kind === "timeout" ? 504 : 502 : upstream.status,
+					error: aborted ? "client_aborted" : failure ? failure.kind === "timeout" ? "upstream_timeout" : "upstream_unreachable" : null
+				});
+				return;
+			}
+			const answer = await readAll(meta.answerLimit);
+			if (answer === null) return;
+			const text = key.redact(answer.toString("utf8"));
+			let json;
+			try {
+				json = JSON.parse(text);
+			} catch {
+				json = void 0;
+			}
+			let outcome;
+			if (endpoint === "images/generations") {
+				const parsed = parseImageBody(json);
+				const requestId = upstreamId ?? parsed.requestId;
+				const estimate = catalogModel ? estimateImageCost(catalogModel, {
+					n: imagesAsked,
+					...size ? { size } : {}
+				}) : null;
+				const usd = parsed.usd ?? estimate;
+				outcome = {
+					requestId,
+					units: parsed.outputs.length > 0 ? parsed.outputs.length : null,
+					usd,
+					costSource: parsed.usd !== null ? "response" : estimate !== null ? "estimate" : "unknown",
+					paymentSource: parsed.paymentSource
+				};
+				if (usd !== null) common[RESPONSE_HEADERS.cost] = formatUsd(usd);
+				if (requestId) {
+					common[RESPONSE_HEADERS.requestId] = headerSafe(requestId);
+					deps.media.reconciler.schedule({
+						userRoot,
+						key,
+						requestId,
+						recordAt: started
+					});
+				}
+			} else {
+				const parsed = parseSttBody(json === void 0 ? text : json);
+				const estimate = parsed?.durationSec != null && catalogModel ? estimateSttCost(catalogModel, parsed.durationSec) : null;
+				const usd = parsed?.usd ?? estimate;
+				outcome = {
+					requestId: null,
+					units: parsed?.durationSec ?? null,
+					usd,
+					costSource: parsed?.usd != null ? "response" : estimate !== null ? "estimate" : "unknown",
+					paymentSource: null
+				};
+				if (usd !== null) common[RESPONSE_HEADERS.cost] = formatUsd(usd);
+			}
+			await record({
+				...outcome,
+				status: upstream.status,
+				error: null
+			});
+			if (!res.destroyed) {
+				res.writeHead(upstream.status, {
+					...common,
+					"content-type": upstream.headers["content-type"] ?? "application/json",
+					"content-length": String(answer.length),
+					"cache-control": "no-store"
+				});
+				res.end(answer);
+			}
+		} finally {
+			upstream.close();
+		}
+	};
 }
 // src/domain/cost.ts
 /**
@@ -2363,38 +5251,6 @@ function planStep(ctx) {
 var REQUEST_STEPS = [planStep];
 /** Run once the upstream answer is complete. `usageStep` shims a whole body and completes the usage record. */
 var RESPONSE_STEPS = [usageStep];
-// src/server/secret-value.ts
-var REDACTED = "[redacted]";
-var SecretValue = class {
-	#value;
-	constructor(value) {
-		this.#value = value;
-	}
-	/** The secret itself. Call it only at the moment the value goes on the wire. */
-	reveal() {
-		return this.#value;
-	}
-	/** Replaces every occurrence of the secret in a text (an upstream error message, say). */
-	redact(text) {
-		return this.#value && text.includes(this.#value) ? text.split(this.#value).join(REDACTED) : text;
-	}
-	toJSON() {
-		return REDACTED;
-	}
-	toString() {
-		return REDACTED;
-	}
-	[Symbol.for("nodejs.util.inspect.custom")]() {
-		return "SecretValue [redacted]";
-	}
-};
-/** Masks a secret for display: at most the first 8 and the last 4 characters, fewer for short values. */
-function maskSecret(value) {
-	if (!value) return "";
-	const head = Math.min(8, Math.floor(value.length / 3));
-	const tail = Math.min(4, Math.floor(value.length / 4));
-	return `${value.slice(0, head)}…${tail > 0 ? value.slice(value.length - tail) : ""}`;
-}
 // src/server/tokens.ts
 function generateToken() {
 	return randomBytes(32).toString("base64url");
@@ -2487,7 +5343,7 @@ function createTokenService(deps) {
 	};
 	return service;
 }
-var ROUTE = /^\/c\/([a-z0-9]{6,16})\/v1\/(models|chat\/completions)\/?$/;
+var ROUTE = /^\/c\/([a-z0-9]{6,16})\/v1\/(models|chat\/completions|audio\/speech|audio\/transcriptions|images\/generations)\/?$/;
 var REQUEST_ID_HEADERS = [
 	"x-request-id",
 	"x-nanogpt-request-id",
@@ -2498,6 +5354,7 @@ function createProxyServer(deps, steps = {
 	response: RESPONSE_STEPS
 }) {
 	const { config, log } = deps;
+	const mediaProxy = createMediaProxy(deps);
 	let state = {
 		up: false,
 		host: PROXY_HOST,
@@ -2540,6 +5397,14 @@ function createProxyServer(deps, steps = {
 				owned_by: "nanogpt"
 			}]
 		}, { [RESPONSE_HEADERS.connection]: connection.id });
+		if (MEDIA_ENDPOINTS.includes(endpoint)) return mediaProxy({
+			req,
+			res,
+			endpoint,
+			user: auth.user,
+			userRoot: auth.userRoot,
+			connection
+		});
 		await chatCompletions(req, res, auth.user, auth.userRoot, connection);
 	}
 	function authenticate(req, connectionId) {
@@ -2896,33 +5761,6 @@ function blankUsage(connectionId, model, startedAt, now) {
 		error: null
 	};
 }
-function errorBody$1(type, code, message) {
-	return { error: {
-		message,
-		type,
-		code
-	} };
-}
-function sendJson$1(res, status, body, headers = {}) {
-	if (res.headersSent || res.destroyed) return;
-	const payload = Buffer.from(JSON.stringify(body));
-	res.writeHead(status, {
-		"content-type": "application/json; charset=utf-8",
-		"content-length": String(payload.length),
-		"cache-control": "no-store",
-		...headers
-	});
-	res.end(payload);
-}
-function sendError$1(res, status, type, code, message, headers = {}) {
-	sendJson$1(res, status, errorBody$1(type, code, message), {
-		...headers,
-		...status === 413 ? { connection: "close" } : {}
-	});
-}
-function sendMethodNotAllowed(res, allow) {
-	sendError$1(res, 405, "invalid_request_error", "method_not_allowed", "Method not allowed", { allow });
-}
 /** Headers of the reply to the client: what the upstream said about the content, plus ours. */
 function clientHeaders(ctx, info, stream) {
 	const headers = {};
@@ -2940,29 +5778,12 @@ function clientHeaders(ctx, info, stream) {
 	for (const [name, value] of Object.entries(ctx.responseHeaders)) headers[name.toLowerCase()] = headerSafe(value);
 	return headers;
 }
-function headerSafe(value) {
-	return value.replace(/[^\x20-\x7e]/g, "").slice(0, 500);
-}
 function firstHeader(headers, names) {
 	for (const name of names) {
 		const value = headers[name];
 		if (value) return value;
 	}
 	return null;
-}
-/** Writes a chunk and waits for the socket to drain, so a slow client slows the upstream read instead of buffering. */
-function writeChunk(res, chunk) {
-	if (res.destroyed || res.writableEnded) return Promise.resolve();
-	if (res.write(chunk)) return Promise.resolve();
-	return new Promise((resolve) => {
-		const done = () => {
-			res.off("drain", done);
-			res.off("close", done);
-			resolve();
-		};
-		res.once("drain", done);
-		res.once("close", done);
-	});
 }
 /**
 * A non-2xx upstream body goes through untouched when it is already an OpenAI-shaped error; anything else (an HTML page
@@ -3107,7 +5928,7 @@ function rejectedAnswer(status) {
 	if (status === 429) return new HttpError(429, "rate_limited", "NanoGPT is rate limiting this key");
 	return new HttpError(502, "upstream_error", `NanoGPT answered HTTP ${status}`);
 }
-function isOk(status) {
+function isOk$1(status) {
 	return status >= 200 && status < 300;
 }
 // src/server/routes/account.ts
@@ -3190,7 +6011,7 @@ var accountRoutes = (router, deps) => {
 			auth: "x-api-key",
 			body: "{}"
 		});
-		if (!isOk(answer.status)) throw rejectedAnswer(answer.status);
+		if (!isOk$1(answer.status)) throw rejectedAnswer(answer.status);
 		if (!isRecord$3(answer.json)) throw new HttpError(502, "bad_response", "NanoGPT answered with something else than JSON");
 		sendJson(res, 200, mapBalance(answer.json, deps.now()));
 	}));
@@ -3205,7 +6026,7 @@ var accountRoutes = (router, deps) => {
 			fetchedAt: deps.now()
 		};
 		if (NO_SUBSCRIPTION_STATUSES.has(answer.status)) return sendJson(res, 200, none);
-		if (!isOk(answer.status)) throw rejectedAnswer(answer.status);
+		if (!isOk$1(answer.status)) throw rejectedAnswer(answer.status);
 		sendJson(res, 200, {
 			subscription: mapSubscriptionUsage(answer.json),
 			fetchedAt: deps.now()
@@ -3225,7 +6046,7 @@ var accountRoutes = (router, deps) => {
 			ready: false,
 			costUsd: null
 		});
-		if (!isOk(answer.status)) throw rejectedAnswer(answer.status);
+		if (!isOk$1(answer.status)) throw rejectedAnswer(answer.status);
 		if (!isRecord$3(answer.json)) throw new HttpError(502, "bad_response", "NanoGPT answered with something else than JSON");
 		sendJson(res, 200, {
 			requestId,
@@ -3728,6 +6549,802 @@ function amount(value) {
 	if (typeof value === "string" && value.trim()) return value.trim();
 	if (typeof value === "number" && Number.isFinite(value)) return String(value);
 	return null;
+}
+// src/server/routes/media-api.ts
+/** The model of a request, checked against the catalog of the medium (waits for the first load when there is none yet). */
+async function modelFor(deps, medium, id) {
+	const held = deps.media.catalog.lookup(medium, id);
+	if (held) return held;
+	const loaded = await deps.media.catalog.catalog(medium);
+	if (!loaded) throw new HttpError(502, "media_unavailable", `The NanoGPT ${medium} model list could not be fetched and none is stored`);
+	const model = loaded.models.find((m) => m.id === id);
+	if (!model) throw new HttpError(400, "invalid_request", `"${id}" is not a ${medium} model of the NanoGPT catalog`);
+	return model;
+}
+/** A transport failure as the admin API's error. */
+function transportFailure(error) {
+	const kind = error instanceof MediaCallError ? error.kind : "unreachable";
+	if (kind === "timeout") return new HttpError(504, "upstream_timeout", "NanoGPT did not answer in time");
+	if (kind === "too_large") return new HttpError(502, "upstream_error", "NanoGPT answered with more data than the plugin accepts");
+	return new HttpError(502, "upstream_unreachable", "NanoGPT could not be reached");
+}
+/** One call to the media host; resolves for any HTTP status, rejects with an HttpError for transport failures. */
+async function mediaRequest(deps, key, init, maxBytes) {
+	try {
+		return await callMedia(deps.media.env, key, init, maxBytes);
+	} catch (error) {
+		throw transportFailure(error);
+	}
+}
+/** The answer's body as text, free of the key. */
+function answerText(key, answer) {
+	return key.redact(answer.body.toString("utf8"));
+}
+/** The answer's body as JSON; undefined when it is not JSON. */
+function answerJson(key, answer) {
+	try {
+		return JSON.parse(answerText(key, answer));
+	} catch {
+		return;
+	}
+}
+/** The HttpError for an answer a route cannot use: NanoGPT's own text under a contract code, never the key. */
+function upstreamFailure(key, answer) {
+	const failure = mediaFailure(answer.status, answerText(key, answer));
+	return new HttpError(failure.status, failure.code, failure.message);
+}
+var isOk = (status) => status >= 200 && status < 300;
+/** Appends the usage record of a call (bookkeeping never fails a request: the log swallows its own errors). */
+async function writeUsage(call, outcome) {
+	const { deps } = call;
+	await deps.usage.append(call.user.root, buildMediaUsageRecord({
+		medium: call.medium,
+		model: call.model,
+		at: call.started,
+		connectionId: call.connectionId,
+		latencyMs: deps.now() - call.started,
+		...outcome
+	}));
+}
+/** Records a failed call (no cost, the contract's error code) and hands the error back to be thrown. */
+async function failedCall(call, error) {
+	await writeUsage(call, {
+		requestId: null,
+		units: null,
+		usd: null,
+		costSource: "unknown",
+		paymentSource: null,
+		status: error.status,
+		error: error.code
+	});
+	return error;
+}
+/** The type of an image the answer carried inline: what the bytes are, else what was asked for, else PNG. */
+function imageOutputMime(base64, fromPrefix, format) {
+	if (fromPrefix) return fromPrefix;
+	const sniffed = sniffImageMime(base64);
+	if (sniffed) return sniffed;
+	if (typeof format === "string" && /^[a-z0-9]{2,5}$/i.test(format)) {
+		const f = format.toLowerCase();
+		return f === "jpg" ? "image/jpeg" : `image/${f}`;
+	}
+	return "image/png";
+}
+function imageUrlMime(url, format) {
+	const named = imageMimeFromName(url);
+	if (named) return named;
+	return imageOutputMime("", void 0, format);
+}
+/**
+* A `Range` header against a file of `size` bytes (RFC 9110): `bytes=a-b`, `bytes=a-` and `bytes=-n` are honoured; a header
+* that is not understood, names another unit or asks for several ranges is ignored (the whole file); a range that starts
+* past the end is unsatisfiable (416).
+*/
+function parseByteRange(header, size) {
+	if (!header) return { kind: "full" };
+	const m = /^bytes=(\d*)-(\d*)$/i.exec(header.trim());
+	if (!m) return { kind: "full" };
+	const first = m[1] ?? "";
+	const last = m[2] ?? "";
+	if (first === "" && last === "") return { kind: "full" };
+	if (first === "") {
+		const n = Number(last);
+		if (n === 0) return { kind: "unsatisfiable" };
+		if (size === 0) return { kind: "unsatisfiable" };
+		return {
+			kind: "partial",
+			start: Math.max(0, size - n),
+			end: size - 1
+		};
+	}
+	const start = Number(first);
+	if (start >= size) return { kind: "unsatisfiable" };
+	const end = last === "" ? size - 1 : Math.min(Number(last), size - 1);
+	if (end < start) return { kind: "full" };
+	return {
+		kind: "partial",
+		start,
+		end
+	};
+}
+// src/server/routes/media-video.ts
+/** A job nobody finished within a day is given up on (NanoGPT keeps results about that long). */
+var STALE_AFTER_MS = 864e5;
+/** How many polls in a row may say "no such job" (after the first minute) before the job is given up on. */
+var MAX_MISSES = 5;
+/** How many times a failing download is retried (one per poll) before the job keeps its link only. */
+var MAX_DOWNLOAD_TRIES = 3;
+var MAX_ANSWER = 1048576;
+var states = /* @__PURE__ */ new WeakMap();
+function stateOf(deps) {
+	let state = states.get(deps);
+	if (!state) {
+		state = {
+			polls: /* @__PURE__ */ new Map(),
+			inflight: /* @__PURE__ */ new Map()
+		};
+		states.set(deps, state);
+	}
+	return state;
+}
+var keyOf = (user, id) => `${user.root}\u0000${id}`;
+/** A stored job as the contract's VideoJob (the plugin's own bookkeeping stays inside). */
+function toVideoJob(job) {
+	return {
+		id: job.id,
+		model: job.model,
+		prompt: job.prompt,
+		status: job.status,
+		progress: job.progress,
+		createdAt: job.createdAt,
+		updatedAt: job.updatedAt,
+		cost: job.cost,
+		connectionId: job.connectionId,
+		output: job.output,
+		error: job.error
+	};
+}
+async function submitVideo(deps, user, request) {
+	const model = await modelFor(deps, "video", request.model);
+	const key = resolveKey(deps, user, request.keyId ?? null);
+	const started = deps.now();
+	const record = {
+		deps,
+		user,
+		medium: "video",
+		model: request.model,
+		connectionId: request.connectionId ?? null,
+		started
+	};
+	let answer;
+	try {
+		answer = await mediaRequest(deps, key, {
+			method: "POST",
+			path: "/api/generate-video",
+			body: JSON.stringify(buildVideoBody(model, request)),
+			billing: request.billing ?? "auto",
+			timeoutMs: deps.media.timeouts.videoSubmitMs
+		}, MAX_ANSWER);
+	} catch (error) {
+		throw await failedCall(record, error);
+	}
+	if (!isOk(answer.status)) throw await failedCall(record, upstreamFailure(key, answer));
+	const parsed = parseVideoSubmit(answerJson(key, answer));
+	if (!isJobId(parsed.runId)) throw await failedCall(record, new HttpError(502, "upstream_error", "NanoGPT accepted the video but gave no usable job id"));
+	const estimate = estimateVideoCost(model, {
+		...request.duration !== void 0 ? { duration: request.duration } : {},
+		...request.resolution ? { resolution: request.resolution } : {}
+	});
+	const cost = {
+		usd: parsed.usd ?? estimate,
+		source: parsed.usd !== null ? "response" : estimate !== null ? "estimate" : "unknown",
+		estimateUsd: estimate,
+		paymentSource: parsed.paymentSource,
+		remainingUsd: parsed.remainingUsd
+	};
+	const job = {
+		id: parsed.runId,
+		model: request.model,
+		prompt: request.prompt,
+		status: "queued",
+		progress: null,
+		createdAt: started,
+		updatedAt: started,
+		cost,
+		connectionId: request.connectionId ?? null,
+		output: null,
+		error: null,
+		keyId: request.keyId ?? null,
+		usageAt: started,
+		adjusted: false
+	};
+	deps.media.jobs.put(user.root, job);
+	await writeUsage(record, {
+		requestId: parsed.runId,
+		units: requestedSeconds(request),
+		usd: cost.usd,
+		costSource: cost.source,
+		paymentSource: parsed.paymentSource,
+		status: answer.status,
+		error: null
+	});
+	return toVideoJob(job);
+}
+function listVideos(deps, user) {
+	return deps.media.jobs.list(user.root).map(toVideoJob);
+}
+/** The job, polled at NanoGPT first when it is not finished and the last poll is old enough. */
+async function getVideo(deps, user, id) {
+	if (!isJobId(id)) throw new HttpError(404, "not_found", "No such video job");
+	const job = deps.media.jobs.get(user.root, id);
+	if (!job) throw new HttpError(404, "not_found", "No such video job");
+	const state = stateOf(deps);
+	const key = keyOf(user, id);
+	const waiting = state.inflight.get(key);
+	if (waiting) return toVideoJob(await waiting);
+	if (!(needsWork(deps, user, job) && deps.now() - (state.polls.get(key)?.lastPollAt ?? 0) >= deps.media.pollIntervalMs)) return toVideoJob(job);
+	const work = refresh(deps, user, job).finally(() => {
+		if (state.inflight.get(key) === work) state.inflight.delete(key);
+	});
+	state.inflight.set(key, work);
+	return toVideoJob(await work);
+}
+/** Not finished, or finished but its file is not saved yet (and there is a link to save it from). */
+function needsWork(deps, user, job) {
+	if (!isTerminal(job.status)) return true;
+	return job.status === "completed" && job.output?.url !== void 0 && !deps.media.jobs.hasFile(user.root, job.id) && (stateOf(deps).polls.get(keyOf(user, job.id))?.downloadTries ?? 0) < MAX_DOWNLOAD_TRIES;
+}
+function pollState(deps, user, id) {
+	const state = stateOf(deps);
+	const key = keyOf(user, id);
+	let poll = state.polls.get(key);
+	if (!poll) {
+		poll = {
+			lastPollAt: 0,
+			misses: 0,
+			downloadTries: 0
+		};
+		state.polls.set(key, poll);
+	}
+	return poll;
+}
+/** The key that submitted the job; when it was deleted since, the active key (a job is the account's, not the key's, to read). */
+function keyFor(deps, user, job) {
+	try {
+		return resolveKey(deps, user, job.keyId);
+	} catch {
+		try {
+			return resolveKey(deps, user, null);
+		} catch {
+			return null;
+		}
+	}
+}
+/** Absolute http(s) URL of a link NanoGPT gave (it may be a path on the media host). */
+function absoluteUrl(deps, url) {
+	return new URL(url, `${deps.config.mediaBase.replace(/\/+$/, "")}/`).toString();
+}
+async function refresh(deps, user, job) {
+	const poll = pollState(deps, user, job.id);
+	poll.lastPollAt = deps.now();
+	const now = deps.now();
+	let current = job;
+	if (!isTerminal(current.status)) {
+		const key = keyFor(deps, user, current);
+		if (!key) return current;
+		let answer;
+		try {
+			answer = await mediaRequest(deps, key, {
+				method: "GET",
+				path: `/api/video/status?requestId=${encodeURIComponent(current.id)}`,
+				timeoutMs: deps.media.timeouts.videoStatusMs
+			}, MAX_ANSWER);
+		} catch {
+			return current;
+		}
+		if (answer.status === 404) {
+			poll.misses += 1;
+			if (now - current.createdAt > 6e4 && poll.misses >= MAX_MISSES) current = await finish(deps, user, current, key, {
+				status: "failed",
+				error: "NanoGPT no longer knows this job",
+				usd: null
+			});
+			return current;
+		}
+		if (!isOk(answer.status)) return current;
+		poll.misses = 0;
+		const parsed = parseVideoStatus(answerJson(key, answer));
+		if (parsed.status === "failed" || parsed.status === "expired") {
+			const error = parsed.error !== null ? key.redact(parsed.error) : "The job failed";
+			current = await finish(deps, user, current, key, {
+				status: parsed.status,
+				error,
+				usd: parsed.usd
+			});
+		} else if (parsed.status === "completed" && parsed.url !== null) {
+			const link = absoluteUrl(deps, parsed.url);
+			current = {
+				...current,
+				status: "completed",
+				progress: 1,
+				updatedAt: now,
+				output: {
+					kind: "video",
+					mime: "video/mp4",
+					url: link
+				},
+				cost: parsed.usd !== null ? {
+					...current.cost,
+					usd: parsed.usd,
+					source: "response"
+				} : current.cost
+			};
+			deps.media.jobs.put(user.root, current);
+			if (parsed.usd !== null) current = await adjustCost(deps, user, current, parsed.usd, "response");
+			else current = await markAdjusted(deps, user, current);
+		} else {
+			const status = parsed.status === "queued" || parsed.status === "running" ? parsed.status : current.status;
+			const progress = parsed.progress ?? current.progress;
+			if (status !== current.status || progress !== current.progress) {
+				current = {
+					...current,
+					status,
+					progress,
+					updatedAt: now
+				};
+				deps.media.jobs.put(user.root, current);
+			}
+		}
+		if (current.status === "queued" || current.status === "running") {
+			if (now - current.createdAt > STALE_AFTER_MS) current = await finish(deps, user, current, key, {
+				status: "expired",
+				error: "NanoGPT stopped reporting this job",
+				usd: null
+			});
+			return current;
+		}
+	}
+	if (current.status === "completed" && current.output?.url && !deps.media.jobs.hasFile(user.root, current.id)) current = await save(deps, user, current, poll);
+	return current;
+}
+/** The job reached a terminal state that is not a success: store it, and correct the usage record. */
+async function finish(deps, user, job, key, outcome) {
+	const now = deps.now();
+	const next = {
+		...job,
+		status: outcome.status,
+		error: key.redact(outcome.error),
+		updatedAt: now
+	};
+	deps.media.jobs.put(user.root, next);
+	if (outcome.status === "failed") return adjustCost(deps, user, next, outcome.usd ?? 0, outcome.usd !== null ? "response" : "estimate");
+	return markAdjusted(deps, user, next);
+}
+async function adjustCost(deps, user, job, usd, source) {
+	if (!job.adjusted) await deps.usage.adjust(user.root, job.usageAt, {
+		adjust: true,
+		requestId: job.id,
+		costUsd: usd,
+		costSource: source,
+		at: deps.now()
+	});
+	const next = {
+		...job,
+		adjusted: true,
+		cost: {
+			...job.cost,
+			usd,
+			source
+		}
+	};
+	deps.media.jobs.put(user.root, next);
+	return next;
+}
+async function markAdjusted(deps, user, job) {
+	if (job.adjusted) return job;
+	const next = {
+		...job,
+		adjusted: true
+	};
+	deps.media.jobs.put(user.root, next);
+	return next;
+}
+async function save(deps, user, job, poll) {
+	const url = job.output?.url;
+	if (!url) return job;
+	poll.downloadTries += 1;
+	const { jobs } = deps.media;
+	let handle;
+	try {
+		handle = await openPublic(deps.media.env, url, deps.media.timeouts.videoDownloadMs);
+	} catch (error) {
+		return noteDownloadFailure(deps, user, job, poll, error instanceof MediaCallError && error.kind === "timeout");
+	}
+	try {
+		if (handle.status === 403 || handle.status === 404 || handle.status === 410) {
+			const next = {
+				...job,
+				status: "expired",
+				error: "The video is no longer available at NanoGPT and was not saved in time",
+				updatedAt: deps.now()
+			};
+			jobs.put(user.root, next);
+			return next;
+		}
+		if (!isOk(handle.status)) return noteDownloadFailure(deps, user, job, poll, false);
+		const declared = Number(handle.headers["content-length"]);
+		if (Number.isFinite(declared) && declared > deps.media.maxVideoBytes) throw new FileTooLarge();
+		const source = (async function* () {
+			for await (const chunk of handle.body) {
+				handle.touch();
+				yield chunk;
+			}
+		})();
+		const bytes = await jobs.saveFile(user.root, job.id, source, deps.media.maxVideoBytes);
+		const mime = contentTypeOf(handle.headers);
+		const stillThere = jobs.get(user.root, job.id);
+		if (!stillThere) {
+			jobs.discardFile(user.root, job.id);
+			return job;
+		}
+		const next = {
+			...stillThere,
+			updatedAt: deps.now(),
+			output: {
+				kind: "video",
+				mime: mime?.startsWith("video/") ? mime : "video/mp4",
+				...stillThere.output?.url ? { url: stillThere.output.url } : {},
+				bytes,
+				file: `/media/files/${job.id}`
+			},
+			error: null
+		};
+		jobs.put(user.root, next);
+		return next;
+	} catch (error) {
+		if (error instanceof FileTooLarge) {
+			const next = {
+				...job,
+				error: `The video is larger than ${Math.round(deps.media.maxVideoBytes / 1048576)} MB and was not saved; the link at NanoGPT still works for about a day`,
+				updatedAt: deps.now()
+			};
+			poll.downloadTries = MAX_DOWNLOAD_TRIES;
+			jobs.put(user.root, next);
+			return next;
+		}
+		return noteDownloadFailure(deps, user, job, poll, error instanceof MediaCallError && error.kind === "timeout");
+	} finally {
+		handle.close();
+	}
+}
+function noteDownloadFailure(deps, user, job, poll, timedOut) {
+	if (poll.downloadTries < MAX_DOWNLOAD_TRIES) return job;
+	const next = {
+		...job,
+		error: timedOut ? "The video could not be saved: NanoGPT stopped sending the file" : "The video could not be saved; the link at NanoGPT still works for about a day",
+		updatedAt: deps.now()
+	};
+	deps.media.jobs.put(user.root, next);
+	return next;
+}
+function forgetVideo(deps, user, id) {
+	if (!isJobId(id) || !deps.media.jobs.remove(user.root, id)) throw new HttpError(404, "not_found", "No such video job");
+	stateOf(deps).polls.delete(keyOf(user, id));
+}
+// src/server/routes/media.ts
+var SERVED_CACHE = "private, max-age=300";
+function mediumOf(req) {
+	const raw = queryText(req, "medium");
+	const medium = MEDIA_MEDIA.find((m) => m === raw);
+	if (!medium) throw new HttpError(400, "invalid_request", "\"medium\" must be image, video, tts or stt");
+	return medium;
+}
+var mediaRoutes = (router, deps) => {
+	router.get("/media/catalog", route(deps.log, async (req, res) => {
+		const medium = mediumOf(req);
+		const refresh = queryText(req, "refresh");
+		const result = await deps.media.catalog.catalog(medium, { refresh: refresh === "1" || refresh === "true" });
+		if (!result) throw new HttpError(502, "media_unavailable", `The NanoGPT ${medium} model list could not be fetched and none is stored`);
+		sendJson(res, 200, result);
+	}));
+	router.post("/media/image", route(deps.log, async (req, res) => {
+		const user = userOf(req, deps);
+		const checked = checkImageRequest(req.body);
+		if (!checked.ok) throw new HttpError(checked.status, checked.code, checked.message);
+		const request = checked.value;
+		if (request.inputImages?.some((image) => !image.startsWith("data:"))) throw new HttpError(400, "invalid_request", "This route takes input images as data URLs, not as links");
+		const model = await modelFor(deps, "image", request.model);
+		const limit = model.params.find((p) => p.key === "n")?.max;
+		if (request.n !== void 0 && limit !== void 0 && request.n > limit) throw new HttpError(400, "invalid_request", `This model makes at most ${limit} image(s) per request`);
+		const key = resolveKey(deps, user, request.keyId ?? null);
+		const call = {
+			deps,
+			user,
+			medium: "image",
+			model: request.model,
+			connectionId: request.connectionId ?? null,
+			started: deps.now()
+		};
+		let answer;
+		try {
+			answer = await mediaRequest(deps, key, {
+				method: "POST",
+				path: "/v1/images/generations",
+				body: JSON.stringify(buildImageBody(model, request)),
+				billing: request.billing ?? "auto",
+				timeoutMs: deps.media.timeouts.imageMs
+			});
+		} catch (error) {
+			throw await failedCall(call, error);
+		}
+		if (!isOk(answer.status)) throw await failedCall(call, upstreamFailure(key, answer));
+		const parsed = parseImageBody(answerJson(key, answer));
+		if (parsed.outputs.length === 0) throw await failedCall(call, new HttpError(502, "upstream_error", "NanoGPT answered without an image"));
+		const format = request.extra?.["output_format"];
+		const outputs = parsed.outputs.map((item) => item.dataBase64 !== void 0 ? {
+			kind: "image",
+			mime: imageOutputMime(item.dataBase64, item.mime, format),
+			dataBase64: item.dataBase64,
+			bytes: base64ByteLength(item.dataBase64)
+		} : {
+			kind: "image",
+			mime: imageUrlMime(item.url ?? "", format),
+			url: item.url ?? ""
+		});
+		const requestId = answer.headers["x-request-id"] ?? parsed.requestId ?? null;
+		const estimate = estimateImageCost(model, {
+			...request.n !== void 0 ? { n: request.n } : {},
+			...request.size ? { size: request.size } : {}
+		});
+		const usd = parsed.usd ?? estimate;
+		const source = parsed.usd !== null ? "response" : estimate !== null ? "estimate" : "unknown";
+		const cost = {
+			usd,
+			source,
+			estimateUsd: estimate,
+			paymentSource: parsed.paymentSource,
+			remainingUsd: parsed.remainingUsd
+		};
+		await writeUsage(call, {
+			requestId,
+			units: outputs.length,
+			usd,
+			costSource: source,
+			paymentSource: parsed.paymentSource,
+			status: answer.status,
+			error: null
+		});
+		if (requestId) deps.media.reconciler.schedule({
+			userRoot: user.root,
+			key,
+			requestId,
+			recordAt: call.started
+		});
+		sendJson(res, 200, {
+			model: request.model,
+			outputs,
+			requestId,
+			cost,
+			latencyMs: deps.now() - call.started
+		});
+	}));
+	router.post("/media/tts", route(deps.log, async (req, res) => {
+		const user = userOf(req, deps);
+		const checked = checkTtsRequest(req.body);
+		if (!checked.ok) throw new HttpError(checked.status, checked.code, checked.message);
+		const request = checked.value;
+		const model = await modelFor(deps, "tts", request.model);
+		const key = resolveKey(deps, user, request.keyId ?? null);
+		const chars = countChars(request.input);
+		const call = {
+			deps,
+			user,
+			medium: "tts",
+			model: request.model,
+			connectionId: request.connectionId ?? null,
+			started: deps.now()
+		};
+		let answer;
+		try {
+			answer = await mediaRequest(deps, key, {
+				method: "POST",
+				path: "/v1/audio/speech",
+				body: JSON.stringify(buildTtsBody(model, request)),
+				accept: "*/*",
+				billing: request.billing ?? "auto",
+				timeoutMs: deps.media.timeouts.ttsMs
+			});
+		} catch (error) {
+			throw await failedCall(call, error);
+		}
+		if (!isOk(answer.status)) throw await failedCall(call, upstreamFailure(key, answer));
+		const type = contentTypeOf(answer.headers);
+		let audio;
+		if (type === "application/json") {
+			const body = answerJson(key, answer);
+			const link = typeof body === "object" && body !== null && typeof body["audioUrl"] === "string" ? body["audioUrl"] : null;
+			if (link === null || !/^https?:\/\//i.test(link)) throw await failedCall(call, new HttpError(502, "upstream_error", "NanoGPT did not answer with audio"));
+			audio = {
+				kind: "audio",
+				mime: "audio/mpeg",
+				url: link
+			};
+		} else if (answer.body.length === 0) throw await failedCall(call, new HttpError(502, "upstream_error", "NanoGPT answered with no audio"));
+		else audio = {
+			kind: "audio",
+			mime: type ?? "application/octet-stream",
+			dataBase64: answer.body.toString("base64"),
+			bytes: answer.body.length
+		};
+		const estimate = estimateTtsCost(model, chars);
+		const source = estimate === null ? "unknown" : "estimate";
+		await writeUsage(call, {
+			requestId: null,
+			units: chars,
+			usd: estimate,
+			costSource: source,
+			paymentSource: null,
+			status: answer.status,
+			error: null
+		});
+		sendJson(res, 200, {
+			model: request.model,
+			audio,
+			cost: {
+				usd: estimate,
+				source,
+				estimateUsd: estimate,
+				paymentSource: null,
+				remainingUsd: null
+			},
+			chars,
+			latencyMs: deps.now() - call.started
+		});
+	}));
+	router.post("/media/stt", route(deps.log, async (req, res) => {
+		const user = userOf(req, deps);
+		const checked = checkSttRequest(req.body);
+		if (!checked.ok) throw new HttpError(checked.status, checked.code, checked.message);
+		const request = checked.value;
+		const model = await modelFor(deps, "stt", request.model);
+		const key = resolveKey(deps, user, request.keyId ?? null);
+		const upload = buildMultipart(buildSttFields(model, request), {
+			name: "file",
+			filename: request.filename,
+			mime: request.mime,
+			data: Buffer.from(request.audioBase64, "base64")
+		});
+		const call = {
+			deps,
+			user,
+			medium: "stt",
+			model: request.model,
+			connectionId: request.connectionId ?? null,
+			started: deps.now()
+		};
+		let answer;
+		try {
+			answer = await mediaRequest(deps, key, {
+				method: "POST",
+				path: "/v1/audio/transcriptions",
+				body: upload.body,
+				contentType: upload.contentType,
+				billing: request.billing ?? "auto",
+				timeoutMs: deps.media.timeouts.sttMs
+			});
+		} catch (error) {
+			throw await failedCall(call, error);
+		}
+		if (!isOk(answer.status)) throw await failedCall(call, upstreamFailure(key, answer));
+		const json = answerJson(key, answer);
+		const parsed = parseSttBody(json === void 0 ? key.redact(answer.body.toString("utf8")) : json);
+		if (!parsed) throw await failedCall(call, new HttpError(502, "upstream_error", "NanoGPT answered without a transcript"));
+		const estimate = parsed.durationSec !== null ? estimateSttCost(model, parsed.durationSec) : null;
+		const usd = parsed.usd ?? estimate;
+		const source = parsed.usd !== null ? "response" : estimate !== null ? "estimate" : "unknown";
+		await writeUsage(call, {
+			requestId: null,
+			units: parsed.durationSec,
+			usd,
+			costSource: source,
+			paymentSource: null,
+			status: answer.status,
+			error: null
+		});
+		sendJson(res, 200, {
+			model: request.model,
+			text: parsed.text,
+			language: parsed.language,
+			durationSec: parsed.durationSec,
+			segments: parsed.segments,
+			cost: {
+				usd,
+				source,
+				estimateUsd: estimate,
+				paymentSource: null,
+				remainingUsd: null
+			},
+			latencyMs: deps.now() - call.started
+		});
+	}));
+	router.post("/media/video", route(deps.log, async (req, res) => {
+		const user = userOf(req, deps);
+		const checked = checkVideoRequest(req.body);
+		if (!checked.ok) throw new HttpError(checked.status, checked.code, checked.message);
+		sendJson(res, 200, await submitVideo(deps, user, checked.value));
+	}));
+	router.get("/media/video", route(deps.log, (req, res) => {
+		sendJson(res, 200, { jobs: listVideos(deps, userOf(req, deps)) });
+	}));
+	router.get("/media/video/:id", route(deps.log, async (req, res) => {
+		sendJson(res, 200, await getVideo(deps, userOf(req, deps), req.params["id"] ?? ""));
+	}));
+	router.delete("/media/video/:id", route(deps.log, (req, res) => {
+		forgetVideo(deps, userOf(req, deps), req.params["id"] ?? "");
+		sendJson(res, 200, { ok: true });
+	}));
+	router.get("/media/files/:id", route(deps.log, async (req, res) => {
+		const user = userOf(req, deps);
+		const id = req.params["id"] ?? "";
+		const job = isJobId(id) ? deps.media.jobs.get(user.root, id) : null;
+		if (!job || !deps.media.jobs.hasFile(user.root, id)) throw new HttpError(404, "not_found", "No such saved video");
+		await serveFile(res, req, deps.media.jobs.filePath(user.root, id), job.output?.mime ?? "video/mp4");
+	}));
+};
+/** Streams a file with `Range` support (video elements seek with it). The headers go out with the first byte. */
+async function serveFile(res, req, file, mime) {
+	const { write, end } = res;
+	if (typeof write !== "function" || typeof end !== "function") throw new HttpError(500, "internal_error", "Internal error");
+	const size = (await fs.promises.stat(file)).size;
+	const rangeHeader = req.headers?.["range"];
+	const range = parseByteRange(Array.isArray(rangeHeader) ? rangeHeader[0] : rangeHeader, size);
+	res.set("Content-Type", mime);
+	res.set("Accept-Ranges", "bytes");
+	res.set("Cache-Control", SERVED_CACHE);
+	res.set("X-Content-Type-Options", "nosniff");
+	if (range.kind === "unsatisfiable") {
+		res.status(416);
+		res.set("Content-Range", `bytes */${size}`);
+		res.set("Content-Length", "0");
+		end.call(res);
+		return;
+	}
+	const start = range.kind === "partial" ? range.start : 0;
+	const last = range.kind === "partial" ? range.end : size - 1;
+	if (range.kind === "partial") {
+		res.status(206);
+		res.set("Content-Range", `bytes ${start}-${last}/${size}`);
+	} else res.status(200);
+	res.set("Content-Length", String(size === 0 ? 0 : last - start + 1));
+	if (size === 0) {
+		end.call(res);
+		return;
+	}
+	const stream = fs.createReadStream(file, {
+		start,
+		end: last
+	});
+	const stop = () => {
+		stream.destroy();
+	};
+	res.once?.("close", stop);
+	try {
+		for await (const chunk of stream) {
+			if (res.destroyed === true || res.writableEnded === true) break;
+			if (!write.call(res, chunk)) await new Promise((resolve) => {
+				const done = () => {
+					res.off?.("drain", done);
+					res.off?.("close", done);
+					resolve();
+				};
+				res.once?.("drain", done);
+				res.once?.("close", done);
+			});
+		}
+	} catch {} finally {
+		res.off?.("close", stop);
+		if (res.writableEnded !== true) end.call(res);
+	}
 }
 /**
 * The shape of a Management token: `sk-nano-mgmt-` plus at least MGMT_TOKEN_MIN_BODY printable characters, no spaces, at
@@ -4727,7 +8344,7 @@ async function probeToken(deps, token) {
 			method: "GET",
 			path: "/api-keys"
 		});
-		if (isOk(answer.status) || isScopeRefusal(answer)) return {
+		if (isOk$1(answer.status) || isScopeRefusal(answer)) return {
 			valid: true,
 			checkedAt,
 			error: null
@@ -4798,12 +8415,12 @@ async function callStored(deps, user, needed, request, options = {}) {
 		checkedAt: deps.now(),
 		error: "mgmt_token_invalid"
 	});
-	else if (isOk(answer.status) || isScopeRefusal(answer)) rememberCheck(deps, user, record.token, {
+	else if (isOk$1(answer.status) || isScopeRefusal(answer)) rememberCheck(deps, user, record.token, {
 		valid: true,
 		checkedAt: deps.now(),
 		error: null
 	});
-	if (isOk(answer.status) || options.allow?.includes(answer.status)) return answer;
+	if (isOk$1(answer.status) || options.allow?.includes(answer.status)) return answer;
 	throw mgmtFailure(answer, needed);
 }
 // src/server/routes/mgmt.ts
@@ -5007,6 +8624,13 @@ var CONSUMERS = [
 	"background",
 	"unknown"
 ];
+var MEDIUMS = [...MEDIA_MEDIA, "chat"];
+var COST_SOURCES = [
+	"response",
+	"lookup",
+	"estimate",
+	"unknown"
+];
 function count(value) {
 	return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
@@ -5023,10 +8647,14 @@ function parseUsageRecord(line) {
 	}
 	if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return null;
 	const r = raw;
+	if (r["adjust"] === true) return null;
 	const at = count(r["at"]);
 	if (at === null) return null;
 	const billing = OUTCOMES.find((o) => o === r["billing"]);
 	const consumer = CONSUMERS.find((c) => c === r["consumer"]);
+	const medium = MEDIUMS.find((m) => m === r["medium"]);
+	const costSource = COST_SOURCES.find((s) => s === r["costSource"]);
+	const units = count(r["units"]);
 	return {
 		at,
 		connectionId: text(r["connectionId"]),
@@ -5043,25 +8671,56 @@ function parseUsageRecord(line) {
 		status: count(r["status"]) ?? 0,
 		stream: r["stream"] === true,
 		consumer: consumer ?? "unknown",
-		error: text(r["error"])
+		error: text(r["error"]),
+		...medium ? { medium } : {},
+		...r["units"] !== void 0 ? { units } : {},
+		...costSource ? { costSource } : {}
 	};
 }
+function parseUsageLine(line) {
+	let raw;
+	try {
+		raw = JSON.parse(line);
+	} catch {
+		return null;
+	}
+	const adjustment = parseUsageAdjustment(raw);
+	if (adjustment) return {
+		kind: "adjust",
+		adjustment
+	};
+	const record = parseUsageRecord(line);
+	return record ? {
+		kind: "record",
+		record
+	} : null;
+}
 function createUsageLog(log) {
+	const appendLine = async (userRoot, at, value) => {
+		const dir = path.join(userRoot, USER_DIR_NAME);
+		await fsp.mkdir(dir, { recursive: true });
+		await fsp.appendFile(path.join(dir, usageFileName(at)), `${JSON.stringify(value)}\n`, "utf8");
+	};
 	return {
 		async append(userRoot, record) {
 			try {
-				const dir = path.join(userRoot, USER_DIR_NAME);
-				await fs$1.mkdir(dir, { recursive: true });
-				await fs$1.appendFile(path.join(dir, usageFileName(record.at)), `${JSON.stringify(record)}\n`, "utf8");
+				await appendLine(userRoot, record.at, record);
 			} catch (error) {
 				log.warn(`usage record not written (${error instanceof Error ? error.message : "unknown error"})`);
+			}
+		},
+		async adjust(userRoot, recordAt, adjustment) {
+			try {
+				await appendLine(userRoot, recordAt, adjustment);
+			} catch (error) {
+				log.warn(`usage correction not written (${error instanceof Error ? error.message : "unknown error"})`);
 			}
 		},
 		async read(userRoot, range) {
 			const dir = path.join(userRoot, USER_DIR_NAME);
 			let names;
 			try {
-				names = await fs$1.readdir(dir);
+				names = await fsp.readdir(dir);
 			} catch {
 				return [];
 			}
@@ -5075,15 +8734,18 @@ function createUsageLog(log) {
 				}] : [];
 			}).sort((a, b) => a.day < b.day ? -1 : a.day > b.day ? 1 : 0);
 			const records = [];
+			const adjustments = [];
 			for (const file of files) try {
 				await readLines(path.join(dir, file.name), (line) => {
-					const record = parseUsageRecord(line);
-					if (record && record.at >= range.from && record.at < range.to) records.push(record);
+					const parsed = parseUsageLine(line);
+					if (!parsed) return;
+					if (parsed.kind === "adjust") adjustments.push(parsed.adjustment);
+					else if (parsed.record.at >= range.from && parsed.record.at < range.to) records.push(parsed.record);
 				});
 			} catch (error) {
 				log.warn(`usage file ${file.name} not read (${error instanceof Error ? error.message : "unknown error"})`);
 			}
-			return records;
+			return applyUsageAdjustments(records, adjustments);
 		}
 	};
 }
@@ -5173,7 +8835,8 @@ var ROUTE_MODULES = [
 	catalogRoutes,
 	accountRoutes,
 	spendRoutes,
-	mgmtRoutes
+	mgmtRoutes,
+	mediaRoutes
 ];
 // src/server/version.ts
 var PLUGIN_VERSION = "0.6.0";
@@ -5201,6 +8864,17 @@ async function startNanovia(router, options) {
 		now,
 		log
 	});
+	const usage = createUsageLog(log);
+	const media = createMediaDeps({
+		config,
+		dataRoot: () => st.dataRoot(),
+		fetch: options.fetch,
+		version,
+		now,
+		log,
+		usage,
+		...options.media ? { tuning: options.media } : {}
+	});
 	const deps = {
 		version,
 		config,
@@ -5210,7 +8884,7 @@ async function startNanovia(router, options) {
 			st,
 			store
 		}),
-		usage: createUsageLog(log),
+		usage,
 		fetch: options.fetch,
 		proxy: () => proxy?.status() ?? {
 			up: false,
@@ -5221,10 +8895,12 @@ async function startNanovia(router, options) {
 		catalog,
 		lookupModel: options.lookupModel ?? ((modelId) => catalog.lookupModel(modelId)),
 		providerSelection: options.providerSelection ?? ((modelId) => catalog.providerSelection(modelId)),
+		media,
 		now,
 		log
 	};
 	catalog.start();
+	media.catalog.start();
 	proxy = options.steps ? createProxyServer(deps, options.steps) : createProxyServer(deps);
 	const status = await proxy.listen();
 	for (const register of options.routes ?? ROUTE_MODULES) register(router, deps);
@@ -5235,6 +8911,7 @@ async function startNanovia(router, options) {
 		status,
 		close: async () => {
 			catalog.close();
+			media.close();
 			await running.close();
 		}
 	};
@@ -5250,6 +8927,7 @@ function defaultConfig() {
 		upstreamFallbackBase: NANOGPT_API_BASE_FALLBACK,
 		siteBase: NANOGPT_SITE,
 		mgmtBase: NANOGPT_MGMT_BASE,
+		mediaBase: NANOGPT_MEDIA_BASE,
 		timeoutMs: DEFAULT_TIMEOUT_MS,
 		nanogptKey: null
 	};
@@ -5302,6 +8980,12 @@ function parseConfig(fileText, env) {
 		const base = cleanBase(mgmt);
 		if (base) config.mgmtBase = base;
 		else warnings.push("mgmtBase is not an http(s) URL; default used");
+	}
+	const media = pick(file["mediaBase"], env["NANOVIA_MEDIA"]);
+	if (media !== void 0) {
+		const base = cleanBase(media);
+		if (base) config.mediaBase = base;
+		else warnings.push("mediaBase is not an http(s) URL; default used");
 	}
 	if (file["timeoutMs"] !== void 0) {
 		const n = file["timeoutMs"];
@@ -5488,7 +9172,8 @@ async function init(router) {
 		st,
 		fetch: await loadFetch(),
 		log,
-		catalog: { autoFetch: true }
+		catalog: { autoFetch: true },
+		media: { catalog: { autoFetch: true } }
 	});
 	const proxy = running.status;
 	log.info(`v${PLUGIN_VERSION} ready (secrets: ${st.available ? "ST" : "unavailable"}, proxy: ${proxy.up ? `http://${proxy.host}:${proxy.port}` : `down (${proxy.error ?? "unknown"})`})`);

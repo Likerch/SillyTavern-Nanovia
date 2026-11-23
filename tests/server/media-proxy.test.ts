@@ -193,7 +193,8 @@ describe('POST /v1/audio/speech', () => {
             code: 'no_key',
             message: expect.stringContaining('no longer exists'),
         });
-        const lonely = await boot({ st: undefined });
+        // No key here, and a media base nothing listens on, so no call can leave the machine even by mistake.
+        const lonely = await boot({ config: { mediaBase: 'http://127.0.0.1:9' } });
         harnesses.push(lonely);
         const d = await connect({ h: lonely });
         const none = await speech(d, { model: 'Kokoro-82m', input: 'x' });

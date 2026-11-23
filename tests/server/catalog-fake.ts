@@ -7,6 +7,10 @@ import emberProviders from '../fixtures/catalog/providers.ember-1.json';
 import fixedRoute from '../fixtures/catalog/providers.glm-4.5v.fixed-route.json';
 import glmProviders from '../fixtures/catalog/providers.glm-5.3.json';
 import teeProviders from '../fixtures/catalog/providers.tee-glm-5.3.json';
+import imageList from '../../tools/fixtures/media/images_models.json';
+import sttList from '../../tools/fixtures/media/audio_models_stt.json';
+import ttsList from '../../tools/fixtures/media/audio_models_tts.json';
+import videoList from '../../tools/fixtures/media/video_models.json';
 import { startServer, type TestServer } from './helpers';
 
 export type NanoMode =
@@ -76,6 +80,10 @@ export async function startFakeNanoGpt(): Promise<FakeNanoGpt> {
         if (url.startsWith('/api/v1/models')) {
             return send(res, 200, fake.mode === 'junk' ? { error: 'nothing here' } : modelsSample);
         }
+        // The media model lists (stage 0.7), for the tests that point `mediaBase` at this fake too.
+        if (url.startsWith('/api/v1/images/models')) return send(res, 200, imageList);
+        if (url.startsWith('/api/v1/video-models')) return send(res, 200, videoList);
+        if (url.startsWith('/api/v1/audio-models')) return send(res, 200, url.includes('type=stt') ? sttList : ttsList);
         const id = decodeProvidersId(url);
         if (id !== null) {
             if (fake.mode === 'junk') return send(res, 200, { error: 'nothing here' });

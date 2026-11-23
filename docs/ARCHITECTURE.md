@@ -78,8 +78,8 @@ ESLint (`eslint.config.js`) enforces the layer rules and bans hard-coded UI stri
   the secret id; `readSecret(key, id)`; `getSecretState()` for ids and labels; `deleteSecret(key, id)`), both imported by a
   computed URL relative to the plugin folder (`../../src/...`), exactly like NAI Studio's plugin does. When ST internals are
   unavailable the plugin runs in a degraded mode (config file keys only) and `/status` reports `secrets: false`.
-- Plugin config `server/config.json` (git-ignored): `{ port, upstreamBase, mgmtBase, timeoutMs }`; env overrides `NANOVIA_PORT`,
-  `NANOVIA_UPSTREAM`, `NANOVIA_MGMT`. Defaults: port 8787, upstream `NANOGPT_API_BASE`, fallback `NANOGPT_API_BASE_FALLBACK` on connect errors.
+- Plugin config `server/config.json` (git-ignored): `{ port, upstreamBase, mgmtBase, mediaBase, timeoutMs }`; env overrides `NANOVIA_PORT`,
+  `NANOVIA_UPSTREAM`, `NANOVIA_MGMT`, `NANOVIA_MEDIA` (`mediaBase` = `https://api.nano-gpt.com`, no path, no fallback; §9). Defaults: port 8787, upstream `NANOGPT_API_BASE`, fallback `NANOGPT_API_BASE_FALLBACK` on connect errors.
 - Keys: NanoGPT keys live in ST's secret store under `api_key_nanogpt` (several, with labels). A connection's proxy token is
   a random value stored under `api_key_custom` with label `SECRET_LABEL_PREFIX + name`; the registry keeps only its hash.
   Keys and tokens are never logged, never written to our files, never returned by any route (`KeyInfo.masked` only).
@@ -255,3 +255,139 @@ summarising page fetcher.
    text; also `ultrafast` in the preset guide). The plugin blocks only `flex` and `priority`; NanoGPT's own 400 decides the rest.
 7. `Retry-After` on 429/503 is in the prose, not in the OpenAPI response headers; the plugin does not forward it.
 8. The Management host is `nano-gpt.com` (the docs never mention `api.nano-gpt.com` for it).
+
+## 9. Media, server side (stage 0.7, part a)
+
+Images, video, speech and transcription through the user's NanoGPT key. Contract: `src/shared/contracts-media.ts` (types, the
+route table and the error codes); research: `docs/research/media-api.md` (the API), `media-live-probe.md` (what a real key
+showed on 2026-11-23: trust it over the docs). The browser side is built against the same contract and is not described here.
+
+### Pieces
+
+| File | What it is |
+| --- | --- |
+| `src/domain/media.ts` | pure: `normalizeMediaList` (the four heterogeneous lists -> `MediaModel`), the four `estimate*` functions, `describePrice` |
+| `src/domain/media-wire.ts` | pure: tolerant parsers of every upstream answer (image body, transcription, video submit and status in BOTH documented shapes, billing lookup), error mapping to the contract codes, the media usage record, `applyUsageAdjustments` |
+| `src/domain/media-request.ts` | pure: validation of the four request bodies (4 MB input ceiling) and the builders of what goes upstream |
+| `src/server/media-catalog.ts` | the four lists, TTL 1 h, `<data root>/_nanovia/media-<medium>.json`, `autoFetch` on in `index.ts` like the chat catalog |
+| `src/server/media-call.ts` | one careful way to call the media host (key in `Authorization` only, idle timeout, size cap, abort), multipart build/read, the anonymous opener for signed links |
+| `src/server/media-jobs.ts` | video jobs per user: `<user root>/nanovia/media-jobs.json` (atomic, at most 100) and `<user root>/nanovia/media/<id>.mp4` |
+| `src/server/media-billing.ts` | the billing reconciler (injectable timers) |
+| `src/server/media-proxy.ts` | the three OpenAI-shaped endpoints of the proxy port |
+| `src/server/routes/media.ts`, `media-api.ts`, `media-video.ts` | the admin routes, their shared helpers, the video job logic |
+| `src/server/media.ts` | builds the services into `deps.media` (`MediaTuning` shrinks timeouts and delays in tests) |
+
+### Hosts and key
+
+`config.mediaBase` (`NANOVIA_MEDIA`, default `https://api.nano-gpt.com`, no path) is the only host a media call goes to, and the
+key goes there in the `Authorization` header and nowhere else. The chat upstream (`upstreamBase`, which carries `/api/v1`) is a
+different base and does not carry over; there is no fallback host (the website host rejects bodies over about 4.5 MB). The model
+lists are fetched from the same base without a key. A video file is downloaded from the signed link NanoGPT hands out WITHOUT the
+key (the link is public for its day, and a URL from an answer never receives credentials). Paths used: `GET /api/v1/images/models`,
+`/api/v1/video-models?detailed=true`, `/api/v1/audio-models?type=tts|stt&detailed=true`, `POST /v1/images/generations`,
+`POST /v1/audio/speech`, `POST /v1/audio/transcriptions`, `POST /api/generate-video`, `GET /api/video/status?requestId=`,
+`GET /api/v1/usage/requests/{id}`.
+
+### Admin routes (all under `/api/plugins/nanovia`)
+
+`GET /media/catalog?medium=&refresh=`, `POST /media/image|tts|stt|video`, `GET /media/video`, `GET|DELETE /media/video/:id`,
+`GET /media/files/:id`. A request is validated first (`domain/media-request.ts`: bad body `400 invalid_request`, inputs over 4 MB
+in total `413 payload_too_large`, a model that is not in the catalog of its medium `400 invalid_request`, no catalog data at all
+`502 media_unavailable`), then called with the key of `keyId` or the active one (`409 no_key`). `X-Billing-Mode: paygo` is sent
+when `billing` is `paygo` (whether NanoGPT honours it on media is unverified). Timeouts are idle timeouts (restarted by every
+chunk): images 180 s, speech 120 s, transcription 180 s, video submit 30 s, status 20 s, file download 60 s; a miss is `504
+upstream_timeout`, an unreachable NanoGPT `502 upstream_unreachable`.
+
+Upstream errors keep NanoGPT's own words under a contract code: 400 content policy `400 content_policy_violation` (not charged),
+402 `402 insufficient_balance` (the amount NanoGPT asked for is in the message when it gave one), 429 `429 rate_limited`, 413 `413
+payload_too_large`, 408/504 `504 upstream_timeout`, everything else `502 upstream_error` (including 401/403: ST's front end reads
+those statuses as "log in again"). All three error shapes are read (OpenAI envelope, legacy `{ error: "text", requiredBalance }`,
+plain text such as the video route's `Invalid session`); the text is cleaned of markup and of the key.
+
+The image route uses the OpenAI-compatible endpoint, always asks for `b64_json` and handles `url` too (the answer is never fetched).
+The speech answer's own content type is what the result carries (live: `audio/x-wav` for a requested mp3; never assumed). The
+transcription route builds the multipart body itself and asks for `verbose_json` (segments) only where the model's list offers it.
+
+### Cost model
+
+Every media call writes a usage record (`medium`, `units`, `costUsd`, `costSource`; no tokens). `byMedium` in `GET /spend` is
+present only when the range holds a media record, so a chat-only log sums exactly as before.
+
+| medium | units | first figure | corrected by |
+| --- | --- | --- | --- |
+| image | images made | the body's `cost` (`costSource: 'response'`): the LIST price, which can understate the charge (live: 0.0017 in the body, 0.00255 billed) | the billing lookup (below), `costSource: 'lookup'` |
+| speech | characters (code points) | catalog price x characters (`'estimate'`): the answer has neither a cost nor a request id (live: exact list price) | nothing to look up |
+| transcription | seconds of audio | the body's `usage.cost` (`'response'`, live: exact) | nothing |
+| video | seconds requested | the submit answer's `cost` (the estimate / pre-charge) | the final `cost` of the completed status (`'response'`); a failed job is adjusted to 0, assuming the documented automatic refund |
+
+**Reconciliation** (`media-billing.ts`): after an image call with a request id (the `X-Request-ID` header, else the body's
+`requestId`) the plugin looks up `GET <mediaBase>/api/v1/usage/requests/{id}` with the same key: first try about 15 s later, then
+after 30 s, 60 s, 120 s and 240 s while NanoGPT answers 404 ("not ready", which never means zero), 408/425/429/5xx or cannot be
+reached; it stops at 401/403/409, a figure in another currency, or after the fifth try. A figure is appended as an `adjust` line
+`{ adjust: true, requestId, costUsd, costSource: 'lookup', at }` to the usage file of the DAY OF THE RECORD; `usage-log.ts`
+`read()` applies adjustments (`domain/media-wire.ts applyUsageAdjustments`: the latest wins, a paygo media record's
+`equivalentUsd` follows), so `GET /spend` and `GET /usage/recent` already see the corrected figure. The schedule lives in memory
+and is gone with the process: best effort; a call nobody could reconcile keeps the body's figure. The key waits in memory (as the
+opaque `SecretValue`) until the lookup is done or given up and is never written.
+
+### Video
+
+`POST /media/video` submits (`202` with a `runId`), stores the job and answers a `VideoJob`. NanoGPT is asked about a job that
+is not finished only when the browser asks the plugin (`GET /media/video/:id`) and the last poll is at least 3 s old (simultaneous
+polls share one call); the status is read in both documented shapes (uppercase `data.status` + `data.output.video.url` +
+`data.cost`, or flat lowercase `status` + `progress` + `videoUrl`); an unknown status word changes nothing. On completion the
+plugin downloads the file (200 MB cap, streamed to a `.part` file and renamed, never through a path made of client input) and
+serves it as `GET /media/files/:id` with `Range` support, to the same user only (the link is fetched as NanoGPT gave it, http(s)
+only, and a path on the media host is resolved against `mediaBase`). Failures are tolerated: an unreachable NanoGPT leaves the job as it was,
+a download that fails is retried on later polls (three tries, then the error is reported once), a link that is gone ends the job
+as `expired`, a job NanoGPT no longer knows (five 404s after the first minute) or one nobody finished within a day ends too.
+A job that nobody polls advances no further: if the browser stays closed past NanoGPT's retention (about a day) the file can be
+lost (`expired`). Jobs are per ST user and survive a plugin restart (the jobs file is reloaded, unfinished ones are polled again;
+the poll timestamps are not kept). **There is no cancel upstream: `DELETE /media/video/:id` only forgets the job and its file
+here, it never calls NanoGPT.**
+
+### Proxy endpoints (the connection token, on the proxy port)
+
+`POST /c/<id>/v1/audio/speech` (JSON, the audio bytes come back as they arrive with the upstream content type), `/v1/audio/transcriptions`
+(multipart, forwarded unchanged, upstream JSON back) and `/v1/images/generations` (JSON, the upstream JSON back unchanged), behind
+the same token check as chat. A dedicated handler (`media-proxy.ts`), not the chat pipeline, whose steps assume a JSON chat body.
+The model comes from the request body. The request body is read with a cap and answered `413` beyond it (speech 2 MB, images
+8 MB, a recording 4 MB + 256 KB), by its declared length before anything is read or while it streams in; no body is buffered without
+bound (a streamed speech answer is relayed chunk by chunk, JSON answers are held up to 64 MB / 8 MB to read the cost). The reply
+carries the upstream status, content type and bytes, `X-Nanovia-Connection`, `X-Nanovia-Cost` when a cost is known (speech: the
+catalog estimate; images: the body figure; transcription: `usage.cost`) and `X-Nanovia-Request-Id` when there is one; errors are in
+the OpenAI envelope (a legacy or plain-text answer is wrapped, retry-after passes). A client that hangs up aborts the upstream
+call (the record says `client_aborted`, status 499). A connection with `billing: paygo` sends `X-Billing-Mode: paygo`.
+
+### Verified live, and not
+
+Verified with a real key (the probe of 2026-11-23, about half a cent): the image body shape and `X-Request-ID` on both image
+routes, the body cost being the list price while the lookup and the balance show the charge (1.5x for `rev-animated`), the
+billing lookup for media request ids about 15 s later, speech answering raw bytes with the model's own content type and no
+request id, transcription answering `{ text, language, duration, usage }` with no request id, the plain-text 401 of the video
+submit. **NOT verified, all taken from the docs: everything about video** (submit and status shapes, `progress`, final cost,
+the download link, refunds, any model), whether `X-Billing-Mode` is honoured on media, whether other image models also bill
+1.5x, whether `verbose_json` and `diarize` are accepted on the OpenAI-compatible transcription route (they are sent only where
+the model's list offers them), whether `duration` may be an integer (it is sent as a string, like the docs show), `url` image
+outputs, an async speech answer. This code was developed and tested against `tools/mock-nanogpt` only (see its README).
+
+### Normalising the lists (decisions the browser should know)
+
+- `ParamSpec.key` is the upstream request field. Image `resolutions` become `size`, `max_images` / `fixed_image_count` become
+  `n`; limit-like keys (prompt length, input constraints …) are not settings. For transcription the extra keys `input_format`
+  (accepted file types, lower case) and `file_size_mb` (the smallest size limit) describe the recording.
+- The `type=tts` list carries speech, music/sound generation and audio processing: speech keeps `capabilities.music: false`,
+  prompt-driven music and sound generation `music: true`, and entries that take no text or answer no audio (processing, lyrics,
+  analysis) are DROPPED (nothing a speech call can drive). The `type=stt` list has four voice-cloning ids: they are kept and flagged
+  `capabilities.voiceCloning: true`, the browser should hide them from a transcription picker.
+- `MediaPrice.unit: 'unknown'` keeps the list's own block in `raw`; video prices reduce to per-second (by resolution), per-video or
+  per-duration where the shape allows, and `priceIsApproximate` is true when another price-moving key exists (multipliers, audio on or
+  off, per-mode tables); `estimateVideoCost` then answers null (the submit answer's cost is shown instead). An image estimate falls
+  back to the cheapest listed price when the size is not named.
+
+### Mock
+
+`tools/mock-nanogpt` serves the four lists (the trimmed live entries in `tools/fixtures/media`), image generation on all three paths
+with the list price in the body and a billing lookup that answers 1.5x for `rev-animated`, speech as WAV with `audio/x-wav` and no
+request id, transcription, and video with both status shapes selectable (`POST /__mock/state { media: { videoShape } }`). It models
+the live probe where there is one and the docs where there is not; it is not evidence about NanoGPT.

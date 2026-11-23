@@ -25,12 +25,14 @@ describe('built server/index.js', () => {
     it('imports and exposes info, init and exit, serves the proxy and the admin routes, and exits cleanly', async () => {
         const previousPort = process.env['NANOVIA_PORT'];
         const previousSite = process.env['NANOVIA_SITE'];
+        const previousMedia = process.env['NANOVIA_MEDIA'];
         const globals = globalThis as { DATA_ROOT?: unknown };
         const previousRoot = globals.DATA_ROOT;
-        // The plugin fetches the public catalog at start: point it at a fake site and a scratch data root.
+        // The plugin fetches the public catalogs (chat and media) at start: point them at a fake site and a scratch data root.
         const nano = await startFakeNanoGpt();
         process.env['NANOVIA_PORT'] = '0';
         process.env['NANOVIA_SITE'] = nano.site;
+        process.env['NANOVIA_MEDIA'] = nano.site;
         globals.DATA_ROOT = makeTempDir();
         const quiet = [vi.spyOn(console, 'info'), vi.spyOn(console, 'warn')].map((s) => s.mockImplementation(() => {}));
         try {
@@ -54,6 +56,7 @@ describe('built server/index.js', () => {
             expect([...routes.keys()].sort()).toEqual([
                 'DELETE /connections/:id',
                 'DELETE /keys/:id',
+                'DELETE /media/video/:id',
                 'DELETE /mgmt/keys/:id',
                 'DELETE /mgmt/presets/:name',
                 'DELETE /mgmt/token',
@@ -66,6 +69,10 @@ describe('built server/index.js', () => {
                 'GET /catalog/providers',
                 'GET /connections',
                 'GET /keys',
+                'GET /media/catalog',
+                'GET /media/files/:id',
+                'GET /media/video',
+                'GET /media/video/:id',
                 'GET /mgmt/keys',
                 'GET /mgmt/presets',
                 'GET /mgmt/status',
@@ -78,6 +85,10 @@ describe('built server/index.js', () => {
                 'POST /keys',
                 'POST /keys/:id/check',
                 'POST /lookup/:requestId',
+                'POST /media/image',
+                'POST /media/stt',
+                'POST /media/tts',
+                'POST /media/video',
                 'POST /mgmt/keys',
                 'POST /mgmt/presets',
                 'PUT /connections/:id',
@@ -112,6 +123,12 @@ describe('built server/index.js', () => {
             expect((body as { models: unknown[] }).models).toHaveLength(SAMPLE_MODEL_COUNT);
             expect(fs.existsSync(path.join(globals.DATA_ROOT as string, '_nanovia', 'catalog.json'))).toBe(true);
 
+            // The media catalog is fetched from `NANOVIA_MEDIA` (the fake) and cached next to the chat catalog.
+            await routes.get('GET /media/catalog')!({ params: {}, query: { medium: 'tts' } }, res);
+            expect(body).toMatchObject({ medium: 'tts', source: 'live', models: expect.any(Array) });
+            expect((body as { models: { id: string }[] }).models.some((m) => m.id === 'Kokoro-82m')).toBe(true);
+            expect(fs.existsSync(path.join(globals.DATA_ROOT as string, '_nanovia', 'media-tts.json'))).toBe(true);
+
             await routes.get('GET /mgmt/status')!({ params: {}, query: {} }, res);
             expect(body).toEqual({ present: false, valid: null, checkedAt: null, error: null });
 
@@ -126,6 +143,8 @@ describe('built server/index.js', () => {
             else process.env['NANOVIA_PORT'] = previousPort;
             if (previousSite === undefined) delete process.env['NANOVIA_SITE'];
             else process.env['NANOVIA_SITE'] = previousSite;
+            if (previousMedia === undefined) delete process.env['NANOVIA_MEDIA'];
+            else process.env['NANOVIA_MEDIA'] = previousMedia;
             if (previousRoot === undefined) delete globals.DATA_ROOT;
             else globals.DATA_ROOT = previousRoot;
             await nano.close();
