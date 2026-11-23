@@ -131,6 +131,12 @@
     width: 28%;
 }
 
+/* The column heads sit over their inputs, not at the right edge of the cell. */
+.nanovia-mgmt-limits thead th {
+    text-align: left;
+    font-weight: normal;
+}
+
 .nanovia-mgmt-limits input {
     width: 100%;
     min-width: 0;

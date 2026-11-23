@@ -319,13 +319,26 @@ describe('buildKeyCreate', () => {
         const result = buildKeyCreate(form, NOW);
         expect(result.ok).toBe(false);
         if (result.ok) return;
-        expect(result.issues.map((issue) => issue.field).sort()).toEqual(['expiry']);
-        // The plugin's checks run once the form's own pass.
+        // The form's own check (the date) and the plugin's (the name, the range) are listed together.
+        expect(result.issues.map((issue) => issue.field).sort()).toEqual(['expiry', 'limits.usd.daily', 'name']);
+        form.name = 'Fine';
         form.expiry = '';
-        const second = buildKeyCreate(form, NOW);
-        expect(second.ok).toBe(false);
-        if (second.ok) return;
-        expect(second.issues.map((issue) => issue.field).sort()).toEqual(['limits.usd.daily', 'name']);
+        form.limits.usd.daily = '5';
+        expect(buildKeyCreate(form, NOW).ok).toBe(true);
+    });
+
+    it('an unreadable number does not hide the plugin’s verdict on the other fields', () => {
+        const original = key();
+        const form = keyFormFromKey(original);
+        form.limits.usd.daily = 'five';
+        form.limits.requests.daily = '10000001';
+        const result = buildKeyPatch(original, form, NOW);
+        expect(result.ok).toBe(false);
+        if (result.ok) return;
+        expect(result.issues.map((issue) => [issue.field, issue.code])).toEqual([
+            ['limits.usd.daily', 'number'],
+            ['limits.requests.daily', 'range'],
+        ]);
     });
 
     it('names the cell of a field the form knows', () => {

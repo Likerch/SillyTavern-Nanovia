@@ -368,6 +368,9 @@ describe('saving the token', () => {
         expect(text()).toContain('not answering');
         expect(text()).not.toContain('Save without checking');
         expect(input('Management token').value).toBe(TOKEN);
+        // The buttons follow the state, also after the handler that found the plugin gone has ended.
+        expect(button('Save').disabled).toBe(true);
+        expect(input('Management token').disabled).toBe(true);
         expectNoToken();
     });
 
@@ -546,21 +549,26 @@ describe('managed keys: editing limits', () => {
         await click('Save', form());
 
         const issues = form().querySelector('.nanovia-mgmt-issues')?.textContent ?? '';
+        // The form's own problems and the plugin's rules, all at once.
         expect(issues).toContain('USD, Per day: Not a number.');
         expect(issues).toContain('Expires on (UTC): Pick today or a later day.');
+        expect(issues).toContain('USD, Per week: Must be between 0 and 100');
+        expect(issues).toContain('Requests, Per day: Must be a whole number.');
         expect(fake().callsTo('PATCH')).toHaveLength(0);
-        expect(input('USD, Per day', form()).getAttribute('aria-invalid')).toBe('true');
-        expect(input('Expires on (UTC)', form()).getAttribute('aria-invalid')).toBe('true');
+        for (const label of ['USD, Per day', 'USD, Per week', 'Requests, Per day', 'Expires on (UTC)']) {
+            expect(input(label, form()).getAttribute('aria-invalid'), label).toBe('true');
+        }
+        expect(input('USD, Per month', form()).getAttribute('aria-invalid')).toBeNull();
         // What was typed stays for the next try.
         expect(input('USD, Per week', form()).value).toBe('100001');
 
-        type('USD, Per day', '', form());
+        type('USD, Per day', '1', form());
+        type('USD, Per week', '2', form());
+        type('Requests, Per day', '3', form());
         type('Expires on (UTC)', '', form());
         await click('Save', form());
-        const second = form().querySelector('.nanovia-mgmt-issues')?.textContent ?? '';
-        expect(second).toContain('USD, Per week: Must be between 0 and 100');
-        expect(second).toContain('Requests, Per day: Must be a whole number.');
-        expect(fake().callsTo('PATCH')).toHaveLength(0);
+        expect(fake().callsTo('PATCH')).toHaveLength(1);
+        expect(root.querySelector('.nanovia-mgmt-form')).toBeNull();
     });
 
     it('shows what the plugin or NanoGPT answers next to the buttons and keeps the form open', async () => {
@@ -650,12 +658,7 @@ describe('managed keys: creating', () => {
         const issues = form().querySelector('.nanovia-mgmt-issues')?.textContent ?? '';
         expect(issues).toContain('Expires on (UTC): Pick today or a later day.');
         expect(issues).toContain('USD, Per day: Not a number.');
-        type('Expires on (UTC)', '', form());
-        type('USD, Per day', '', form());
-        await click('Save', form());
-        expect(form().querySelector('.nanovia-mgmt-issues')?.textContent).toContain(
-            'Name: Must be 1 to 120 characters.',
-        );
+        expect(issues).toContain('Name: Must be 1 to 120 characters.');
         expect(fake().callsTo('POST /mgmt/keys')).toHaveLength(0);
     });
 

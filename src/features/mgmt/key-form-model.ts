@@ -159,11 +159,14 @@ export function buildKeyPatch(original: ManagedKey, form: KeyFormState, now: num
         }
     }
 
-    if (issues.length > 0) return { ok: false, unchanged: false, issues };
-    if (Object.keys(patch).length === 0) return { ok: false, unchanged: true, issues: [] };
+    if (Object.keys(patch).length === 0) {
+        return issues.length > 0 ? { ok: false, unchanged: false, issues } : { ok: false, unchanged: true, issues: [] };
+    }
+    // The form's own problems (a word in a number field, a past date) do not hide the plugin's rules: all are listed at once.
     const checked = sanitizeKeyLimitsPatch(patch);
-    if (!checked.ok) return { ok: false, unchanged: false, issues: checked.issues.map(formIssue) };
-    return { ok: true, patch: checked.value };
+    if (checked.ok && issues.length === 0) return { ok: true, patch: checked.value };
+    if (!checked.ok) issues.push(...checked.issues.map(formIssue));
+    return { ok: false, unchanged: false, issues };
 }
 
 export type KeyCreateResult = { ok: true; input: KeyCreateInput } | { ok: false; issues: FormIssue[] };
@@ -190,8 +193,8 @@ export function buildKeyCreate(form: KeyFormState, now: number): KeyCreateResult
         }
     }
 
-    if (issues.length > 0) return { ok: false, issues };
     const checked = sanitizeKeyCreateInput(input);
-    if (!checked.ok) return { ok: false, issues: checked.issues.map(formIssue) };
-    return { ok: true, input: checked.value };
+    if (checked.ok && issues.length === 0) return { ok: true, input: checked.value };
+    if (!checked.ok) issues.push(...checked.issues.map(formIssue));
+    return { ok: false, issues };
 }

@@ -98,26 +98,45 @@ export function createTokenSection(deps: SectionDeps): Section {
         } else notify('error', errorText(result.error, t));
     }
 
+    /**
+     * ui/button() enables a button again when its handler is done, whatever the tab's state says by then (the plugin may
+     * have stopped answering meanwhile): draw once more after the handler has finished.
+     */
+    function thenDraw(handler: () => Promise<void>): () => Promise<void> {
+        return async () => {
+            try {
+                await handler();
+            } finally {
+                setTimeout(draw, 0);
+            }
+        };
+    }
+
     const saveButton = button({
         label: t('mgmt.token.save'),
         icon: 'key',
         kind: 'primary',
-        onClick: () => save(false),
+        onClick: thenDraw(() => save(false)),
     });
-    const deleteButton = button({ label: t('mgmt.token.delete'), icon: 'trash', kind: 'danger', onClick: remove });
+    const deleteButton = button({
+        label: t('mgmt.token.delete'),
+        icon: 'trash',
+        kind: 'danger',
+        onClick: thenDraw(remove),
+    });
     const checkButton = button({
         label: t('mgmt.token.check'),
         icon: 'rotate',
         kind: 'ghost',
         title: t('mgmt.token.check.hint'),
-        onClick: async () => {
+        onClick: thenDraw(async () => {
             await ctx.mgmt.refreshStatus({ verify: true });
             const after = ctx.mgmt.detail();
             if (after.error) notify('error', errorText(after.error, t));
             else if (after.status?.valid === true) notify('ok', t('mgmt.token.check.valid'));
             else if (after.status?.valid === false) notify('error', t('mgmt.token.check.invalid'));
             else notify('warn', t('mgmt.token.check.unknown'));
-        },
+        }),
     });
 
     const guide = el('details', { class: 'nanovia-details nanovia-mgmt-guide' }, [

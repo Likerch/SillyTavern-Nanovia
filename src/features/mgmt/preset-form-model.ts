@@ -309,10 +309,11 @@ export function buildPreset(form: PresetFormState, options: { checkName: boolean
     const caching = enabled(form.promptCaching);
     raw['promptCaching'] = caching === null ? null : { enabled: caching, ttl: form.cacheTtl || null };
 
-    if (issues.length > 0) return { ok: false, issues };
+    // A field that could not be read is left out of `raw`, so the plugin's checks still run on the rest: all are listed at once.
     const checked = sanitizePresetInput(raw);
-    if (!checked.ok) return { ok: false, issues: checked.issues.map(formIssue) };
-    return { ok: true, name, input: checked.value };
+    if (checked.ok && issues.length === 0) return { ok: true, name, input: checked.value };
+    if (!checked.ok) issues.push(...checked.issues.map(formIssue));
+    return { ok: false, issues };
 }
 
 /** The POST body of a new preset. */
