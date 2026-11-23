@@ -1,16 +1,8 @@
 // Small types shared by the browser services (core), the UI and the features. Types only.
+import type { Logger, Unsubscribe } from '../host/types';
 import type { ApiStatus, ConnectionConfig } from '../shared/contracts';
 
-export type Unsubscribe = () => void;
-
-export interface Logger {
-    debug(...args: unknown[]): void;
-    info(...args: unknown[]): void;
-    warn(...args: unknown[]): void;
-    error(...args: unknown[]): void;
-    /** A logger whose lines carry `[Nanovia:<name>]`. */
-    scope(name: string): Logger;
-}
+export type { Logger, Unsubscribe };
 
 export type Locale = 'ru' | 'en';
 export type Dict = Record<string, string>;

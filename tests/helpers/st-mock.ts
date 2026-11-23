@@ -166,11 +166,11 @@ export function installStMock(): StMock {
     return mock;
 }
 
-/** A Connection Manager profile as ST keeps it. */
+/** Connection Manager's settings as ST keeps them, with the given profiles. */
 export function seedConnectionManager(
     mock: StMock,
     profiles: STConnectionProfile[] = [],
-): { profiles: STConnectionProfile[] } {
+): { profiles: STConnectionProfile[]; selectedProfile: string | null } {
     const manager = { profiles, selectedProfile: null as string | null };
     mock.extensionSettings['connectionManager'] = manager;
     return manager;
