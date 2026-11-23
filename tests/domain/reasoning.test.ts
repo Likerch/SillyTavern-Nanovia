@@ -229,6 +229,39 @@ describe("planReasoning: policy 'follow'", () => {
         expect(planReasoning(model, config('follow'), hints('medium')).reasoning).toEqual({ enabled: true });
         expect(planReasoning(model, config('follow'), hints('min')).reasoning).toEqual({ enabled: false });
     });
+
+    describe('a background consumer without a hint behaves as off', () => {
+        const background = (effort: string | null): RequestHints => ({
+            effort,
+            consumer: 'background',
+            thoughts: false,
+        });
+
+        it('switches reasoning off where the model allows it', () => {
+            const model = makeModel({ efforts: ['none', 'low', 'high'] });
+            expect(planReasoning(model, config('follow'), background(null)).reasoning).toEqual({ effort: 'none' });
+            expect(planReasoning(model, config('follow'), background('auto')).reasoning).toEqual({ effort: 'none' });
+        });
+
+        it('uses the lowest effort with hidden text and warns for a model that always reasons', () => {
+            const model = makeModel({ efforts: ['low', 'high', 'max'] });
+            const plan = planReasoning(model, config('follow'), background(null));
+            expect(plan.reasoning).toEqual({ effort: 'low', exclude: true });
+            expect(plan.warnings.map((w) => w.code)).toEqual(['reasoning.cannotDisable']);
+        });
+
+        it('still honours an explicit hint', () => {
+            const model = makeModel({ efforts: ['none', 'low', 'high'] });
+            expect(planReasoning(model, config('follow'), background('high')).reasoning).toEqual({ effort: 'high' });
+        });
+
+        it('does nothing for a main consumer or a model that does not reason', () => {
+            expect(planReasoning(makeModel(), config('follow'), hints(null)).reasoning).toBeNull();
+            expect(
+                planReasoning(makeModel({ reasoning: false }), config('follow'), background(null)).reasoning,
+            ).toBeNull();
+        });
+    });
 });
 
 describe('planReasoning: unknown model', () => {

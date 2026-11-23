@@ -48,11 +48,13 @@ export function planUpstream(input: UpstreamInput): UpstreamPlan {
             else body['provider'] = { zdr };
         }
     }
-    const provider = buildProviderObject(routing, {});
+    // A model on a fixed route ignores soft routing controls and answers 400 to hard ones it cannot meet: send only zdr.
+    const fixedRoute = input.providerSelection === false;
+    const provider = buildProviderObject(routing, { zdrOnly: fixedRoute });
     if (provider !== null) {
         body['provider'] = { ...(isRecord(body['provider']) ? body['provider'] : {}), ...provider };
     }
-    if (routing.enabled && routing.cachingRoute) body['caching'] = true;
+    if (!fixedRoute && routing.enabled && routing.cachingRoute) body['caching'] = true;
 
     const headers: Record<string, string> = {};
     if (connection.billing === 'paygo') {

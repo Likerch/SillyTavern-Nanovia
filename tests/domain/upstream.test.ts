@@ -377,11 +377,17 @@ describe('planUpstream: provider object', () => {
         expect(result.body['provider']).toEqual({ order: ['x'] });
     });
 
-    it('still sends routing to a model without provider selection (NanoGPT ignores it)', () => {
-        const result = plan({ routing: { order: ['a'] }, providerSelection: false });
-        expect(result.body['provider']).toEqual({ order: ['a'] });
+    it('sends no routing to a model on a fixed route (soft controls do nothing, hard ones answer 400)', () => {
+        const result = plan({ routing: { order: ['a'], cachingRoute: true }, providerSelection: false });
+        expect(result.body['provider']).toBeUndefined();
+        expect(result.body['caching']).toBeUndefined();
         expect(result.billing.markupPercent).toBe(0);
         expect(result.billing.reasons.map((r) => r.code)).toEqual(['routing.unsupportedByModel']);
+    });
+
+    it('keeps zdr for a model on a fixed route', () => {
+        const result = plan({ routing: { order: ['a'], zdr: true }, providerSelection: false });
+        expect(result.body['provider']).toEqual({ zdr: true });
     });
 });
 

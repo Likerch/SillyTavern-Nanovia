@@ -75,7 +75,8 @@ export function nearestEffort(wanted: ReasoningEffort, supported: string[]): str
  *   effort with the text excluded and the warning `reasoning.cannotDisable`; it has no efforts -> `{ enabled: false }`.
  * - 'fixed': `config.effort` mapped to a supported level (warning `reasoning.effortAdjusted` when it had to change);
  *   without an effort it behaves like 'default'.
- * - 'follow': the request's hint, normalised and mapped the same way; no (or 'auto') hint -> nothing.
+ * - 'follow': the request's hint, normalised and mapped the same way; no (or 'auto') hint -> nothing, except for a
+ *   'background' consumer, which then behaves as 'off'.
  * - A model that reasons but lists no efforts has no dial: 'none' becomes `{ enabled: false }`, anything else
  *   `{ enabled: true }`.
  * - An unknown model (null) gets the normalised effort as it is, with the warning `reasoning.modelUnknown`.
@@ -94,7 +95,10 @@ export function planReasoning(model: CatalogModel | null, config: ReasoningConfi
         params = config.effort === null ? null : planWanted(model, config.effort, warnings);
     } else {
         const hint = normalizeEffortHint(hints.effort);
-        params = hint === null || hint === 'auto' ? null : planWanted(model, hint, warnings);
+        if (hint !== null && hint !== 'auto') params = planWanted(model, hint, warnings);
+        // A background request (extraction, summaries, JSON tasks) that carries no effort must not spend its budget on
+        // thoughts: it behaves as 'off', like Maestro and the neighbours do on OpenRouter.
+        else params = hints.consumer === 'background' ? planOff(model, warnings) : null;
     }
     if (params === null) return nothing;
     if (config.hideThoughts) params.exclude = true;
