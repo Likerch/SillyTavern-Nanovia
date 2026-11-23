@@ -160,7 +160,7 @@ describe('proxy: chat completions, non-streamed', () => {
             consumer: 'background',
             error: null,
         });
-        expect(records[0].latencyMs).toBeGreaterThan(0);
+        expect(records[0]!.latencyMs).toBeGreaterThan(0);
     });
 
     it('strips neutral samplers by default and only those', async () => {
@@ -564,7 +564,7 @@ describe('proxy: pipeline wiring and safety', () => {
             const r = h.usage();
             return r.length > 0 && r;
         });
-        expect(record.billing).toBe('paygo');
+        expect(record!.billing).toBe('paygo');
     });
 
     it('lets a plan never override the authorization header', async () => {
