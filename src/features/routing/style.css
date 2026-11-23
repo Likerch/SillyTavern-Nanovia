@@ -1,0 +1,151 @@
+/* Tab «Routing». Shared pieces (chips, fields, buttons, notices) live in ui/style.css and features/connections. */
+
+.nanovia-routing-bar {
+    margin-bottom: var(--nanovia-gap-sm);
+}
+
+.nanovia-routing-bar > select {
+    flex: 1 1 14em;
+    min-width: 0;
+    margin: 0;
+}
+
+.nanovia-section {
+    margin: var(--nanovia-gap-sm) 0;
+    padding: 6px 10px 10px;
+    border: 1px solid var(--nanovia-border);
+    border-radius: var(--nanovia-radius);
+}
+
+.nanovia-section-title {
+    cursor: pointer;
+    font-weight: bold;
+    padding: 4px 0;
+}
+
+.nanovia-row-block {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: 6px 0;
+}
+
+.nanovia-locked {
+    opacity: 0.7;
+}
+
+.nanovia-bypass {
+    font-style: italic;
+}
+
+.nanovia-lock,
+.nanovia-warn-text {
+    color: var(--nanovia-warn);
+}
+
+.nanovia-invalid {
+    border-color: var(--nanovia-error);
+}
+
+.nanovia-pair {
+    flex-wrap: nowrap;
+}
+
+.nanovia-pair > input {
+    flex: 1 1 0;
+    min-width: 0;
+    margin: 0;
+}
+
+.nanovia-checks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px var(--nanovia-gap);
+}
+
+.nanovia-chiplist {
+    display: flex;
+    flex-direction: column;
+    gap: var(--nanovia-gap-sm);
+}
+
+.nanovia-chiplist-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--nanovia-gap-sm);
+}
+
+.nanovia-chiplist > input {
+    width: 100%;
+    margin: 0;
+    box-sizing: border-box;
+}
+
+.nanovia-chip-item {
+    gap: 4px;
+}
+
+.nanovia-chip-remove {
+    padding: 0 2px;
+    color: inherit;
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    font: inherit;
+}
+
+.nanovia-verdict {
+    display: flex;
+    flex-direction: column;
+    gap: var(--nanovia-gap-sm);
+    margin-top: var(--nanovia-gap-sm);
+    padding: 8px 10px;
+    border: 1px solid var(--nanovia-border);
+    border-radius: var(--nanovia-radius);
+    background: var(--nanovia-raised);
+}
+
+.nanovia-verdict-head {
+    align-items: center;
+}
+
+.nanovia-reasons,
+.nanovia-warnings {
+    margin: 0;
+    padding-left: 1.2em;
+    overflow-wrap: anywhere;
+}
+
+.nanovia-warnings > li {
+    color: var(--nanovia-warn);
+}
+
+.nanovia-stripped {
+    overflow-wrap: anywhere;
+}
+
+.nanovia-preview {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: var(--nanovia-gap-sm);
+}
+
+.nanovia-preview-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px var(--nanovia-gap);
+}
+
+.nanovia-preview-case {
+    min-width: 12em;
+}
+
+.nanovia-preview-result {
+    overflow-wrap: anywhere;
+}
+
+.nanovia-preview-warning {
+    flex-basis: 100%;
+}

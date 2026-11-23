@@ -20,13 +20,25 @@ export type { SecretWriteResult, SecretsHost } from './secrets';
 export {
     addIncludeBody,
     addIncludeHeaders,
-    directModeHook,
     hintsOf,
     inspectGenerateBody,
     installFetchHook,
     proxyHintsHook,
 } from './fetch-hook';
-export type { FetchHookHandle, GenerateRequest, RequestHook, RequestHooks, RequestTarget } from './fetch-hook';
+export type {
+    DirectRequestInfo,
+    FetchHookHandle,
+    GenerateRequest,
+    RequestHook,
+    RequestHooks,
+    RequestTarget,
+    ResponseInfo,
+    ResponseObserver,
+} from './fetch-hook';
+export { applyPlan, createDirectMode, matchDirectConnection, planDifference, planDirectRequest } from './direct-mode';
+export type { DirectConnectionRef, DirectMode, DirectModeDeps, DirectPlan, PlanDifference } from './direct-mode';
+export { errorOf, tapUsage } from './usage-tap';
+export type { UsageTapArgs } from './usage-tap';
 export { isNanoGptUrl, parseProxyUrl } from './targets';
 export type { Logger, Unsubscribe } from './types';
 

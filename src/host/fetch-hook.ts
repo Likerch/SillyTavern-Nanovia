@@ -6,11 +6,15 @@
 // - Only POSTs of a string body to `/api/backends/chat-completions/generate` are looked at; everything else passes
 //   through untouched, and a failing hook never breaks a request.
 // - Hooks mutate the parsed JSON body; the body is re-serialised only when a hook actually changed it.
+// - Response observers see the answer to such a request; they may only read a `clone()` (the response ST gets is the
+//   original, untouched).
+// - The original fetch is always called with the window as `this` (a property call throws "Illegal invocation").
 import { HINT_HEADERS } from '../shared/constants';
 import type { RequestHints } from '../shared/contracts';
 import { isNanoGptUrl, parseProxyUrl } from './targets';
 import type { Logger, Unsubscribe } from './types';
 import { mergeYamlEntries } from './yaml-merge';
+import type { YamlMergeResult } from './yaml-merge';
 
 export const GENERATE_PATH = '/api/backends/chat-completions/generate';
 
@@ -19,6 +23,17 @@ export type RequestTarget =
     | { kind: 'proxy'; connectionId: string; port: number }
     /** The Custom source points at NanoGPT itself (a direct-mode profile). */
     | { kind: 'direct' };
+
+/** What the direct-mode hook decided about a request; the usage tap reads it when the answer comes back. */
+export interface DirectRequestInfo {
+    connectionId: string;
+    /** The model id that was sent (suffixes included). */
+    modelId: string;
+    /** The connection forces pay-as-you-go (`X-Billing-Mode: paygo`). */
+    billingModeForced: boolean;
+    /** The request names providers explicitly (pay-as-you-go plus markup). */
+    explicitRouting: boolean;
+}
 
 export interface GenerateRequest {
     /** The parsed JSON body of the request. Mutate it; the wrapper re-serialises it when it changed. */
@@ -30,9 +45,22 @@ export interface GenerateRequest {
     /** 'main' for the chat generation, 'background' for extension requests. */
     consumer: RequestHints['consumer'];
     log: Logger;
+    /** Set by the direct-mode hook when the request belongs to a direct Nanovia connection. */
+    direct?: DirectRequestInfo;
 }
 
 export type RequestHook = (request: GenerateRequest) => void | Promise<void>;
+
+/** What a response observer is told: the request as the hooks left it, and the answer of the backend. */
+export interface ResponseInfo {
+    request: GenerateRequest;
+    /** The response ST receives. Observers must `clone()` it before reading and never read this one. */
+    response: Response;
+    /** `Date.now()` when the request was handed to the real fetch. */
+    startedAt: number;
+}
+
+export type ResponseObserver = (info: ResponseInfo) => void | Promise<void>;
 
 export interface RequestHooks {
     /** Hooks run in registration order. Returns the function that removes the hook. */
@@ -40,7 +68,12 @@ export interface RequestHooks {
 }
 
 export interface FetchHookHandle extends RequestHooks {
-    /** Removes the wrapper (when it is still the outermost one) and every hook. */
+    /**
+     * Observers run (in registration order) as soon as the response of a hooked generate request is there, before ST
+     * gets it. They must be quick and read only a `clone()` of the response. Returns the remover.
+     */
+    observe(observer: ResponseObserver): Unsubscribe;
+    /** Removes the wrapper (when it is still the outermost one) and every hook and observer. */
     uninstall(): void;
     hookCount(): number;
 }
@@ -51,6 +84,7 @@ interface HookState {
     original: FetchFn;
     wrapper: FetchFn;
     hooks: Set<RequestHook>;
+    observers: Set<ResponseObserver>;
     active: boolean;
     log: Logger;
 }
@@ -96,24 +130,28 @@ function mergeInto(
     field: string,
     entries: Record<string, unknown>,
     ignoreCase: boolean,
-): void {
+): YamlMergeResult {
     const current = request.body[field];
     const result = mergeYamlEntries(typeof current === 'string' ? current : '', entries, { ignoreCase });
     if (!result.ok) {
         request.log.debug(`${field} left alone: ${result.reason}`);
-        return;
+        return result;
     }
     if (result.added.length > 0) request.body[field] = result.text;
+    return result;
 }
 
-/** Adds headers through `custom_include_headers`; entries the user already set (any case) stay as they are. */
-export function addIncludeHeaders(request: GenerateRequest, headers: Record<string, string>): void {
-    mergeInto(request, 'custom_include_headers', headers, true);
+/**
+ * Adds headers through `custom_include_headers`; entries the user already set (any case) stay as they are. The result
+ * says which entries were `added`, which `kept` (the user's own), or why nothing could be done.
+ */
+export function addIncludeHeaders(request: GenerateRequest, headers: Record<string, string>): YamlMergeResult {
+    return mergeInto(request, 'custom_include_headers', headers, true);
 }
 
-/** Adds body fields through `custom_include_body`; fields the user already set stay as they are. */
-export function addIncludeBody(request: GenerateRequest, fields: Record<string, unknown>): void {
-    mergeInto(request, 'custom_include_body', fields, false);
+/** Adds body fields through `custom_include_body`; fields the user already set stay as they are. Result as above. */
+export function addIncludeBody(request: GenerateRequest, fields: Record<string, unknown>): YamlMergeResult {
+    return mergeInto(request, 'custom_include_body', fields, false);
 }
 
 /** Proxy mode: tells the proxy what ST knew (effort, main/background, show-thoughts) through hint headers. */
@@ -124,12 +162,6 @@ export const proxyHintsHook: RequestHook = (request) => {
     if (hints.effort) headers[HINT_HEADERS.effort] = hints.effort;
     if (hints.thoughts) headers[HINT_HEADERS.thoughts] = '1';
     addIncludeHeaders(request, headers);
-};
-
-/** Direct mode: stage 0.2 fills this with the plan of `planUpstream()` (body and headers through the include fields). */
-export const directModeHook: RequestHook = (request) => {
-    if (request.target?.kind !== 'direct') return;
-    request.log.debug('direct-mode request seen; planning arrives with stage 0.2');
 };
 
 function urlOf(input: RequestInfo | URL): string {
@@ -155,21 +187,30 @@ function isGenerateUrl(raw: string, scope: Scope): boolean {
     }
 }
 
+interface Patched {
+    /** The init to send; undefined = the caller's own. */
+    init: RequestInit | undefined;
+    /** The request the hooks saw; null when this was not a hooked generate request. */
+    request: GenerateRequest | null;
+}
+
+const UNTOUCHED: Patched = { init: undefined, request: null };
+
 async function patchInit(
     state: HookState,
     scope: Scope,
     input: RequestInfo | URL,
     init: RequestInit | undefined,
-): Promise<RequestInit | undefined> {
-    if (state.hooks.size === 0 || typeof init?.body !== 'string') return undefined;
-    if (methodOf(input, init) !== 'POST' || !isGenerateUrl(urlOf(input), scope)) return undefined;
+): Promise<Patched> {
+    if (state.hooks.size === 0 || typeof init?.body !== 'string') return UNTOUCHED;
+    if (methodOf(input, init) !== 'POST' || !isGenerateUrl(urlOf(input), scope)) return UNTOUCHED;
     let body: unknown;
     try {
         body = JSON.parse(init.body);
     } catch {
-        return undefined;
+        return UNTOUCHED;
     }
-    if (!isRecord(body)) return undefined;
+    if (!isRecord(body)) return UNTOUCHED;
     const before = JSON.stringify(body);
     const request: GenerateRequest = { body, ...inspectGenerateBody(body), log: state.log };
     for (const hook of [...state.hooks]) {
@@ -181,7 +222,22 @@ async function patchInit(
         }
     }
     const after = JSON.stringify(request.body);
-    return after === before ? undefined : { ...init, body: after };
+    return { init: after === before ? undefined : { ...init, body: after }, request };
+}
+
+/** Tells the observers about a response. Nothing an observer does (or throws) reaches the caller of fetch. */
+function notifyObservers(state: HookState, request: GenerateRequest, response: Response, startedAt: number): void {
+    for (const observer of [...state.observers]) {
+        if (!state.observers.has(observer)) continue;
+        try {
+            const result = observer({ request, response, startedAt });
+            if (result instanceof Promise) {
+                result.catch((error: unknown) => state.log.debug('a response observer failed', error));
+            }
+        } catch (error) {
+            state.log.debug('a response observer failed', error);
+        }
+    }
 }
 
 /**
@@ -202,21 +258,30 @@ export function installFetchHook(log: Logger, scope: typeof globalThis = globalT
         const created: HookState = {
             original,
             hooks: new Set(),
+            observers: new Set(),
             active: true,
             log,
             wrapper: undefined as unknown as FetchFn,
         };
         created.wrapper = async (input, init) => {
             let effective = init;
+            let hooked: GenerateRequest | null = null;
             if (created.active) {
                 try {
-                    effective = (await patchInit(created, holder, input, init)) ?? init;
+                    const patched = await patchInit(created, holder, input, init);
+                    effective = patched.init ?? init;
+                    hooked = patched.request;
                 } catch (error) {
                     created.log.warn('request hooks failed; the request goes on as it was', error);
                 }
             }
+            const startedAt = Date.now();
             // Called as a method of `created` the browser's fetch throws 'Illegal invocation': it must see the window as `this`.
-            return created.original.call(scope, input, effective);
+            const response = await created.original.call(scope, input, effective);
+            if (hooked && created.active && created.observers.size > 0) {
+                notifyObservers(created, hooked, response, startedAt);
+            }
+            return response;
         };
         holder.fetch = created.wrapper as unknown as typeof fetch;
         holder[STATE_KEY] = created;
@@ -230,9 +295,16 @@ export function installFetchHook(log: Logger, scope: typeof globalThis = globalT
                 state.hooks.delete(hook);
             };
         },
+        observe(observer: ResponseObserver): Unsubscribe {
+            state.observers.add(observer);
+            return () => {
+                state.observers.delete(observer);
+            };
+        },
         hookCount: () => state.hooks.size,
         uninstall(): void {
             state.hooks.clear();
+            state.observers.clear();
             state.active = false;
             if (holder.fetch === (state.wrapper as unknown)) holder.fetch = state.original as unknown as typeof fetch;
             if (holder[STATE_KEY] === state) delete holder[STATE_KEY];

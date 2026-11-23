@@ -20,8 +20,8 @@ import {
     createPluginAccount,
     createPluginClient,
     createProfilesHost,
+    createDirectMode,
     createSecretsHost,
-    directModeHook,
     installFetchHook,
     proxyHintsHook,
 } from '../host';
@@ -71,7 +71,6 @@ export async function startNanovia(options: StartOptions = {}): Promise<Runtime>
     const bus = createBus(log.scope('bus'));
     const requests = installFetchHook(log.scope('request'));
     requests.register(proxyHintsHook);
-    requests.register(directModeHook);
 
     const plugin = createPluginClient({ ctx: host.ctx, log: log.scope('plugin') });
     const profiles = createProfilesHost({ ctx: host.ctx, events: host.events, log: log.scope('profiles') });
@@ -129,7 +128,22 @@ export async function startNanovia(options: StartOptions = {}): Promise<Runtime>
         log,
     } satisfies FeatureContext);
 
-    const owned: Unsubscribe[] = [() => usage.dispose()];
+    // Direct mode: plans requests of direct connections and watches their usage. It reads the catalog through ctx, so a
+    // catalog that is wired in later is picked up without changes here.
+    const directMode = createDirectMode({
+        connections: () =>
+            connections.list().map((entry) => ({ config: entry.config, effectiveMode: entry.effectiveMode })),
+        directSecrets: () => settings.get().directSecrets,
+        model: (id) => ctx.catalog.model(id),
+        providers: (id) => ctx.catalog.providers(id),
+        emit: (record) => void bus.emit('usage:record', { record }),
+        log: log.scope('direct'),
+    });
+    const owned: Unsubscribe[] = [
+        () => usage.dispose(),
+        requests.register(directMode.hook),
+        requests.observe(directMode.observer),
+    ];
     owned.push(panel.registerTab(generalTab<FeatureContext>({ settings, i18n, version: NANOVIA_VERSION })));
 
     const running: Feature[] = [];
