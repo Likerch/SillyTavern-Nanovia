@@ -1,0 +1,11 @@
+{
+ "canonicalId": "mock/no-selection",
+ "supportsProviderSelection": false,
+ "providerDetails": [],
+ "message": "This model does not support provider selection",
+ "defaultPrice": {
+  "inputPer1kTokens": 0.0004,
+  "outputPer1kTokens": 0.0018,
+  "cacheReadInputPer1kTokens": 0.0004
+ }
+}

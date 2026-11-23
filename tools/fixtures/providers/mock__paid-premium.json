@@ -1,0 +1,105 @@
+{
+ "canonicalId": "mock/paid-premium",
+ "displayName": "Mock Paid Premium",
+ "supportsProviderSelection": true,
+ "defaultPrice": {
+  "inputPer1kTokens": 0.005,
+  "outputPer1kTokens": 0.025,
+  "cacheReadInputPer1kTokens": 0.0005
+ },
+ "autoPricing": {
+  "zdr": {
+   "inputPer1kTokens": 0.005,
+   "outputPer1kTokens": 0.025,
+   "cacheReadInputPer1kTokens": 0.0005
+  },
+  "anonymized": {
+   "inputPer1kTokens": 0.005,
+   "outputPer1kTokens": 0.025,
+   "cacheReadInputPer1kTokens": 0.0005
+  }
+ },
+ "providers": [
+  {
+   "provider": "mock-cheap",
+   "displayName": "MOCK-CHEAP",
+   "pricing": {
+    "inputPer1kTokens": 0.0025,
+    "outputPer1kTokens": 0.0125,
+    "cacheReadInputPer1kTokens": 0.00002
+   },
+   "available": true,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 131072,
+   "maxOutputTokens": 16384,
+   "quantization": "int4",
+   "tps": 60,
+   "ttftMs": 2400,
+   "cacheReadRate": 0.5,
+   "privacy": {
+    "classification": "zdr",
+    "retainsPrompts": false,
+    "training": false
+   },
+   "region": {
+    "code": "US",
+    "label": "United States"
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "promptCaching": true
+   },
+   "uptime": {
+    "uptimePct": 98.5,
+    "failures": {
+     "rateLimitedPct": 0,
+     "errorPct": 1.5
+    },
+    "windowHours": 72
+   }
+  },
+  {
+   "provider": "mock-precise",
+   "displayName": "MOCK-PRECISE",
+   "pricing": {
+    "inputPer1kTokens": 0.0075,
+    "outputPer1kTokens": 0.0375,
+    "cacheReadInputPer1kTokens": 0.000059999999999999995
+   },
+   "available": true,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 131072,
+   "maxOutputTokens": 16384,
+   "quantization": "bf16",
+   "tps": 95,
+   "ttftMs": 1500,
+   "cacheReadRate": 0.5,
+   "privacy": {
+    "classification": "zdr",
+    "retainsPrompts": false,
+    "training": false
+   },
+   "region": {
+    "code": "US",
+    "label": "United States"
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "promptCaching": true
+   },
+   "uptime": {
+    "uptimePct": 99.9,
+    "failures": {
+     "rateLimitedPct": 0,
+     "errorPct": 0.09999999999999432
+    },
+    "windowHours": 72
+   }
+  }
+ ],
+ "autoTps": 110,
+ "autoTtftMs": 1400,
+ "autoCacheReadRate": 0.5
+}

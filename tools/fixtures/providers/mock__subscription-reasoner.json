@@ -1,0 +1,180 @@
+{
+ "canonicalId": "mock/subscription-reasoner",
+ "displayName": "Mock Subscription Reasoner",
+ "supportsProviderSelection": true,
+ "defaultPrice": {
+  "inputPer1kTokens": 0.0002,
+  "outputPer1kTokens": 0.0008,
+  "cacheReadInputPer1kTokens": 0.00002
+ },
+ "autoPricing": {
+  "zdr": {
+   "inputPer1kTokens": 0.0002,
+   "outputPer1kTokens": 0.0008,
+   "cacheReadInputPer1kTokens": 0.00002
+  },
+  "anonymized": {
+   "inputPer1kTokens": 0.0002,
+   "outputPer1kTokens": 0.0008,
+   "cacheReadInputPer1kTokens": 0.00002
+  }
+ },
+ "providers": [
+  {
+   "provider": "mock-fast",
+   "displayName": "MOCK-FAST",
+   "pricing": {
+    "inputPer1kTokens": 0.0002,
+    "outputPer1kTokens": 0.0008,
+    "cacheReadInputPer1kTokens": 0.00004
+   },
+   "available": true,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 131072,
+   "maxOutputTokens": 16384,
+   "quantization": "fp8",
+   "tps": 180,
+   "ttftMs": 700,
+   "cacheReadRate": 0.5,
+   "privacy": {
+    "classification": "zdr",
+    "retainsPrompts": false,
+    "training": false
+   },
+   "region": {
+    "code": "US",
+    "label": "United States"
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "promptCaching": true
+   },
+   "uptime": {
+    "uptimePct": 99.9,
+    "failures": {
+     "rateLimitedPct": 0,
+     "errorPct": 0.09999999999999432
+    },
+    "windowHours": 72
+   }
+  },
+  {
+   "provider": "mock-cheap",
+   "displayName": "MOCK-CHEAP",
+   "pricing": {
+    "inputPer1kTokens": 0.0001,
+    "outputPer1kTokens": 0.0004,
+    "cacheReadInputPer1kTokens": 0.00002
+   },
+   "available": true,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 131072,
+   "maxOutputTokens": 16384,
+   "quantization": "int4",
+   "tps": 60,
+   "ttftMs": 2400,
+   "cacheReadRate": 0.5,
+   "privacy": {
+    "classification": "zdr",
+    "retainsPrompts": false,
+    "training": false
+   },
+   "region": {
+    "code": "US",
+    "label": "United States"
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "promptCaching": true
+   },
+   "uptime": {
+    "uptimePct": 98.5,
+    "failures": {
+     "rateLimitedPct": 0,
+     "errorPct": 1.5
+    },
+    "windowHours": 72
+   }
+  },
+  {
+   "provider": "mock-precise",
+   "displayName": "MOCK-PRECISE",
+   "pricing": {
+    "inputPer1kTokens": 0.0003,
+    "outputPer1kTokens": 0.0012,
+    "cacheReadInputPer1kTokens": 0.000059999999999999995
+   },
+   "available": true,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 131072,
+   "maxOutputTokens": 16384,
+   "quantization": "bf16",
+   "tps": 95,
+   "ttftMs": 1500,
+   "cacheReadRate": 0.5,
+   "privacy": {
+    "classification": "zdr",
+    "retainsPrompts": false,
+    "training": false
+   },
+   "region": {
+    "code": "US",
+    "label": "United States"
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "promptCaching": true
+   },
+   "uptime": {
+    "uptimePct": 99.9,
+    "failures": {
+     "rateLimitedPct": 0,
+     "errorPct": 0.09999999999999432
+    },
+    "windowHours": 72
+   }
+  },
+  {
+   "provider": "mock-silent",
+   "displayName": "MOCK-SILENT",
+   "pricing": {
+    "inputPer1kTokens": 0.00025,
+    "outputPer1kTokens": 0.001,
+    "cacheReadInputPer1kTokens": 0.00005
+   },
+   "available": true,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 131072,
+   "maxOutputTokens": 16384,
+   "cacheReadRate": 0.5,
+   "privacy": {
+    "classification": "zdr",
+    "retainsPrompts": false,
+    "training": false
+   },
+   "region": {
+    "code": "US",
+    "label": "United States"
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "promptCaching": true
+   },
+   "uptime": {
+    "uptimePct": 100,
+    "failures": {
+     "rateLimitedPct": 0,
+     "errorPct": 0
+    },
+    "windowHours": 72
+   }
+  }
+ ],
+ "autoTps": 110,
+ "autoTtftMs": 1400,
+ "autoCacheReadRate": 0.5
+}

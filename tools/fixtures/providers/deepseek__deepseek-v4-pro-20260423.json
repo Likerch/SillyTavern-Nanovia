@@ -1,0 +1,14 @@
+{
+ "canonicalId": "deepseek/deepseek-v4-pro-20260423",
+ "supportsProviderSelection": false,
+ "message": "This model does not support provider selection",
+ "defaultPrice": {
+  "inputPer1kTokens": 0.00086979,
+  "outputPer1kTokens": 0.00177565,
+  "cacheReadInputPer1kTokens": 0.0000796
+ },
+ "autoTps": 43.6,
+ "autoTtftMs": 2955,
+ "autoCacheReadRate": 0.8032,
+ "providerDetails": []
+}

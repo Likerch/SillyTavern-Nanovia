@@ -1,0 +1,4530 @@
+{
+  "object": "list",
+  "data": [
+    {
+      "id": "deepseek/deepseek-v4.1-flash",
+      "object": "model",
+      "created": 1788825600,
+      "owned_by": "deepseek",
+      "name": "DeepSeek V4.1 Flash",
+      "description": "DeepSeek V4.1 Flash supports text and image input, reasoning, tool calling, and structured output with a 1M-token context window. This is a rate-limited beta with limited capacity, intended for testing rather than production use.",
+      "context_length": 1048576,
+      "max_output_tokens": 384000,
+      "architecture": {
+        "modality": "text+image->text",
+        "input_modalities": [
+          "text",
+          "image"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": true,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": true,
+        "pdf_upload": false,
+        "batch_api": true
+      },
+      "open_weights": true,
+      "reasoning_efforts": [
+        "none",
+        "low",
+        "high",
+        "max"
+      ],
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [
+        "/v1/chat/completions"
+      ],
+      "pricing": {
+        "prompt": 0.0387,
+        "completion": 0.4,
+        "cacheReadInputPer1kTokens": 0.0000089,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "effective_pricing": {
+        "list_price": {
+          "inputPer1kTokens": 0.0000387,
+          "outputPer1kTokens": 0.0004,
+          "cacheReadInputPer1kTokens": 0.0000089
+        },
+        "effective_price": {
+          "inputPer1kTokens": 0.0000387,
+          "outputPer1kTokens": 0.0004,
+          "cacheReadInputPer1kTokens": 0.0000089
+        },
+        "pricing_type": "static",
+        "currency": "USD",
+        "unit": "per_1k_tokens",
+        "discount_percentage": 0,
+        "valid_from": "2026-11-12T09:20:00.000Z",
+        "source": "registry",
+        "updated_at": "2026-11-12T09:20:00.000Z"
+      },
+      "cost_estimate": 0.00052,
+      "icon_url": "/icons/DeepSeek.svg",
+      "providers": [
+        "pareto",
+        "river",
+        "crusoe",
+        "netra",
+        "runware",
+        "deepinfra",
+        "venice",
+        "siliconflow",
+        "modal",
+        "parasail",
+        "together",
+        "alibaba",
+        "baseten",
+        "coreweave",
+        "nebius",
+        "fireworks",
+        "google",
+        "mancer",
+        "uomi",
+        "heabsy",
+        "streamlake",
+        "baidu",
+        "wafer",
+        "scx",
+        "ollama",
+        "reka",
+        "pearl",
+        "autoloops",
+        "relace",
+        "runanywhere",
+        "runanywhere-fast",
+        "engy",
+        "mixlayer"
+      ],
+      "subscription": {
+        "included": true,
+        "inputTokenMultiplier": 1,
+        "note": "Included in subscription"
+      }
+    },
+    {
+      "id": "deepseek/deepseek-v4.1-flash:thinking",
+      "object": "model",
+      "created": 1788825600,
+      "owned_by": "deepseek",
+      "name": "DeepSeek V4.1 Flash Thinking",
+      "description": "DeepSeek V4.1 Flash supports text and image input, reasoning, tool calling, and structured output with a 1M-token context window. This is a rate-limited beta with limited capacity, intended for testing rather than production use.",
+      "context_length": 1048576,
+      "max_output_tokens": 384000,
+      "architecture": {
+        "modality": "text+image->text",
+        "input_modalities": [
+          "text",
+          "image"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": true,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": true,
+        "pdf_upload": false,
+        "batch_api": true
+      },
+      "open_weights": true,
+      "reasoning_efforts": [
+        "none",
+        "low",
+        "high",
+        "max"
+      ],
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [
+        "/v1/chat/completions"
+      ],
+      "pricing": {
+        "prompt": 0.0387,
+        "completion": 0.4,
+        "cacheReadInputPer1kTokens": 0.0000089,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "effective_pricing": {
+        "list_price": {
+          "inputPer1kTokens": 0.0000387,
+          "outputPer1kTokens": 0.0004,
+          "cacheReadInputPer1kTokens": 0.0000089
+        },
+        "effective_price": {
+          "inputPer1kTokens": 0.0000387,
+          "outputPer1kTokens": 0.0004,
+          "cacheReadInputPer1kTokens": 0.0000089
+        },
+        "pricing_type": "static",
+        "currency": "USD",
+        "unit": "per_1k_tokens",
+        "discount_percentage": 0,
+        "valid_from": "2026-11-12T09:20:00.000Z",
+        "source": "registry",
+        "updated_at": "2026-11-12T09:20:00.000Z"
+      },
+      "cost_estimate": 0.00052,
+      "icon_url": "/icons/DeepSeek.svg",
+      "providers": [
+        "pareto",
+        "river",
+        "crusoe",
+        "netra",
+        "runware",
+        "deepinfra",
+        "venice",
+        "siliconflow",
+        "modal",
+        "parasail",
+        "together",
+        "alibaba",
+        "baseten",
+        "coreweave",
+        "nebius",
+        "fireworks",
+        "google",
+        "mancer",
+        "uomi",
+        "heabsy",
+        "streamlake",
+        "baidu",
+        "wafer",
+        "scx",
+        "ollama",
+        "reka",
+        "pearl",
+        "autoloops",
+        "relace",
+        "runanywhere",
+        "runanywhere-fast",
+        "engy",
+        "mixlayer"
+      ],
+      "subscription": {
+        "included": true,
+        "inputTokenMultiplier": 1,
+        "note": "Included in subscription"
+      }
+    },
+    {
+      "id": "deepseek/deepseek-v4.1-flash-1017",
+      "object": "model",
+      "created": 1792195200,
+      "owned_by": "deepseek",
+      "name": "DeepSeek V4.1 Flash 1017",
+      "description": "The October 17, 2026 snapshot of DeepSeek V4.1 Flash supports text and image input, tool calling, and optional reasoning with low, high, and max effort. It has a shared 1,048,576-token context window and supports up to 393,216 output tokens within the remaining context. Released under the MIT license.",
+      "context_length": 1048576,
+      "max_output_tokens": 393216,
+      "architecture": {
+        "modality": "text+image->text",
+        "input_modalities": [
+          "text",
+          "image"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": true,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": true,
+        "pdf_upload": false,
+        "batch_api": true
+      },
+      "open_weights": true,
+      "reasoning_efforts": [
+        "none",
+        "low",
+        "high",
+        "max"
+      ],
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [
+        "/v1/chat/completions"
+      ],
+      "pricing": {
+        "prompt": 0.1,
+        "completion": 0.6,
+        "cacheReadInputPer1kTokens": 0.0000042,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.00075,
+      "icon_url": "/icons/DeepSeek.svg",
+      "effective_pricing": {
+        "list_price": {
+          "inputPer1kTokens": 0.0001,
+          "outputPer1kTokens": 0.0006,
+          "cacheReadInputPer1kTokens": 0.0000042
+        },
+        "effective_price": {
+          "inputPer1kTokens": 0.0001,
+          "outputPer1kTokens": 0.0006,
+          "cacheReadInputPer1kTokens": 0.0000042
+        },
+        "pricing_type": "static",
+        "currency": "USD",
+        "unit": "per_1k_tokens",
+        "discount_percentage": 0,
+        "source": "registry"
+      },
+      "providers": [
+        "neuralwatt",
+        "inceptron",
+        "river",
+        "coreweave",
+        "ambient",
+        "pearl-research",
+        "fiftyx",
+        "heabsy",
+        "deepinfra",
+        "runinfra",
+        "tensorix",
+        "alibaba",
+        "parasail",
+        "wafer",
+        "cloudflare",
+        "deepseek",
+        "baseten",
+        "relace",
+        "primeintellect",
+        "crusoe",
+        "together",
+        "siliconflow",
+        "reka",
+        "baidu",
+        "modal",
+        "nebius",
+        "streamlake",
+        "venice",
+        "morph",
+        "sailresearch-standard",
+        "runware",
+        "uomi",
+        "scx",
+        "kitani",
+        "entrim",
+        "pearl",
+        "coralbricks",
+        "coralbricks-standard",
+        "munito",
+        "runanywhere",
+        "discretestack",
+        "openscale"
+      ],
+      "subscription": {
+        "included": true,
+        "inputTokenMultiplier": 1,
+        "note": "Included in subscription"
+      }
+    },
+    {
+      "id": "deepseek/deepseek-v4.1-flash-1017:thinking",
+      "object": "model",
+      "created": 1792195200,
+      "owned_by": "deepseek",
+      "name": "DeepSeek V4.1 Flash 1017 Thinking",
+      "description": "The October 17, 2026 snapshot of DeepSeek V4.1 Flash supports text and image input, tool calling, and optional reasoning with low, high, and max effort. It has a shared 1,048,576-token context window and supports up to 393,216 output tokens within the remaining context. Released under the MIT license.",
+      "context_length": 1048576,
+      "max_output_tokens": 393216,
+      "architecture": {
+        "modality": "text+image->text",
+        "input_modalities": [
+          "text",
+          "image"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": true,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": true,
+        "pdf_upload": false,
+        "batch_api": true
+      },
+      "open_weights": true,
+      "reasoning_efforts": [
+        "none",
+        "low",
+        "high",
+        "max"
+      ],
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [
+        "/v1/chat/completions"
+      ],
+      "pricing": {
+        "prompt": 0.1,
+        "completion": 0.6,
+        "cacheReadInputPer1kTokens": 0.0000042,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.00075,
+      "icon_url": "/icons/DeepSeek.svg",
+      "effective_pricing": {
+        "list_price": {
+          "inputPer1kTokens": 0.0001,
+          "outputPer1kTokens": 0.0006,
+          "cacheReadInputPer1kTokens": 0.0000042
+        },
+        "effective_price": {
+          "inputPer1kTokens": 0.0001,
+          "outputPer1kTokens": 0.0006,
+          "cacheReadInputPer1kTokens": 0.0000042
+        },
+        "pricing_type": "static",
+        "currency": "USD",
+        "unit": "per_1k_tokens",
+        "discount_percentage": 0,
+        "source": "registry"
+      },
+      "providers": [
+        "neuralwatt",
+        "inceptron",
+        "river",
+        "coreweave",
+        "ambient",
+        "pearl-research",
+        "fiftyx",
+        "heabsy",
+        "deepinfra",
+        "runinfra",
+        "tensorix",
+        "alibaba",
+        "parasail",
+        "wafer",
+        "cloudflare",
+        "deepseek",
+        "baseten",
+        "relace",
+        "primeintellect",
+        "crusoe",
+        "together",
+        "siliconflow",
+        "reka",
+        "baidu",
+        "modal",
+        "nebius",
+        "streamlake",
+        "venice",
+        "morph",
+        "sailresearch-standard",
+        "runware",
+        "uomi",
+        "scx",
+        "kitani",
+        "entrim",
+        "pearl",
+        "coralbricks",
+        "coralbricks-standard",
+        "munito",
+        "runanywhere",
+        "discretestack",
+        "openscale"
+      ],
+      "subscription": {
+        "included": true,
+        "inputTokenMultiplier": 1,
+        "note": "Included in subscription"
+      }
+    },
+    {
+      "id": "deepseek/deepseek-v4-pro-0813",
+      "object": "model",
+      "created": 1786492800,
+      "owned_by": "deepseek",
+      "name": "DeepSeek V4 Pro 0813",
+      "description": "DeepSeek V4 Pro 0813 is the general-availability release of DeepSeek V4 Pro, built for coding, tool use, cybersecurity, automation, and long-horizon agent workflows. DeepSeek reports strong gains over the preview and scores above Opus 4.8 on Terminal Bench 2.1, Cybergym, DeepSWE, and AutomationBench. It supports a 1M-token context window.",
+      "context_length": 1048576,
+      "max_output_tokens": 384000,
+      "architecture": {
+        "modality": "text->text",
+        "input_modalities": [
+          "text"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": false,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": true,
+        "pdf_upload": false,
+        "batch_api": true
+      },
+      "open_weights": true,
+      "reasoning_efforts": [
+        "none",
+        "low",
+        "high",
+        "max"
+      ],
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [
+        "/v1/chat/completions"
+      ],
+      "pricing": {
+        "prompt": 0.66,
+        "completion": 2.5,
+        "cacheReadInputPer1kTokens": 0.00004,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.0053,
+      "icon_url": "/icons/DeepSeek.svg",
+      "providers": [
+        "deepseek",
+        "coreweave",
+        "deepinfra",
+        "siliconflow",
+        "baidu",
+        "baseten",
+        "together",
+        "parasail",
+        "streamlake",
+        "venice",
+        "tensorix",
+        "relace",
+        "nebius",
+        "wafer",
+        "kitani",
+        "ollama",
+        "pearl",
+        "inworld"
+      ],
+      "subscription": {
+        "included": true,
+        "inputTokenMultiplier": 2,
+        "note": "Included in subscription (uses 2x input tokens)"
+      }
+    },
+    {
+      "id": "deepseek/deepseek-v4-pro-20260423",
+      "object": "model",
+      "created": 1776988800,
+      "owned_by": "deepseek",
+      "name": "DeepSeek V4 Pro (April preview)",
+      "description": "DeepSeek V4 Pro April preview (2026-04-23), the first V4 Pro checkpoint: a large-scale Mixture-of-Experts model with a 1M-token context window for reasoning, coding, long-horizon agent workflows, knowledge, math and software engineering. Plain DeepSeek V4 Pro now means V4 Pro 0813.",
+      "context_length": 1048576,
+      "max_output_tokens": 384000,
+      "architecture": {
+        "modality": "text->text",
+        "input_modalities": [
+          "text"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": false,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": true,
+        "pdf_upload": false,
+        "batch_api": true
+      },
+      "open_weights": true,
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [
+        "/v1/chat/completions"
+      ],
+      "pricing": {
+        "prompt": 0.86979,
+        "completion": 1.77565,
+        "cacheReadInputPer1kTokens": 0.0000796,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.0052,
+      "icon_url": "/icons/DeepSeek.svg",
+      "subscription": {
+        "included": true,
+        "inputTokenMultiplier": 2,
+        "note": "Included in subscription (uses 2x input tokens)"
+      }
+    },
+    {
+      "id": "deepseek/deepseek-v4-pro-20260423:thinking",
+      "object": "model",
+      "created": 1776988800,
+      "owned_by": "deepseek",
+      "name": "DeepSeek V4 Pro (April preview, Thinking)",
+      "description": "DeepSeek V4 Pro April preview (2026-04-23) with chain-of-thought enabled: a large-scale Mixture-of-Experts model with a 1M-token context window. Plain DeepSeek V4 Pro now means V4 Pro 0813.",
+      "context_length": 1048576,
+      "max_output_tokens": 384000,
+      "architecture": {
+        "modality": "text->text",
+        "input_modalities": [
+          "text"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": false,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": true,
+        "pdf_upload": false,
+        "batch_api": true
+      },
+      "open_weights": true,
+      "reasoning_efforts": [
+        "none",
+        "high",
+        "max"
+      ],
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [
+        "/v1/chat/completions"
+      ],
+      "pricing": {
+        "prompt": 0.95124,
+        "completion": 1.79607,
+        "cacheReadInputPer1kTokens": 0.0000796,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.0052,
+      "icon_url": "/icons/DeepSeek.svg",
+      "subscription": {
+        "included": true,
+        "inputTokenMultiplier": 2,
+        "note": "Included in subscription (uses 2x input tokens)"
+      }
+    },
+    {
+      "id": "deepseek/deepseek-v4.1-flash-abliterated",
+      "object": "model",
+      "created": 1794614400,
+      "owned_by": "deepseek",
+      "name": "DeepSeek V4.1 Flash Abliterated",
+      "description": "An experimental abliterated (refusal-removed) version of DeepSeek V4.1 Flash, hosted by UncensuredAI. It always reasons, with low, high or max effort, and supports tool calling. Text only. Its behavior and response quality may differ from DeepSeek V4.1 Flash.",
+      "context_length": 262144,
+      "max_output_tokens": 128000,
+      "architecture": {
+        "modality": "text->text",
+        "input_modalities": [
+          "text"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": false,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": false,
+        "pdf_upload": false,
+        "batch_api": false
+      },
+      "reasoning_efforts": [
+        "low",
+        "high",
+        "max"
+      ],
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [],
+      "pricing": {
+        "prompt": 0.297,
+        "completion": 1.045,
+        "cacheReadInputPer1kTokens": 0.000066,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.001045,
+      "icon_url": "/icons/DeepSeek.svg",
+      "category": "Uncensored",
+      "subscription": {
+        "included": false,
+        "inputTokenMultiplier": 1,
+        "note": "Not included in subscription"
+      }
+    },
+    {
+      "id": "deepseek/deepseek-v4.1-flash-1017-uncensored",
+      "object": "model",
+      "created": 1793059200,
+      "owned_by": "deepseek",
+      "name": "DeepSeek V4.1 Flash 1017 Uncensored",
+      "aliases": [],
+      "description": "Uncensored DeepSeek V4.1 Flash with text and image input, optional reasoning, and tool calling. The date label is retained for compatibility. Served only by its own checkpoint; it may be unavailable while that host is down.",
+      "context_length": 1048576,
+      "max_output_tokens": 65536,
+      "architecture": {
+        "modality": "text+image->text",
+        "input_modalities": [
+          "text",
+          "image"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": true,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": false,
+        "pdf_upload": false,
+        "batch_api": true
+      },
+      "open_weights": true,
+      "reasoning_efforts": [
+        "none",
+        "low",
+        "high",
+        "max"
+      ],
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [
+        "/v1/chat/completions"
+      ],
+      "pricing": {
+        "prompt": 0.33,
+        "completion": 1.32,
+        "cacheReadInputPer1kTokens": 0.000011,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.00132,
+      "icon_url": "/icons/DeepSeek.svg",
+      "category": "Uncensored",
+      "providers": [
+        "heabsy",
+        "entrim"
+      ],
+      "subscription": {
+        "included": false,
+        "inputTokenMultiplier": 1,
+        "note": "Not included in subscription"
+      }
+    },
+    {
+      "id": "z-ai/glm-5",
+      "object": "model",
+      "created": 1770768000,
+      "owned_by": "zhipu",
+      "name": "GLM 5",
+      "description": "GLM-5 is a capable open-weight model from Zhipu with advanced reasoning and instruction following.",
+      "context_length": 200000,
+      "max_output_tokens": 128000,
+      "architecture": {
+        "modality": "text->text",
+        "input_modalities": [
+          "text"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": false,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": true,
+        "pdf_upload": false,
+        "batch_api": true
+      },
+      "open_weights": true,
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [
+        "/v1/chat/completions"
+      ],
+      "pricing": {
+        "prompt": 0.86,
+        "completion": 2.74,
+        "cacheReadInputPer1kTokens": 0.00017,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.0049,
+      "icon_url": "/icons/Zhipu.svg",
+      "category": "More",
+      "providers": [
+        "uomi",
+        "friendli",
+        "siliconflow",
+        "streamlake",
+        "baidu",
+        "zai"
+      ],
+      "subscription": {
+        "included": true,
+        "inputTokenMultiplier": 2,
+        "note": "Included in subscription (uses 2x input tokens)"
+      }
+    },
+    {
+      "id": "z-ai/glm-5.1",
+      "object": "model",
+      "created": 1774569600,
+      "owned_by": "zhipu",
+      "name": "GLM 5.1",
+      "description": "GLM-5.1 is Zhipu's next-level open source model, ranking #1 in open source and #3 globally across SWE-Bench Pro, Terminal-Bench, and NL2Repo (as of April 2026). Built for long-horizon tasks, it can run autonomously for up to 8 hours. Run at FP8.",
+      "context_length": 204800,
+      "max_output_tokens": 131072,
+      "architecture": {
+        "modality": "text->text",
+        "input_modalities": [
+          "text"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": false,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": true,
+        "pdf_upload": false,
+        "batch_api": true
+      },
+      "open_weights": true,
+      "reasoning_efforts": [
+        "none",
+        "high"
+      ],
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [
+        "/v1/chat/completions"
+      ],
+      "pricing": {
+        "prompt": 1.4,
+        "completion": 4.4,
+        "cacheReadInputPer1kTokens": 0.00026,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.0034,
+      "icon_url": "/icons/Zhipu.svg",
+      "category": "More",
+      "providers": [
+        "uomi",
+        "chutes",
+        "streamlake",
+        "alibaba",
+        "siliconflow",
+        "zai"
+      ],
+      "subscription": {
+        "included": true,
+        "inputTokenMultiplier": 2,
+        "note": "Included in subscription (uses 2x input tokens)"
+      }
+    },
+    {
+      "id": "z-ai/glm-5.2",
+      "object": "model",
+      "created": 1781481600,
+      "owned_by": "zhipu",
+      "name": "GLM 5.2",
+      "description": "GLM-5.2 is Z.AI's flagship model for long-horizon autonomous coding and engineering workflows. It is built to plan, execute, iterate, and optimize complex development tasks over extended runs. This variant keeps thinking disabled for faster direct responses.",
+      "context_length": 1048576,
+      "max_output_tokens": 131072,
+      "architecture": {
+        "modality": "text->text",
+        "input_modalities": [
+          "text"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": false,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": true,
+        "pdf_upload": false,
+        "batch_api": true
+      },
+      "open_weights": true,
+      "reasoning_efforts": [
+        "none",
+        "high",
+        "max"
+      ],
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [
+        "/v1/chat/completions"
+      ],
+      "pricing": {
+        "prompt": 0.53,
+        "completion": 1.79,
+        "cacheReadInputPer1kTokens": 0.0001,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.0077,
+      "icon_url": "/icons/Zhipu.svg",
+      "category": "More",
+      "providers": [
+        "runware",
+        "aster",
+        "uomi",
+        "meganova",
+        "tensorix",
+        "wafer",
+        "wafer-us",
+        "zai",
+        "baseten",
+        "deepinfra",
+        "friendli",
+        "streamlake",
+        "ambient",
+        "together",
+        "morph",
+        "siliconflow",
+        "venice",
+        "alibaba",
+        "baidu",
+        "coreweave",
+        "nebius",
+        "scx",
+        "scx-eu",
+        "kitani",
+        "ollama",
+        "relace",
+        "engy"
+      ],
+      "subscription": {
+        "included": true,
+        "inputTokenMultiplier": 2,
+        "note": "Included in subscription (uses 2x input tokens)"
+      }
+    },
+    {
+      "id": "z-ai/glm-5.2:thinking",
+      "object": "model",
+      "created": 1781481600,
+      "owned_by": "zhipu",
+      "name": "GLM 5.2 Thinking",
+      "description": "GLM-5.2 with thinking enabled for harder long-horizon coding, autonomous agent workflows, complex engineering optimization, and real-world development tasks.",
+      "context_length": 1048576,
+      "max_output_tokens": 131072,
+      "architecture": {
+        "modality": "text->text",
+        "input_modalities": [
+          "text"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": false,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": true,
+        "pdf_upload": false,
+        "batch_api": true
+      },
+      "open_weights": true,
+      "reasoning_efforts": [
+        "high",
+        "max"
+      ],
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [
+        "/v1/chat/completions"
+      ],
+      "pricing": {
+        "prompt": 0.53,
+        "completion": 1.79,
+        "cacheReadInputPer1kTokens": 0.0001,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.0077,
+      "icon_url": "/icons/Zhipu.svg",
+      "category": "More",
+      "providers": [
+        "runware",
+        "aster",
+        "parasail",
+        "uomi",
+        "wafer",
+        "wafer-us",
+        "meganova",
+        "tensorix",
+        "zai",
+        "baseten",
+        "deepinfra",
+        "friendli",
+        "streamlake",
+        "ambient",
+        "together",
+        "morph",
+        "siliconflow",
+        "venice",
+        "alibaba",
+        "baidu",
+        "coreweave",
+        "nebius",
+        "scx",
+        "scx-eu",
+        "kitani",
+        "ollama",
+        "relace",
+        "engy"
+      ],
+      "subscription": {
+        "included": true,
+        "inputTokenMultiplier": 2,
+        "note": "Included in subscription (uses 2x input tokens)"
+      }
+    },
+    {
+      "id": "z-ai/glm-5.3",
+      "object": "model",
+      "created": 1786665600,
+      "owned_by": "zhipu",
+      "name": "GLM 5.3",
+      "description": "GLM-5.3 for long-horizon autonomous coding and engineering workflows. This variant defaults to the model's low reasoning tier for faster responses.",
+      "context_length": 1048576,
+      "max_output_tokens": 131072,
+      "architecture": {
+        "modality": "text->text",
+        "input_modalities": [
+          "text"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": false,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": true,
+        "pdf_upload": false,
+        "batch_api": true
+      },
+      "open_weights": true,
+      "reasoning_efforts": [
+        "low",
+        "high",
+        "max"
+      ],
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [
+        "/v1/chat/completions"
+      ],
+      "pricing": {
+        "prompt": 0.6,
+        "completion": 1.1,
+        "cacheReadInputPer1kTokens": 0.0002,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.0042,
+      "icon_url": "/icons/Zhipu.svg",
+      "category": "More",
+      "providers": [
+        "nube",
+        "runinfra",
+        "runware",
+        "zai",
+        "coreweave",
+        "nebius",
+        "relace",
+        "alibaba",
+        "crusoe",
+        "sailresearch-standard",
+        "inceptron",
+        "decart",
+        "wafer",
+        "wafer-us",
+        "venice",
+        "fireworks",
+        "deepinfra",
+        "friendli",
+        "cloudflare",
+        "baseten",
+        "akash",
+        "modal",
+        "parasail",
+        "together",
+        "morph",
+        "siliconflow",
+        "baidu",
+        "sambanova",
+        "uomi",
+        "tensorix",
+        "neuralwatt",
+        "scx",
+        "scx-fast",
+        "kitani",
+        "ollama",
+        "pearl",
+        "runanywhere-fast",
+        "engy",
+        "mixlayer"
+      ],
+      "subscription": {
+        "included": true,
+        "inputTokenMultiplier": 1,
+        "note": "Included in subscription"
+      }
+    },
+    {
+      "id": "z-ai/glm-5.3:thinking",
+      "object": "model",
+      "created": 1786665600,
+      "owned_by": "zhipu",
+      "name": "GLM 5.3 Thinking",
+      "description": "GLM-5.3 with higher reasoning enabled for harder long-horizon coding, autonomous agent workflows, and complex engineering tasks.",
+      "context_length": 1048576,
+      "max_output_tokens": 131072,
+      "architecture": {
+        "modality": "text->text",
+        "input_modalities": [
+          "text"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": false,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": true,
+        "pdf_upload": false,
+        "batch_api": true
+      },
+      "open_weights": true,
+      "reasoning_efforts": [
+        "high",
+        "max"
+      ],
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [
+        "/v1/chat/completions"
+      ],
+      "pricing": {
+        "prompt": 0.6,
+        "completion": 1.1,
+        "cacheReadInputPer1kTokens": 0.0002,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.0042,
+      "icon_url": "/icons/Zhipu.svg",
+      "category": "More",
+      "providers": [
+        "nube",
+        "runinfra",
+        "runware",
+        "zai",
+        "coreweave",
+        "nebius",
+        "relace",
+        "alibaba",
+        "crusoe",
+        "sailresearch-standard",
+        "inceptron",
+        "decart",
+        "wafer",
+        "wafer-us",
+        "venice",
+        "fireworks",
+        "deepinfra",
+        "friendli",
+        "cloudflare",
+        "baseten",
+        "akash",
+        "modal",
+        "parasail",
+        "together",
+        "morph",
+        "siliconflow",
+        "baidu",
+        "sambanova",
+        "uomi",
+        "tensorix",
+        "neuralwatt",
+        "scx",
+        "scx-fast",
+        "kitani",
+        "ollama",
+        "pearl",
+        "runanywhere-fast",
+        "engy",
+        "mixlayer"
+      ],
+      "subscription": {
+        "included": true,
+        "inputTokenMultiplier": 1,
+        "note": "Included in subscription"
+      }
+    },
+    {
+      "id": "z-ai/glm-5.3-flash",
+      "object": "model",
+      "created": 1787702400,
+      "owned_by": "zhipu",
+      "name": "GLM 5.3 Flash",
+      "description": "ox-alpha out of stealth! GLM-5.3 Flash is Z.ai's first natively multimodal GLM-5 model, with 320B total parameters and just 18B active parameters for efficient coding, agentic work, and precise 1M-token context. Its hybrid sparse-and-linear attention architecture helps it outperform GLM-5.2 at one-tenth the price while approaching Claude Opus 4.8 on coding and agentic benchmarks.",
+      "context_length": 1048576,
+      "max_output_tokens": 131072,
+      "architecture": {
+        "modality": "text+image+video->text",
+        "input_modalities": [
+          "text",
+          "image",
+          "video"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": true,
+        "video_input": true,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": true,
+        "pdf_upload": false,
+        "batch_api": true
+      },
+      "open_weights": true,
+      "reasoning_efforts": [
+        "low",
+        "high",
+        "max"
+      ],
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [
+        "/v1/chat/completions"
+      ],
+      "pricing": {
+        "prompt": 0.1,
+        "completion": 0.3,
+        "cacheReadInputPer1kTokens": 0.000025,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.0002,
+      "icon_url": "/icons/Zhipu.svg",
+      "category": "More",
+      "providers": [
+        "river",
+        "baidu",
+        "darkbloom",
+        "parasail-fast",
+        "astorias",
+        "inceptron",
+        "neuralwatt",
+        "neuralwatt-flex",
+        "runware",
+        "nube",
+        "pareto",
+        "zai",
+        "uomi",
+        "tensorix",
+        "fireworks",
+        "coreweave",
+        "crusoe",
+        "streamlake",
+        "wafer",
+        "deepinfra",
+        "sailresearch-standard",
+        "baseten",
+        "venice",
+        "parasail",
+        "modal",
+        "together",
+        "morph",
+        "friendli",
+        "siliconflow",
+        "runinfra",
+        "aoru",
+        "pokee",
+        "nebius",
+        "relace",
+        "scx",
+        "kitani",
+        "ollama",
+        "entrim",
+        "reka",
+        "pearl",
+        "munito",
+        "runanywhere",
+        "discretestack",
+        "openscale",
+        "engy",
+        "greenference"
+      ],
+      "subscription": {
+        "included": true,
+        "inputTokenMultiplier": 1,
+        "note": "Included in subscription"
+      }
+    },
+    {
+      "id": "z-ai/glm-5.3-uncensored",
+      "object": "model",
+      "created": 1790380800,
+      "owned_by": "zhipu",
+      "name": "GLM 5.3 Uncensored",
+      "description": "An experimental uncensored version of the full GLM 5.3 reasoning model for chat, creative writing, coding, and tool use. It may show unusual behavior or inconsistent response quality.",
+      "context_length": 1048576,
+      "max_output_tokens": 131072,
+      "architecture": {
+        "modality": "text->text",
+        "input_modalities": [
+          "text"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": false,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": false,
+        "pdf_upload": false,
+        "batch_api": true
+      },
+      "open_weights": true,
+      "reasoning_efforts": [
+        "low",
+        "high",
+        "max"
+      ],
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [
+        "/v1/chat/completions"
+      ],
+      "pricing": {
+        "prompt": 1.25,
+        "completion": 2.25,
+        "cacheReadInputPer1kTokens": 0.0003,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.00225,
+      "icon_url": "/icons/Zhipu.svg",
+      "category": "Uncensored",
+      "providers": [
+        "arnict",
+        "heabsy",
+        "entrim"
+      ],
+      "subscription": {
+        "included": false,
+        "inputTokenMultiplier": 1,
+        "note": "Not included in subscription"
+      }
+    },
+    {
+      "id": "z-ai/glm-5.3-abliterated",
+      "object": "model",
+      "created": 1794614400,
+      "owned_by": "zhipu",
+      "name": "GLM 5.3 Abliterated",
+      "description": "An experimental abliterated (refusal-removed) version of GLM 5.3, hosted by UncensuredAI. It always reasons, with low, high or max effort, and supports tool calling. Text only. Its behavior and response quality may differ from GLM 5.3.",
+      "context_length": 262144,
+      "max_output_tokens": 128000,
+      "architecture": {
+        "modality": "text->text",
+        "input_modalities": [
+          "text"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": false,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": false,
+        "pdf_upload": false,
+        "batch_api": false
+      },
+      "reasoning_efforts": [
+        "low",
+        "high",
+        "max"
+      ],
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [],
+      "pricing": {
+        "prompt": 0.429,
+        "completion": 1.452,
+        "cacheReadInputPer1kTokens": 0.000165,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.001452,
+      "icon_url": "/icons/Zhipu.svg",
+      "category": "Uncensored",
+      "subscription": {
+        "included": false,
+        "inputTokenMultiplier": 1,
+        "note": "Not included in subscription"
+      }
+    },
+    {
+      "id": "z-ai/glm-5.3-flash-uncensored",
+      "object": "model",
+      "created": 1785283200,
+      "owned_by": "zhipu",
+      "name": "GLM 5.3 Flash Uncensored",
+      "description": "GLM 5.3 Flash Uncensored is an uncensored fine-tune of the efficient 320B mixture-of-experts reasoning model with provider-dependent vision support, built for unrestricted chat, creative writing, coding, agentic work, tool use, and long-context tasks.",
+      "context_length": 1048576,
+      "max_output_tokens": 32768,
+      "architecture": {
+        "modality": "text+image->text",
+        "input_modalities": [
+          "text",
+          "image"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": true,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": true,
+        "pdf_upload": false,
+        "batch_api": true
+      },
+      "open_weights": true,
+      "reasoning_efforts": [
+        "low",
+        "high",
+        "max"
+      ],
+      "supported_service_tiers": [
+        "flex"
+      ],
+      "supported_batch_endpoints": [
+        "/v1/chat/completions"
+      ],
+      "pricing": {
+        "prompt": 0.2,
+        "completion": 0.8,
+        "cacheReadInputPer1kTokens": 0.00007,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.0008,
+      "icon_url": "/icons/Zhipu.svg",
+      "category": "Uncensored",
+      "providers": [
+        "arnict",
+        "heabsy",
+        "entrim",
+        "astorias"
+      ],
+      "subscription": {
+        "included": true,
+        "inputTokenMultiplier": 1,
+        "note": "Included in subscription"
+      }
+    },
+    {
+      "id": "TEE/glm-5.3",
+      "object": "model",
+      "created": 1788134400,
+      "owned_by": "zhipu",
+      "name": "GLM 5.3 TEE",
+      "description": "GLM-5.3 is Z.AI's open-weight reasoning model for complex software engineering, autonomous agents, vulnerability research, and long-horizon tasks. Reasoning is always on; choose low, high, or max reasoning effort (defaults to max). This text-only TEE deployment is verified through the selected provider: Redpill attestation with signed completion receipts or the official Tinfoil SDK's ATC/EHBP verification.",
+      "context_length": 1048576,
+      "max_output_tokens": 131072,
+      "architecture": {
+        "modality": "text->text",
+        "input_modalities": [
+          "text"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": false,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": true,
+        "structured_output": true,
+        "pdf_upload": false,
+        "batch_api": false
+      },
+      "open_weights": true,
+      "reasoning_efforts": [
+        "low",
+        "high",
+        "max"
+      ],
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [],
+      "pricing": {
+        "prompt": 1.4,
+        "completion": 4.4,
+        "cacheReadInputPer1kTokens": 0.00026,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.0029,
+      "icon_url": "/icons/Zhipu.svg",
+      "category": "Private/TEE",
+      "providers": [
+        "redpill",
+        "aptos",
+        "tinfoil"
+      ],
+      "subscription": {
+        "included": false,
+        "inputTokenMultiplier": 1,
+        "note": "Not included in subscription"
+      }
+    },
+    {
+      "id": "xiaomi/mimo-v2.6-flash",
+      "object": "model",
+      "created": 1789948800,
+      "owned_by": "xiaomi",
+      "name": "MiMo V2.6 Flash",
+      "description": "MiMo V2.6 Flash is Xiaomi's native omnimodal 309B-parameter mixture-of-experts model, activating 15B parameters per token. It balances intelligence, efficiency, and cost for coding, general agents, visual tasks, and cybersecurity, with text, image, video, and audio understanding and a 1M-token context window.",
+      "context_length": 1048576,
+      "max_output_tokens": 131072,
+      "architecture": {
+        "modality": "text+image+video+audio->text",
+        "input_modalities": [
+          "text",
+          "image",
+          "video",
+          "audio"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": true,
+        "video_input": true,
+        "audio_input": true,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": true,
+        "pdf_upload": false,
+        "batch_api": true
+      },
+      "open_weights": true,
+      "reasoning_efforts": [
+        "none",
+        "high"
+      ],
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [
+        "/v1/chat/completions"
+      ],
+      "pricing": {
+        "prompt": 0.14,
+        "completion": 0.28,
+        "cacheReadInputPer1kTokens": 0.0000028,
+        "cacheWriteInputPer1kTokens": 0,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.00021,
+      "icon_url": "/icons/Xiaomi.svg",
+      "category": "More",
+      "providers": [
+        "pareto",
+        "uomi",
+        "deepinfra",
+        "heabsy",
+        "xiaomi",
+        "venice",
+        "inworld"
+      ],
+      "subscription": {
+        "included": true,
+        "inputTokenMultiplier": 1,
+        "note": "Included in subscription"
+      }
+    },
+    {
+      "id": "xiaomi/mimo-v2.6-pro",
+      "object": "model",
+      "created": 1789948800,
+      "owned_by": "xiaomi",
+      "name": "MiMo V2.6 Pro",
+      "description": "MiMo V2.6 Pro is Xiaomi's flagship native omnimodal model, built with 1.02T total parameters and 42B active parameters per token. It is designed for demanding coding, long-horizon agent workflows, visual tasks, research, and cybersecurity, with text, image, video, and audio understanding and a 1M-token context window.",
+      "context_length": 1048576,
+      "max_output_tokens": 131072,
+      "architecture": {
+        "modality": "text+image+video+audio->text",
+        "input_modalities": [
+          "text",
+          "image",
+          "video",
+          "audio"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": true,
+        "video_input": true,
+        "audio_input": true,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": true,
+        "pdf_upload": false,
+        "batch_api": true
+      },
+      "open_weights": true,
+      "reasoning_efforts": [
+        "none",
+        "high"
+      ],
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [
+        "/v1/chat/completions"
+      ],
+      "pricing": {
+        "prompt": 0.435,
+        "completion": 0.87,
+        "cacheReadInputPer1kTokens": 0.0000036,
+        "cacheWriteInputPer1kTokens": 0,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.0006525,
+      "icon_url": "/icons/Xiaomi.svg",
+      "category": "More",
+      "providers": [
+        "neuralwatt",
+        "neuralwatt-flex",
+        "deepinfra",
+        "xiaomi",
+        "streamlake",
+        "inworld"
+      ],
+      "subscription": {
+        "included": true,
+        "inputTokenMultiplier": 1,
+        "note": "Included in subscription"
+      }
+    },
+    {
+      "id": "xiaomi/mimo-v2.6-flash-uncensored",
+      "object": "model",
+      "created": 1790294400,
+      "owned_by": "xiaomi",
+      "name": "MiMo V2.6 Flash Uncensored",
+      "description": "A lower-refusal MiMo V2.6 Flash finetune with a 1M-token context window, separate reasoning output, and tool calling. Supports image input and adjustable thinking effort.",
+      "context_length": 1048576,
+      "max_output_tokens": 65536,
+      "architecture": {
+        "modality": "text+image->text",
+        "input_modalities": [
+          "text",
+          "image"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": true,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": false,
+        "pdf_upload": false,
+        "batch_api": true
+      },
+      "open_weights": true,
+      "reasoning_efforts": [
+        "none",
+        "low",
+        "medium",
+        "high"
+      ],
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [
+        "/v1/chat/completions"
+      ],
+      "pricing": {
+        "prompt": 0.5,
+        "completion": 1.5,
+        "cacheReadInputPer1kTokens": 0.0001995,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.0015,
+      "icon_url": "/icons/Xiaomi.svg",
+      "category": "Uncensored",
+      "providers": [
+        "heabsy"
+      ],
+      "subscription": {
+        "included": false,
+        "inputTokenMultiplier": 1,
+        "note": "Not included in subscription"
+      }
+    },
+    {
+      "id": "moonshotai/kimi-k3",
+      "object": "model",
+      "created": 1784160000,
+      "owned_by": "moonshot",
+      "name": "Kimi K3",
+      "description": "Kimi K3 is Moonshot AI's open-weight, always-thinking multimodal model for long-context reasoning, coding, tool use, and native image/video understanding.",
+      "context_length": 1048576,
+      "max_output_tokens": null,
+      "architecture": {
+        "modality": "text+image+video->text",
+        "input_modalities": [
+          "text",
+          "image",
+          "video"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": true,
+        "video_input": true,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": true,
+        "pdf_upload": false,
+        "batch_api": true
+      },
+      "open_weights": true,
+      "reasoning_efforts": [
+        "low",
+        "high",
+        "max"
+      ],
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [
+        "/v1/chat/completions"
+      ],
+      "pricing": {
+        "prompt": 0.45,
+        "completion": 9.6,
+        "cacheReadInputPer1kTokens": 0.00013,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.01,
+      "icon_url": "/icons/MoonshotAI.svg",
+      "category": "More",
+      "effective_pricing": {
+        "list_price": {
+          "inputPer1kTokens": 0.00045,
+          "outputPer1kTokens": 0.0096,
+          "cacheReadInputPer1kTokens": 0.00013
+        },
+        "effective_price": {
+          "inputPer1kTokens": 0.00045,
+          "outputPer1kTokens": 0.0096,
+          "cacheReadInputPer1kTokens": 0.00013
+        },
+        "pricing_type": "static",
+        "currency": "USD",
+        "unit": "per_1k_tokens",
+        "discount_percentage": 0,
+        "source": "registry"
+      },
+      "providers": [
+        "river",
+        "streamlake",
+        "parasail-fast",
+        "nube",
+        "runware",
+        "baseten",
+        "chutes",
+        "alibaba",
+        "moonshot",
+        "fireworks-fast",
+        "deepinfra",
+        "fireworks",
+        "together",
+        "tensorix",
+        "modal",
+        "parasail",
+        "sailresearch-standard",
+        "wafer",
+        "relace",
+        "scx",
+        "ollama",
+        "runanywhere",
+        "engy"
+      ],
+      "subscription": {
+        "included": false,
+        "inputTokenMultiplier": 1,
+        "note": "Not included in subscription"
+      }
+    },
+    {
+      "id": "moonshotai/kimi-k3.1-pro",
+      "object": "model",
+      "created": 1792800000,
+      "owned_by": "moonshot",
+      "name": "Kimi K3.1 Pro",
+      "description": "Kimi K3.1 Pro is a multimodal reasoning model for coding, 3D creation, document analysis and multi-step tool use. It supports a 1M-token context window and text, image and video inputs. Reasoning is always enabled, with low, high and max effort levels.",
+      "context_length": 1048576,
+      "max_output_tokens": null,
+      "architecture": {
+        "modality": "text+image+video->text",
+        "input_modalities": [
+          "text",
+          "image",
+          "video"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": true,
+        "video_input": true,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": true,
+        "structured_output": true,
+        "pdf_upload": false,
+        "batch_api": false
+      },
+      "open_weights": false,
+      "reasoning_efforts": [
+        "low",
+        "high",
+        "max"
+      ],
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [],
+      "pricing": {
+        "prompt": 1.4,
+        "completion": 7,
+        "cacheReadInputPer1kTokens": 0.00014,
+        "cacheWriteInputPer1kTokens": 0.0014,
+        "cacheWriteInputPer1kTokens1h": 0.0028,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.007,
+      "icon_url": "/icons/MoonshotAI.svg",
+      "category": "More",
+      "providers": [
+        "neuralwatt",
+        "streamlake",
+        "scx",
+        "primaera",
+        "engy"
+      ],
+      "subscription": {
+        "included": false,
+        "inputTokenMultiplier": 1,
+        "note": "Not included in subscription"
+      }
+    },
+    {
+      "id": "lyber/kimi-k3.1-pro-abliterated",
+      "object": "model",
+      "created": 1794787200,
+      "owned_by": "lyber",
+      "name": "Kimi K3.1 Pro Abliterated (Lyber)",
+      "description": "Kimi K3.1 Pro Abliterated served by Lyber.ai.",
+      "context_length": 1048576,
+      "max_output_tokens": 262144,
+      "architecture": {
+        "modality": "text->text",
+        "input_modalities": [
+          "text"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": false,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": true,
+        "pdf_upload": false,
+        "batch_api": false
+      },
+      "reasoning_efforts": [
+        "low",
+        "high",
+        "max"
+      ],
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [],
+      "pricing": {
+        "prompt": 4,
+        "completion": 15,
+        "cacheReadInputPer1kTokens": 0.004,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.01,
+      "category": "Uncensored",
+      "providers": [
+        "lyber"
+      ],
+      "subscription": {
+        "included": false,
+        "inputTokenMultiplier": 1,
+        "note": "Not included in subscription"
+      }
+    },
+    {
+      "id": "TEE/kimi-k3.1-pro",
+      "object": "model",
+      "created": 1794182400,
+      "owned_by": "moonshot",
+      "name": "Kimi K3.1 Pro TEE",
+      "description": "Kimi K3.1 Pro is Moonshot AI's multimodal model post-trained from Kimi K3 for long-horizon coding, agentic workflows, and knowledge work. It always reasons, and supports image input, tool calling, and structured output with a 262,144-token context window shared by input and output. This TEE (Trusted Execution Environment) deployment is verified through the selected provider: RedPill (Phala) attestation with signed completion receipts, or the official Tinfoil SDK's ATC/EHBP verification.",
+      "context_length": 262144,
+      "max_output_tokens": 262144,
+      "architecture": {
+        "modality": "text+image->text",
+        "input_modalities": [
+          "text",
+          "image"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": true,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": true,
+        "structured_output": true,
+        "pdf_upload": false,
+        "batch_api": false
+      },
+      "open_weights": true,
+      "reasoning_efforts": [
+        "low",
+        "high",
+        "max"
+      ],
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [],
+      "pricing": {
+        "prompt": 4,
+        "completion": 20,
+        "cacheReadInputPer1kTokens": 0.0004,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.0126,
+      "icon_url": "/icons/MoonshotAI.svg",
+      "category": "Private/TEE",
+      "providers": [
+        "redpill",
+        "tinfoil",
+        "aptos"
+      ],
+      "subscription": {
+        "included": false,
+        "inputTokenMultiplier": 1,
+        "note": "Not included in subscription"
+      }
+    },
+    {
+      "id": "google/gemini-4-neon",
+      "object": "model",
+      "created": 1795046400,
+      "owned_by": "gemini",
+      "name": "Gemini 4 Neon",
+      "description": "Google's Gemini 4 Neon is a reasoning model for complex coding, document analysis, scientific problem solving, and multi-step tasks that use tools. It accepts text and images and produces text, with tool calling and structured outputs. Its 1,048,576-token context is shared across input, thinking, and output, with up to 983,040 input tokens and 65,536 combined thinking and output tokens per response. Choose low, medium, high, or extra-high thinking; high is the default.",
+      "context_length": 983040,
+      "max_output_tokens": 65536,
+      "architecture": {
+        "modality": "text+image->text",
+        "input_modalities": [
+          "text",
+          "image"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": true,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": true,
+        "pdf_upload": false,
+        "batch_api": false
+      },
+      "open_weights": false,
+      "reasoning_efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [],
+      "pricing": {
+        "prompt": 3,
+        "completion": 15,
+        "cacheReadInputPer1kTokens": 0.00015,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.009,
+      "icon_url": "/icons/Gemini.svg",
+      "category": "More",
+      "providers": [
+        "google"
+      ],
+      "subscription": {
+        "included": false,
+        "inputTokenMultiplier": 1,
+        "note": "Not included in subscription"
+      }
+    },
+    {
+      "id": "google/gemini-4-hydrogen",
+      "object": "model",
+      "created": 1794528000,
+      "owned_by": "gemini",
+      "name": "Gemini 4 Hydrogen",
+      "description": "Google's Gemini 4 Hydrogen is a reasoning model for coding, problem solving, and multi-step tasks that use tools. It accepts text, images, audio, video, and PDFs and produces text, with tool calling and structured outputs. Its 1,048,576-token context is shared across input, thinking, and output, with up to 65,536 combined thinking and output tokens per response. Choose low, medium, high, or extra-high thinking; high is the default.",
+      "context_length": 1048576,
+      "max_output_tokens": 65536,
+      "architecture": {
+        "modality": "text+image+video+audio->text",
+        "input_modalities": [
+          "text",
+          "image",
+          "video",
+          "audio"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": true,
+        "video_input": true,
+        "audio_input": true,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": true,
+        "pdf_upload": true,
+        "batch_api": false
+      },
+      "open_weights": false,
+      "reasoning_efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "supported_service_tiers": [
+        "flex"
+      ],
+      "supported_batch_endpoints": [],
+      "pricing": {
+        "prompt": 1.5,
+        "completion": 7.5,
+        "cacheReadInputPer1kTokens": 0.000075,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.0045,
+      "icon_url": "/icons/Gemini.svg",
+      "category": "More",
+      "providers": [
+        "google"
+      ],
+      "subscription": {
+        "included": false,
+        "inputTokenMultiplier": 1,
+        "note": "Not included in subscription"
+      }
+    },
+    {
+      "id": "google/gemini-3.8-flash",
+      "object": "model",
+      "created": 1788307200,
+      "owned_by": "gemini",
+      "name": "Gemini 3.8 Flash",
+      "description": "Google's fast multimodal model for agentic workloads, including coding, tool use, image understanding, PDF and document extraction, audio, and video. Its capabilities, limits, reasoning behavior, and pricing currently mirror Gemini 3.7 Flash.",
+      "context_length": 1048576,
+      "max_output_tokens": 65536,
+      "architecture": {
+        "modality": "text+image+video+audio->text",
+        "input_modalities": [
+          "text",
+          "image",
+          "video",
+          "audio"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": true,
+        "video_input": true,
+        "audio_input": true,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": true,
+        "pdf_upload": true,
+        "batch_api": true
+      },
+      "reasoning_efforts": [
+        "minimal",
+        "low",
+        "medium",
+        "high"
+      ],
+      "supported_service_tiers": [
+        "fast",
+        "priority"
+      ],
+      "supported_batch_endpoints": [
+        "/v1/chat/completions"
+      ],
+      "pricing": {
+        "prompt": 0.75,
+        "completion": 3.75,
+        "cacheReadInputPer1kTokens": 0.000075,
+        "cacheWriteInputPer1kTokens": 0.0000416666666666667,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.0032625,
+      "icon_url": "/icons/Gemini.svg",
+      "category": "More",
+      "providers": [
+        "google"
+      ],
+      "subscription": {
+        "included": false,
+        "inputTokenMultiplier": 1,
+        "note": "Not included in subscription"
+      }
+    },
+    {
+      "id": "google/gemini-3.7-flash",
+      "object": "model",
+      "created": 1786579200,
+      "owned_by": "gemini",
+      "name": "Gemini 3.7 Flash",
+      "description": "Google's frontier-performance Flash model for multimodal and agentic workloads, including coding, tool use, image understanding, PDF and document extraction, audio, and video. Google reports 65.3% on DeepSWE v1.1, up from 49.0% for Gemini 3.6 Flash, and 34% on GDP.pdf, up from 14%.",
+      "context_length": 1048576,
+      "max_output_tokens": 65536,
+      "architecture": {
+        "modality": "text+image+video+audio->text",
+        "input_modalities": [
+          "text",
+          "image",
+          "video",
+          "audio"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": true,
+        "video_input": true,
+        "audio_input": true,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": true,
+        "pdf_upload": true,
+        "batch_api": true
+      },
+      "reasoning_efforts": [
+        "minimal",
+        "low",
+        "medium",
+        "high"
+      ],
+      "supported_service_tiers": [
+        "fast",
+        "priority"
+      ],
+      "supported_batch_endpoints": [
+        "/v1/chat/completions"
+      ],
+      "pricing": {
+        "prompt": 0.75,
+        "completion": 3.75,
+        "cacheReadInputPer1kTokens": 0.000075,
+        "cacheWriteInputPer1kTokens": 0.0000416666666666667,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.0032625,
+      "icon_url": "/icons/Gemini.svg",
+      "category": "More",
+      "subscription": {
+        "included": false,
+        "inputTokenMultiplier": 1,
+        "note": "Not included in subscription"
+      }
+    },
+    {
+      "id": "anthropic/claude-sonnet-5.5",
+      "object": "model",
+      "created": 1790553600,
+      "owned_by": "anthropic",
+      "name": "Claude Sonnet 5.5",
+      "description": "Claude Sonnet 5.5 handles everyday coding, tool-based workflows, visual analysis, and polished writing with a 1M-token context window. This version skips up-front thinking and can reason between tool calls for faster responses; use Thinking for deeper planning and complex problems.",
+      "context_length": 1000000,
+      "max_output_tokens": 128000,
+      "architecture": {
+        "modality": "text+image->text",
+        "input_modalities": [
+          "text",
+          "image"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": true,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": true,
+        "pdf_upload": true,
+        "batch_api": true
+      },
+      "reasoning_efforts": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [
+        "/v1/chat/completions"
+      ],
+      "pricing": {
+        "prompt": 2,
+        "completion": 10,
+        "cacheReadInputPer1kTokens": 0.0001,
+        "cacheWriteInputPer1kTokens": 0.0025,
+        "cacheWriteInputPer1kTokens1h": 0.004,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.0175,
+      "icon_url": "/icons/Anthropic.svg",
+      "category": "More",
+      "subscription": {
+        "included": false,
+        "inputTokenMultiplier": 1,
+        "note": "Not included in subscription"
+      }
+    },
+    {
+      "id": "anthropic/claude-sonnet-5.5:thinking",
+      "object": "model",
+      "created": 1790553600,
+      "owned_by": "anthropic",
+      "name": "Claude Sonnet 5.5 Thinking",
+      "description": "Claude Sonnet 5.5 with adaptive thinking for complex coding, multi-step tool use, visual analysis, and detailed planning. Supports a 1M-token context window and five reasoning effort levels, with stronger thinking available when a task needs it.",
+      "context_length": 1000000,
+      "max_output_tokens": 128000,
+      "architecture": {
+        "modality": "text+image->text",
+        "input_modalities": [
+          "text",
+          "image"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": true,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": true,
+        "pdf_upload": true,
+        "batch_api": true
+      },
+      "reasoning_efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [
+        "/v1/chat/completions"
+      ],
+      "pricing": {
+        "prompt": 2,
+        "completion": 10,
+        "cacheReadInputPer1kTokens": 0.0001,
+        "cacheWriteInputPer1kTokens": 0.0025,
+        "cacheWriteInputPer1kTokens1h": 0.004,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.0267,
+      "icon_url": "/icons/Anthropic.svg",
+      "category": "More",
+      "subscription": {
+        "included": false,
+        "inputTokenMultiplier": 1,
+        "note": "Not included in subscription"
+      }
+    },
+    {
+      "id": "anthropic/claude-sonnet-5",
+      "object": "model",
+      "created": 1782777600,
+      "owned_by": "anthropic",
+      "name": "Claude Sonnet 5",
+      "description": "Claude Sonnet 5 supports coding, agentic workflows, long-context reasoning, computer use, and practical knowledge work.",
+      "context_length": 1000000,
+      "max_output_tokens": 128000,
+      "architecture": {
+        "modality": "text+image->text",
+        "input_modalities": [
+          "text",
+          "image"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": true,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": false,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": true,
+        "pdf_upload": true,
+        "batch_api": true
+      },
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [
+        "/v1/chat/completions"
+      ],
+      "pricing": {
+        "prompt": 2,
+        "completion": 10,
+        "cacheReadInputPer1kTokens": 0.0002,
+        "cacheWriteInputPer1kTokens": 0.0025,
+        "cacheWriteInputPer1kTokens1h": 0.004,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.0175,
+      "icon_url": "/icons/Anthropic.svg",
+      "category": "More",
+      "subscription": {
+        "included": false,
+        "inputTokenMultiplier": 1,
+        "note": "Not included in subscription"
+      }
+    },
+    {
+      "id": "anthropic/claude-opus-5.5",
+      "object": "model",
+      "created": 1790035200,
+      "owned_by": "anthropic",
+      "name": "Claude Opus 5.5",
+      "description": "Claude Opus 5.5 is Anthropic's flagship model for agentic coding, computer use, complex knowledge work, and long-running tasks, with improved efficiency and more natural communication.",
+      "context_length": 1000000,
+      "max_output_tokens": 128000,
+      "architecture": {
+        "modality": "text+image->text",
+        "input_modalities": [
+          "text",
+          "image"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": true,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": true,
+        "pdf_upload": true,
+        "batch_api": true
+      },
+      "reasoning_efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [
+        "/v1/chat/completions"
+      ],
+      "pricing": {
+        "prompt": 4,
+        "completion": 20,
+        "cacheReadInputPer1kTokens": 0.0002,
+        "cacheWriteInputPer1kTokens": 0.005,
+        "cacheWriteInputPer1kTokens1h": 0.008,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.02,
+      "icon_url": "/icons/Anthropic.svg",
+      "category": "More",
+      "subscription": {
+        "included": false,
+        "inputTokenMultiplier": 1,
+        "note": "Not included in subscription"
+      }
+    },
+    {
+      "id": "anthropic/claude-opus-5",
+      "object": "model",
+      "created": 1784851200,
+      "owned_by": "anthropic",
+      "name": "Claude Opus 5",
+      "description": "Claude Opus 5 is Anthropic's flagship model for advanced coding, long-running agentic tasks, research, and complex knowledge work.",
+      "context_length": 1000000,
+      "max_output_tokens": 128000,
+      "architecture": {
+        "modality": "text+image->text",
+        "input_modalities": [
+          "text",
+          "image"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": true,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": true,
+        "pdf_upload": true,
+        "batch_api": true
+      },
+      "reasoning_efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [
+        "/v1/chat/completions"
+      ],
+      "pricing": {
+        "prompt": 5,
+        "completion": 25,
+        "cacheReadInputPer1kTokens": 0.0005,
+        "cacheWriteInputPer1kTokens": 0.00625,
+        "cacheWriteInputPer1kTokens1h": 0.01,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.025,
+      "icon_url": "/icons/Anthropic.svg",
+      "category": "More",
+      "subscription": {
+        "included": false,
+        "inputTokenMultiplier": 1,
+        "note": "Not included in subscription"
+      }
+    },
+    {
+      "id": "x-ai/grok-4.7",
+      "object": "model",
+      "created": 1789948800,
+      "owned_by": "x-ai",
+      "name": "Grok 4.7",
+      "description": "Grok 4.7 is SpaceXAI's flagship reasoning model for coding, long-running agentic tasks, and knowledge work. It supports text, image, and file inputs with tool calling and structured outputs. Reasoning is always active, and requests above 200k input tokens use higher long-context rates. Content policy rejections can still be charged: SpaceXAI may pass through a $0.05 moderation-failure fee, or a $0.055 usage-guidelines violation fee, depending on which rejection upstream returns.",
+      "context_length": 500000,
+      "max_output_tokens": null,
+      "architecture": {
+        "modality": "text+image->text",
+        "input_modalities": [
+          "text",
+          "image"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": true,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": true,
+        "pdf_upload": false,
+        "batch_api": false
+      },
+      "reasoning_efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [],
+      "pricing": {
+        "prompt": 2,
+        "completion": 6,
+        "cacheReadInputPer1kTokens": 0.0005,
+        "highContextThresholdTokens": 200000,
+        "inputPer1kTokensAbove200k": 0.004,
+        "outputPer1kTokensAbove200k": 0.012,
+        "cacheReadInputPer1kTokensAbove200k": 0.001,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.004,
+      "icon_url": "/icons/SpaceXAI.svg",
+      "category": "More",
+      "providers": [
+        "xai"
+      ],
+      "subscription": {
+        "included": false,
+        "inputTokenMultiplier": 1,
+        "note": "Not included in subscription"
+      }
+    },
+    {
+      "id": "x-ai/grok-4.6",
+      "object": "model",
+      "created": 1786492800,
+      "owned_by": "x-ai",
+      "name": "Grok 4.6",
+      "description": "Grok 4.6 is SpaceXAI's frontier reasoning model for coding, knowledge work, and STEM. It supports text, image, and file inputs with tool calling and structured outputs. Reasoning is always active, and requests above 200k input tokens use higher long-context rates. Content policy rejections can still be charged: SpaceXAI may pass through a $0.05 moderation-failure fee, or a $0.055 usage-guidelines violation fee, depending on which rejection upstream returns.",
+      "context_length": 500000,
+      "max_output_tokens": null,
+      "architecture": {
+        "modality": "text+image->text",
+        "input_modalities": [
+          "text",
+          "image"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": true,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": true,
+        "pdf_upload": false,
+        "batch_api": false
+      },
+      "reasoning_efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [],
+      "pricing": {
+        "prompt": 2,
+        "completion": 6,
+        "cacheReadInputPer1kTokens": 0.0005,
+        "highContextThresholdTokens": 200000,
+        "inputPer1kTokensAbove200k": 0.004,
+        "outputPer1kTokensAbove200k": 0.012,
+        "cacheReadInputPer1kTokensAbove200k": 0.001,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.004,
+      "icon_url": "/icons/SpaceXAI.svg",
+      "category": "More",
+      "providers": [
+        "xai"
+      ],
+      "subscription": {
+        "included": false,
+        "inputTokenMultiplier": 1,
+        "note": "Not included in subscription"
+      }
+    },
+    {
+      "id": "qwen/qwen3.8-flash",
+      "object": "model",
+      "created": 1787702400,
+      "owned_by": "qwen",
+      "name": "Qwen3.8 Flash",
+      "aliases": [
+        "alibaba/qwen3.8-flash"
+      ],
+      "description": "Qwen3.8 Flash is Alibaba's latest fast multimodal model, with a million-token context window for coding, agentic workflows, visual understanding, long documents, codebases, and videos.",
+      "context_length": 1000000,
+      "max_output_tokens": 131072,
+      "architecture": {
+        "modality": "text+image+video->text",
+        "input_modalities": [
+          "text",
+          "image",
+          "video"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": true,
+        "video_input": true,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": true,
+        "pdf_upload": false,
+        "batch_api": true
+      },
+      "open_weights": true,
+      "reasoning_efforts": [
+        "none",
+        "high"
+      ],
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [
+        "/v1/chat/completions"
+      ],
+      "pricing": {
+        "prompt": 0.15,
+        "completion": 0.47,
+        "cacheReadInputPer1kTokens": 0.000016,
+        "cacheWriteInputPer1kTokens": 0.0002,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.000315,
+      "icon_url": "/icons/Qwen.svg",
+      "category": "More",
+      "providers": [
+        "alibaba",
+        "uomi"
+      ],
+      "subscription": {
+        "included": true,
+        "inputTokenMultiplier": 1,
+        "note": "Included in subscription"
+      }
+    },
+    {
+      "id": "qwen/qwen3.8-27b",
+      "object": "model",
+      "created": 1786838400,
+      "owned_by": "qwen",
+      "name": "Qwen3.8 27B",
+      "aliases": [
+        "qwen3.8-27b"
+      ],
+      "description": "Qwen3.8 27B is an open-weight multimodal model from Alibaba for coding, visual understanding, tool use, and structured output. This variant keeps thinking disabled for faster direct responses. Requests containing video cost $0.32 per million input tokens and $2.50 per million output tokens.",
+      "context_length": 1048576,
+      "max_output_tokens": 65536,
+      "architecture": {
+        "modality": "text+image+video->text",
+        "input_modalities": [
+          "text",
+          "image",
+          "video"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": true,
+        "video_input": true,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": true,
+        "pdf_upload": false,
+        "batch_api": true
+      },
+      "open_weights": true,
+      "supported_service_tiers": [
+        "flex"
+      ],
+      "supported_batch_endpoints": [
+        "/v1/chat/completions"
+      ],
+      "pricing": {
+        "video_request": {
+          "prompt": 0.32,
+          "completion": 2.5,
+          "cached_prompt": 0.032,
+          "note": "Applies to all tokens in requests containing video, including subsequent turns that retain the video."
+        },
+        "prompt": 0.15,
+        "completion": 0.7,
+        "cacheReadInputPer1kTokens": 0.00004,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.0007,
+      "icon_url": "/icons/Qwen.svg",
+      "category": "More",
+      "providers": [
+        "darkbloom",
+        "astorias",
+        "siliconflow",
+        "nebius",
+        "heabsy",
+        "cerebras",
+        "deepinfra",
+        "modal",
+        "wafer",
+        "neuralwatt",
+        "akash",
+        "chutes",
+        "alibaba",
+        "parasail",
+        "venice",
+        "coreweave",
+        "cloudflare",
+        "mancer",
+        "uomi",
+        "aoru",
+        "modelrun",
+        "primeintellect",
+        "streamlake",
+        "cambrian",
+        "ionos",
+        "hyperfusion",
+        "entrim",
+        "reka",
+        "creekside",
+        "pearl",
+        "munito",
+        "tokenwatt",
+        "engy",
+        "mixlayer"
+      ],
+      "subscription": {
+        "included": true,
+        "inputTokenMultiplier": 1,
+        "note": "Included in subscription"
+      }
+    },
+    {
+      "id": "qwen/qwen3.8-27b:thinking",
+      "object": "model",
+      "created": 1786838400,
+      "owned_by": "qwen",
+      "name": "Qwen3.8 27B Thinking",
+      "aliases": [
+        "qwen3.8-27b:thinking"
+      ],
+      "description": "Qwen3.8 27B is an open-weight multimodal model from Alibaba for reasoning, coding, visual understanding, tool use, and structured output. This variant enables thinking by default. Requests containing video cost $0.32 per million input tokens and $2.50 per million output tokens.",
+      "context_length": 1048576,
+      "max_output_tokens": 65536,
+      "architecture": {
+        "modality": "text+image+video->text",
+        "input_modalities": [
+          "text",
+          "image",
+          "video"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": true,
+        "video_input": true,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": true,
+        "pdf_upload": false,
+        "batch_api": true
+      },
+      "open_weights": true,
+      "supported_service_tiers": [
+        "flex"
+      ],
+      "supported_batch_endpoints": [
+        "/v1/chat/completions"
+      ],
+      "pricing": {
+        "video_request": {
+          "prompt": 0.32,
+          "completion": 2.5,
+          "cached_prompt": 0.032,
+          "note": "Applies to all tokens in requests containing video, including subsequent turns that retain the video."
+        },
+        "prompt": 0.15,
+        "completion": 0.7,
+        "cacheReadInputPer1kTokens": 0.00004,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.0007,
+      "icon_url": "/icons/Qwen.svg",
+      "category": "More",
+      "providers": [
+        "darkbloom",
+        "astorias",
+        "siliconflow",
+        "nebius",
+        "heabsy",
+        "cerebras",
+        "deepinfra",
+        "modal",
+        "wafer",
+        "neuralwatt",
+        "akash",
+        "chutes",
+        "alibaba",
+        "parasail",
+        "venice",
+        "coreweave",
+        "cloudflare",
+        "mancer",
+        "uomi",
+        "aoru",
+        "modelrun",
+        "primeintellect",
+        "streamlake",
+        "cambrian",
+        "ionos",
+        "hyperfusion",
+        "entrim",
+        "reka",
+        "creekside",
+        "pearl",
+        "munito",
+        "tokenwatt",
+        "engy",
+        "mixlayer"
+      ],
+      "subscription": {
+        "included": true,
+        "inputTokenMultiplier": 1,
+        "note": "Included in subscription"
+      }
+    },
+    {
+      "id": "qwen/qwen3.8-27b-uncensored",
+      "object": "model",
+      "created": 1785283200,
+      "owned_by": "qwen",
+      "name": "Qwen 3.8 27B Uncensored",
+      "description": "Qwen 3.8 27B Uncensored is an FP8 open-weight multimodal model LoRA-tuned for fewer refusals across chat, coding, reasoning, tool use, and long-context work.",
+      "context_length": 1048576,
+      "max_output_tokens": 65536,
+      "architecture": {
+        "modality": "text+image->text",
+        "input_modalities": [
+          "text",
+          "image"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": true,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": true,
+        "pdf_upload": false,
+        "batch_api": true
+      },
+      "open_weights": true,
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [
+        "/v1/chat/completions"
+      ],
+      "pricing": {
+        "prompt": 1,
+        "completion": 3,
+        "cacheReadInputPer1kTokens": 0.00022,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.003,
+      "icon_url": "/icons/Qwen.svg",
+      "category": "Uncensored",
+      "providers": [
+        "heabsy",
+        "kitani",
+        "creekside"
+      ],
+      "subscription": {
+        "included": false,
+        "inputTokenMultiplier": 1,
+        "note": "Not included in subscription"
+      }
+    },
+    {
+      "id": "qwen/qwen3.8-max-0902",
+      "object": "model",
+      "created": 1788307200,
+      "owned_by": "qwen",
+      "name": "Qwen3.8 Max 0902",
+      "aliases": [
+        "alibaba/qwen3.8-max-0902"
+      ],
+      "description": "Qwen3.8 Max 0902 is Alibaba's September 2 checkpoint of its flagship Qwen3.8 Max model for coding, knowledge work, data analysis, and long-running agent workflows. It supports text, image, video, PDF input, selectable thinking, tool calling, structured output, and a near-million-token context window.",
+      "context_length": 991808,
+      "max_output_tokens": 131072,
+      "architecture": {
+        "modality": "text+image+video->text",
+        "input_modalities": [
+          "text",
+          "image",
+          "video"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": true,
+        "video_input": true,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": true,
+        "pdf_upload": true,
+        "batch_api": false
+      },
+      "open_weights": false,
+      "reasoning_efforts": [
+        "none",
+        "low",
+        "medium",
+        "high",
+        "max"
+      ],
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [],
+      "pricing": {
+        "prompt": 2,
+        "completion": 6,
+        "cacheReadInputPer1kTokens": 0.00025,
+        "cacheWriteInputPer1kTokens": 0.0025,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.005,
+      "icon_url": "/icons/Qwen.svg",
+      "category": "More",
+      "providers": [
+        "alibaba"
+      ],
+      "subscription": {
+        "included": false,
+        "inputTokenMultiplier": 1,
+        "note": "Not included in subscription"
+      }
+    },
+    {
+      "id": "tencent/hy4",
+      "object": "model",
+      "created": 1793750400,
+      "owned_by": "tencent",
+      "name": "Tencent Hy4",
+      "description": "Tencent Hy4 accepts text and images and returns text, with a 1,048,576-token context window and up to 65,536 output tokens. It supports coding, long-document analysis, automatic tool calling and structured output. Reasoning is enabled by default at high effort; choose low effort or turn reasoning off.",
+      "context_length": 1048576,
+      "max_output_tokens": 65536,
+      "architecture": {
+        "modality": "text+image->text",
+        "input_modalities": [
+          "text",
+          "image"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": true,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": true,
+        "pdf_upload": false,
+        "batch_api": false
+      },
+      "open_weights": false,
+      "reasoning_efforts": [
+        "none",
+        "low",
+        "high"
+      ],
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [],
+      "pricing": {
+        "prompt": 0.417,
+        "completion": 1.2505,
+        "cacheReadInputPer1kTokens": 0.000021,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.000924,
+      "icon_url": "/icons/Tencent.svg",
+      "category": "More",
+      "providers": [
+        "tencent",
+        "uomi",
+        "together"
+      ],
+      "subscription": {
+        "included": false,
+        "inputTokenMultiplier": 1,
+        "note": "Not included in subscription"
+      }
+    },
+    {
+      "id": "tencent/hy4-flash",
+      "object": "model",
+      "created": 1795046400,
+      "owned_by": "tencent",
+      "name": "Tencent Hy4 Flash",
+      "description": "Tencent Hy4 Flash is the smaller, faster and cheaper version of Hy4. It accepts text and images and returns text, with a 1,048,576-token context window and up to 65,536 output tokens. It suits coding, automatic tool calling, structured output and high-volume work. Reasoning is on by default and can be turned off.",
+      "context_length": 1048576,
+      "max_output_tokens": 65536,
+      "architecture": {
+        "modality": "text+image->text",
+        "input_modalities": [
+          "text",
+          "image"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": true,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": true,
+        "pdf_upload": false,
+        "batch_api": true
+      },
+      "open_weights": true,
+      "reasoning_efforts": [
+        "none",
+        "high"
+      ],
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [
+        "/v1/chat/completions"
+      ],
+      "pricing": {
+        "prompt": 0.035,
+        "completion": 0.1405,
+        "cacheReadInputPer1kTokens": 0.0000015,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.00008,
+      "icon_url": "/icons/Tencent.svg",
+      "category": "More",
+      "providers": [
+        "tencent"
+      ],
+      "subscription": {
+        "included": true,
+        "inputTokenMultiplier": 1,
+        "note": "Included in subscription"
+      }
+    },
+    {
+      "id": "minimax/minimax-m3",
+      "object": "model",
+      "created": 1780272000,
+      "owned_by": "minimax",
+      "name": "MiniMax M3",
+      "description": "MiniMax M3 is MiniMax's open-weights frontier model, built for coding, agent workflows, tool use, and multimodal understanding from step zero. Thinking stays off for faster direct answers unless a request asks for it; MiniMax M3 Thinking has it on by default. MiniMax reports 59.0% on SWE-Bench Pro and 66.0% on Terminal Bench 2.1, with Sparse Attention designed to scale context to 1M. It starts with a 512K context cap on NanoGPT for now.",
+      "context_length": 512000,
+      "max_output_tokens": 80000,
+      "architecture": {
+        "modality": "text+image->text",
+        "input_modalities": [
+          "text",
+          "image"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": true,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": true,
+        "pdf_upload": false,
+        "batch_api": true
+      },
+      "open_weights": true,
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [
+        "/v1/chat/completions"
+      ],
+      "pricing": {
+        "prompt": 0.3,
+        "completion": 1.2,
+        "cacheReadInputPer1kTokens": 0.00006,
+        "highContextThresholdTokens": 512000,
+        "inputPer1kTokensAbove200k": 0.0006,
+        "outputPer1kTokensAbove200k": 0.0024,
+        "cacheReadInputPer1kTokensAbove200k": 0.00012,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.00075,
+      "icon_url": "/icons/Minimax.svg",
+      "category": "More",
+      "providers": [
+        "parasail",
+        "siliconflow",
+        "deepinfra",
+        "venice",
+        "coreweave",
+        "ollama"
+      ],
+      "subscription": {
+        "included": true,
+        "inputTokenMultiplier": 1,
+        "note": "Included in subscription"
+      }
+    },
+    {
+      "id": "minimax/minimax-m3:thinking",
+      "object": "model",
+      "created": 1780272000,
+      "owned_by": "minimax",
+      "name": "MiniMax M3 Thinking",
+      "description": "MiniMax M3 Thinking is the adaptive-thinking version of MiniMax's open-weights frontier model for coding, agent workflows, tool use, long-context tasks, and native multimodal understanding. MiniMax reports 59.0% on SWE-Bench Pro and 66.0% on Terminal Bench 2.1, with Sparse Attention designed to scale context to 1M. It starts with a 512K context cap on NanoGPT for now.",
+      "context_length": 512000,
+      "max_output_tokens": 80000,
+      "architecture": {
+        "modality": "text+image->text",
+        "input_modalities": [
+          "text",
+          "image"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": true,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": true,
+        "pdf_upload": false,
+        "batch_api": true
+      },
+      "open_weights": true,
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [
+        "/v1/chat/completions"
+      ],
+      "pricing": {
+        "prompt": 0.3,
+        "completion": 1.2,
+        "cacheReadInputPer1kTokens": 0.00006,
+        "highContextThresholdTokens": 512000,
+        "inputPer1kTokensAbove200k": 0.0006,
+        "outputPer1kTokensAbove200k": 0.0024,
+        "cacheReadInputPer1kTokensAbove200k": 0.00012,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.00075,
+      "icon_url": "/icons/Minimax.svg",
+      "category": "More",
+      "providers": [
+        "featherless",
+        "runware",
+        "gmicloud",
+        "parasail",
+        "siliconflow",
+        "deepinfra",
+        "venice",
+        "coreweave",
+        "ollama",
+        "runanywhere"
+      ],
+      "subscription": {
+        "included": true,
+        "inputTokenMultiplier": 1,
+        "note": "Included in subscription"
+      }
+    },
+    {
+      "id": "minimax/minimax-m3.1-flash",
+      "object": "model",
+      "created": 1792368000,
+      "owned_by": "minimax",
+      "name": "MiniMax M3.1 Flash",
+      "description": "MiniMax M3.1 Flash is a multimodal model for coding, tool use, and long-context work. It accepts text, images, and video and produces text, with a 1,000,000-token context window and up to 524,288 output tokens within the remaining context. Thinking is always enabled, with low, medium, high, xhigh, and max effort levels; max is the default. Thinking tokens count toward the output limit. Temperature is fixed at 1 and top-p at 0.95; custom values have no effect.",
+      "context_length": 1000000,
+      "max_output_tokens": 524288,
+      "architecture": {
+        "modality": "text+image+video->text",
+        "input_modalities": [
+          "text",
+          "image",
+          "video"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": true,
+        "video_input": true,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": false,
+        "pdf_upload": false,
+        "batch_api": false
+      },
+      "open_weights": false,
+      "reasoning_efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [],
+      "pricing": {
+        "prompt": 0.15,
+        "completion": 0.6,
+        "cacheReadInputPer1kTokens": 0.000015,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.000375,
+      "icon_url": "/icons/Minimax.svg",
+      "category": "More",
+      "providers": [
+        "fireworks",
+        "together",
+        "parasail",
+        "wafer",
+        "uomi",
+        "runware",
+        "relace",
+        "tensorix",
+        "nebius",
+        "modelrun"
+      ],
+      "subscription": {
+        "included": true,
+        "inputTokenMultiplier": 1,
+        "note": "Included in subscription"
+      }
+    },
+    {
+      "id": "aion-labs/aion-3.5",
+      "object": "model",
+      "created": 1790121600,
+      "owned_by": "aionlabs",
+      "name": "AionLabs: Aion 3.5",
+      "description": "A GLM-family collaborative generation model tuned for immersive roleplay and storytelling, with stronger narrative structure, tension, conflict, and nuanced mature themes.",
+      "context_length": 262144,
+      "max_output_tokens": 32768,
+      "architecture": {
+        "modality": "text->text",
+        "input_modalities": [
+          "text"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": false,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": false,
+        "pdf_upload": false,
+        "batch_api": false
+      },
+      "open_weights": false,
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [],
+      "pricing": {
+        "prompt": 3,
+        "completion": 6,
+        "cacheReadInputPer1kTokens": 0.00075,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.009,
+      "icon_url": "/icons/Aionlabs.svg",
+      "category": "More",
+      "providers": [
+        "aionlabs"
+      ],
+      "subscription": {
+        "included": false,
+        "inputTokenMultiplier": 1,
+        "note": "Not included in subscription"
+      }
+    },
+    {
+      "id": "aion-labs/aion-3.5-mini",
+      "object": "model",
+      "created": 1790121600,
+      "owned_by": "aionlabs",
+      "name": "AionLabs: Aion 3.5 Mini",
+      "description": "A GLM-family collaborative generation model tuned for immersive roleplay and storytelling, with stronger narrative structure, tension, conflict, and nuanced mature themes.",
+      "context_length": 262144,
+      "max_output_tokens": 32768,
+      "architecture": {
+        "modality": "text->text",
+        "input_modalities": [
+          "text"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": false,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": false,
+        "pdf_upload": false,
+        "batch_api": false
+      },
+      "open_weights": false,
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [],
+      "pricing": {
+        "prompt": 0.7,
+        "completion": 1.4,
+        "cacheReadInputPer1kTokens": 0.00018,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.0021,
+      "icon_url": "/icons/Aionlabs.svg",
+      "category": "More",
+      "providers": [
+        "aionlabs"
+      ],
+      "subscription": {
+        "included": false,
+        "inputTokenMultiplier": 1,
+        "note": "Not included in subscription"
+      }
+    },
+    {
+      "id": "thedrummer/artemis-31b-v1.2",
+      "object": "model",
+      "created": 1793923200,
+      "owned_by": "google",
+      "name": "Artemis 31B v1.2",
+      "description": "TheDrummer's Gemma 4 31B finetune for creative writing, character roleplay, and conversation. It accepts and returns text, with a 65,536-token context window shared by input and output and up to 8,192 output tokens.",
+      "context_length": 65536,
+      "max_output_tokens": 8192,
+      "architecture": {
+        "modality": "text->text",
+        "input_modalities": [
+          "text"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": false,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": false,
+        "tool_calling": false,
+        "parallel_tool_calls": false,
+        "structured_output": false,
+        "pdf_upload": false,
+        "batch_api": true
+      },
+      "open_weights": true,
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [
+        "/v1/chat/completions"
+      ],
+      "pricing": {
+        "prompt": 0.1,
+        "completion": 0.45,
+        "cacheReadInputPer1kTokens": 0.00005,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.000275,
+      "icon_url": "/icons/Google.svg",
+      "category": "Roleplay/storytelling models",
+      "providers": [
+        "kitani"
+      ],
+      "subscription": {
+        "included": true,
+        "inputTokenMultiplier": 1,
+        "note": "Included in subscription"
+      }
+    },
+    {
+      "id": "qwen/qwen3.8-27b-kimiko",
+      "object": "model",
+      "created": 1791158400,
+      "owned_by": "qwen",
+      "name": "Qwen 3.8 27B Kimiko",
+      "description": "Qwen 3.8 27B Kimiko is a creative finetune served by Aoru in NVFP4 with a 262,144-token context window. It supports image understanding, tool calling, and optional reasoning.",
+      "context_length": 262144,
+      "max_output_tokens": 32768,
+      "architecture": {
+        "modality": "text+image->text",
+        "input_modalities": [
+          "text",
+          "image"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": true,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": false,
+        "pdf_upload": false,
+        "batch_api": true
+      },
+      "open_weights": true,
+      "supported_service_tiers": [
+        "flex"
+      ],
+      "supported_batch_endpoints": [
+        "/v1/chat/completions"
+      ],
+      "pricing": {
+        "prompt": 0.1,
+        "completion": 0.6,
+        "cacheReadInputPer1kTokens": 0.00005,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.0006,
+      "icon_url": "/icons/Qwen.svg",
+      "category": "Roleplay/storytelling models",
+      "providers": [
+        "aoru"
+      ],
+      "subscription": {
+        "included": true,
+        "inputTokenMultiplier": 1,
+        "note": "Included in subscription"
+      }
+    },
+    {
+      "id": "Gemma-4-31B-SDFT-Heretic-RP",
+      "object": "model",
+      "created": 1778803200,
+      "owned_by": "google",
+      "name": "Gemma 4 31B SDFT Heretic RP",
+      "description": "Gemma 4 31B SDFT Heretic RP is a community creative finetune for reasoning, multimodal chat, expressive writing, and roleplay.",
+      "context_length": 262144,
+      "max_output_tokens": null,
+      "architecture": {
+        "modality": "text+image->text",
+        "input_modalities": [
+          "text",
+          "image"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": true,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": false,
+        "pdf_upload": false,
+        "batch_api": true
+      },
+      "open_weights": true,
+      "reasoning_efforts": [
+        "none",
+        "high"
+      ],
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [
+        "/v1/chat/completions"
+      ],
+      "pricing": {
+        "prompt": 0.306,
+        "completion": 0.306,
+        "cacheReadInputPer1kTokens": 0.000153,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.001,
+      "icon_url": "/icons/Google.svg",
+      "category": "Uncensored",
+      "providers": [
+        "arliai"
+      ],
+      "subscription": {
+        "included": true,
+        "inputTokenMultiplier": 1,
+        "note": "Included in subscription"
+      }
+    },
+    {
+      "id": "Gemma-4-31B-MeroMero-v2",
+      "object": "model",
+      "created": 1785283200,
+      "owned_by": "google",
+      "name": "Gemma 4 31B MeroMero v2",
+      "description": "Gemma 4 31B MeroMero v2 is a LoRA finetune for emotive dialogue, relationship scenes, creative writing, and multimodal roleplay.",
+      "context_length": 262144,
+      "max_output_tokens": 32768,
+      "architecture": {
+        "modality": "text+image->text",
+        "input_modalities": [
+          "text",
+          "image"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": true,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": false,
+        "pdf_upload": false,
+        "batch_api": true
+      },
+      "open_weights": true,
+      "supported_service_tiers": [
+        "flex"
+      ],
+      "supported_batch_endpoints": [
+        "/v1/chat/completions"
+      ],
+      "pricing": {
+        "prompt": 0.1,
+        "completion": 0.45,
+        "cacheReadInputPer1kTokens": 0.00005,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.00045,
+      "icon_url": "/icons/Google.svg",
+      "category": "Roleplay/storytelling models",
+      "providers": [
+        "aoru",
+        "arliai",
+        "kitani"
+      ],
+      "subscription": {
+        "included": true,
+        "inputTokenMultiplier": 1,
+        "note": "Included in subscription"
+      }
+    },
+    {
+      "id": "kitani/clover-2",
+      "object": "model",
+      "created": 1794873600,
+      "owned_by": "kitani",
+      "name": "Clover 2",
+      "description": "Clover 2 is Kitani's MoLE (Mixture of LoRA Experts) model: a base model with seven LoRA experts and trained per-token routing between them. Text chat with reasoning off by default (Clover 2 Thinking turns it on). It supports function calling and a 200,000-token context window shared by input and output, with up to 8,192 output tokens. Free during its first week, until November 24, 2026 03:33 UTC.",
+      "context_length": 200000,
+      "max_output_tokens": 8192,
+      "architecture": {
+        "modality": "text->text",
+        "input_modalities": [
+          "text"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": false,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": false,
+        "pdf_upload": false,
+        "batch_api": false
+      },
+      "open_weights": false,
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [],
+      "pricing": {
+        "prompt": 0,
+        "completion": 0,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0,
+      "icon_url": "/icons/Kitani.svg",
+      "category": "More",
+      "providers": [
+        "kitani"
+      ],
+      "subscription": {
+        "included": false,
+        "inputTokenMultiplier": 1,
+        "note": "Not included in subscription"
+      }
+    },
+    {
+      "id": "GLM-4.6-Derestricted-v5",
+      "object": "model",
+      "created": 1766448000,
+      "owned_by": "zhipu",
+      "name": "GLM 4.6 Derestricted v5",
+      "description": "Derestricted GLM 4.6 tuned for open-ended creative writing and roleplay with relaxed filters.",
+      "context_length": 131072,
+      "max_output_tokens": null,
+      "architecture": {
+        "modality": "text->text",
+        "input_modalities": [
+          "text"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": false,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": false,
+        "pdf_upload": false,
+        "batch_api": true
+      },
+      "open_weights": true,
+      "reasoning_efforts": [
+        "none",
+        "high"
+      ],
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [
+        "/v1/chat/completions"
+      ],
+      "pricing": {
+        "prompt": 0.4,
+        "completion": 1.5,
+        "cacheReadInputPer1kTokens": 0.0002,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.0015,
+      "icon_url": "/icons/Zhipu.svg",
+      "category": "Uncensored",
+      "providers": [
+        "arliai"
+      ],
+      "subscription": {
+        "included": true,
+        "inputTokenMultiplier": 1,
+        "note": "Included in subscription"
+      }
+    },
+    {
+      "id": "venice-uncensored",
+      "object": "model",
+      "created": 1759276800,
+      "owned_by": "venice",
+      "name": "Venice Uncensored",
+      "description": "Venice's uncensored model. Built on the Dolphin Mistral 24b model with a very low refusal rate.",
+      "context_length": 128000,
+      "max_output_tokens": 8192,
+      "architecture": {
+        "modality": "text->text",
+        "input_modalities": [
+          "text"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": false,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": false,
+        "tool_calling": false,
+        "parallel_tool_calls": false,
+        "structured_output": false,
+        "pdf_upload": false,
+        "batch_api": true
+      },
+      "open_weights": true,
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [
+        "/v1/chat/completions"
+      ],
+      "pricing": {
+        "prompt": 0.4,
+        "completion": 1.8,
+        "cacheReadInputPer1kTokens": 0.0004,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.002,
+      "icon_url": "/icons/Venice.svg",
+      "category": "Uncensored",
+      "subscription": {
+        "included": true,
+        "inputTokenMultiplier": 1,
+        "note": "Included in subscription"
+      }
+    },
+    {
+      "id": "pqhaz/DeepSeek-V4.1-Flash-1017-heretic",
+      "object": "model",
+      "created": 1793404800,
+      "owned_by": "pqhaz",
+      "name": "DeepSeek V4.1 Flash Heretic",
+      "description": "pqhaz's Heretic checkpoint of DeepSeek V4.1 Flash 1017, served by Sable at original mixed precision (FP8 dense/Engram and MXFP4 experts). Supports text and image input, tools, structured output, and optional reasoning. Separate from the DeAlign uncensored checkpoint.",
+      "context_length": 512000,
+      "max_output_tokens": 128000,
+      "architecture": {
+        "modality": "text+image->text",
+        "input_modalities": [
+          "text",
+          "image"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": true,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": false,
+        "pdf_upload": false,
+        "batch_api": true
+      },
+      "open_weights": true,
+      "reasoning_efforts": [
+        "none",
+        "minimal",
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [
+        "/v1/chat/completions"
+      ],
+      "pricing": {
+        "prompt": 0.198,
+        "completion": 0.792,
+        "cacheReadInputPer1kTokens": 0.0000132,
+        "cacheWriteInputPer1kTokens": 0.000198,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.000792,
+      "category": "Uncensored",
+      "providers": [
+        "sable"
+      ],
+      "subscription": {
+        "included": true,
+        "inputTokenMultiplier": 1,
+        "note": "Included in subscription"
+      }
+    },
+    {
+      "id": "pqhaz/DeepSeek-V4.1-Flash-1017-heretic:thinking",
+      "object": "model",
+      "created": 1793404800,
+      "owned_by": "pqhaz",
+      "name": "DeepSeek V4.1 Flash Heretic Thinking",
+      "description": "pqhaz's Heretic checkpoint of DeepSeek V4.1 Flash 1017, served by Sable at original mixed precision (FP8 dense/Engram and MXFP4 experts). Supports text and image input, tools, structured output, and optional reasoning. Separate from the DeAlign uncensored checkpoint.",
+      "context_length": 512000,
+      "max_output_tokens": 128000,
+      "architecture": {
+        "modality": "text+image->text",
+        "input_modalities": [
+          "text",
+          "image"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": true,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": false,
+        "pdf_upload": false,
+        "batch_api": true
+      },
+      "open_weights": true,
+      "reasoning_efforts": [
+        "none",
+        "minimal",
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [
+        "/v1/chat/completions"
+      ],
+      "pricing": {
+        "prompt": 0.198,
+        "completion": 0.792,
+        "cacheReadInputPer1kTokens": 0.0000132,
+        "cacheWriteInputPer1kTokens": 0.000198,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.000792,
+      "category": "Uncensored",
+      "providers": [
+        "sable"
+      ],
+      "subscription": {
+        "included": true,
+        "inputTokenMultiplier": 1,
+        "note": "Included in subscription"
+      }
+    },
+    {
+      "id": "abliteration-ai/abliterated-model-large-v2",
+      "object": "model",
+      "created": 1788134400,
+      "owned_by": "abliteration",
+      "name": "Abliterated Model Large V2",
+      "description": "Abliteration.ai's default unrestricted large text reasoning model is derived from GLM-5.3 and weight-modified to reduce refusals compared with the base model. It supports native tool calling, structured output, automatic prompt caching, and a one-million-token context window.",
+      "context_length": 1000000,
+      "max_output_tokens": 999990,
+      "architecture": {
+        "modality": "text->text",
+        "input_modalities": [
+          "text"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": false,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": true,
+        "pdf_upload": false,
+        "batch_api": false
+      },
+      "open_weights": false,
+      "reasoning_efforts": [
+        "low",
+        "high",
+        "max"
+      ],
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [],
+      "pricing": {
+        "prompt": 3,
+        "completion": 5,
+        "cacheReadInputPer1kTokens": 0.0003,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.005,
+      "icon_url": "/icons/Abliteration.svg",
+      "category": "Uncensored",
+      "providers": [
+        "abliteration"
+      ],
+      "subscription": {
+        "included": false,
+        "inputTokenMultiplier": 1,
+        "note": "Not included in subscription"
+      }
+    },
+    {
+      "id": "TEE/qwen3.6-27b",
+      "object": "model",
+      "created": 1780531200,
+      "owned_by": "qwen",
+      "name": "Qwen3.6 27B TEE",
+      "description": "Qwen3.6 27B is a dense language model from Alibaba's Qwen team with text and image input, configurable thinking/reasoning behavior, and a native 262K context window. Running inside a TEE (Trusted Execution Environment), with provider attestation support.",
+      "context_length": 262144,
+      "max_output_tokens": 65536,
+      "architecture": {
+        "modality": "text+image->text",
+        "input_modalities": [
+          "text",
+          "image"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "capabilities": {
+        "vision": true,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": false,
+        "parallel_tool_calls": false,
+        "structured_output": false,
+        "pdf_upload": false,
+        "batch_api": false
+      },
+      "open_weights": true,
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [],
+      "pricing": {
+        "prompt": 0.32,
+        "completion": 3.25,
+        "cacheReadInputPer1kTokens": 0.00003,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.00151,
+      "icon_url": "/icons/Qwen.svg",
+      "category": "Private/TEE",
+      "subscription": {
+        "included": false,
+        "inputTokenMultiplier": 1,
+        "note": "Not included in subscription"
+      },
+      "available": false,
+      "status": "paused",
+      "unavailable_reason": "tee_verification",
+      "providers": []
+    },
+    {
+      "id": "mock/subscription-basic",
+      "object": "model",
+      "created": 1795046400,
+      "owned_by": "mock",
+      "architecture": {
+        "modality": "text->text",
+        "input_modalities": [
+          "text"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [],
+      "category": "More",
+      "name": "Mock Subscription Basic",
+      "description": "Included in the subscription, no reasoning, supports structured output.",
+      "context_length": 131072,
+      "max_output_tokens": 16384,
+      "capabilities": {
+        "vision": false,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": false,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": true,
+        "pdf_upload": false,
+        "batch_api": false
+      },
+      "open_weights": true,
+      "pricing": {
+        "prompt": 0.1,
+        "completion": 0.4,
+        "cacheReadInputPer1kTokens": 0.00001,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.0007,
+      "subscription": {
+        "included": true,
+        "inputTokenMultiplier": 1,
+        "note": "Included in subscription"
+      }
+    },
+    {
+      "id": "mock/subscription-reasoner",
+      "object": "model",
+      "created": 1795046400,
+      "owned_by": "mock",
+      "architecture": {
+        "modality": "text->text",
+        "input_modalities": [
+          "text"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [],
+      "category": "More",
+      "name": "Mock Subscription Reasoner",
+      "description": "Included in the subscription; reasoning can be switched off (none) and has three levels.",
+      "context_length": 131072,
+      "max_output_tokens": 16384,
+      "capabilities": {
+        "vision": false,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": true,
+        "pdf_upload": false,
+        "batch_api": false
+      },
+      "open_weights": true,
+      "reasoning_efforts": [
+        "none",
+        "low",
+        "high"
+      ],
+      "pricing": {
+        "prompt": 0.2,
+        "completion": 0.8,
+        "cacheReadInputPer1kTokens": 0.00002,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.0014,
+      "providers": [
+        "mock-fast",
+        "mock-cheap",
+        "mock-precise",
+        "mock-silent"
+      ],
+      "subscription": {
+        "included": true,
+        "inputTokenMultiplier": 1,
+        "note": "Included in subscription"
+      }
+    },
+    {
+      "id": "mock/reasoning-always",
+      "object": "model",
+      "created": 1795046400,
+      "owned_by": "mock",
+      "architecture": {
+        "modality": "text->text",
+        "input_modalities": [
+          "text"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [],
+      "category": "More",
+      "name": "Mock Reasoning Always",
+      "description": "Always reasons: the lowest effort is low, `none` is not an option (like GLM 5.3 or Kimi).",
+      "context_length": 131072,
+      "max_output_tokens": 16384,
+      "capabilities": {
+        "vision": false,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": true,
+        "pdf_upload": false,
+        "batch_api": false
+      },
+      "open_weights": true,
+      "reasoning_efforts": [
+        "low",
+        "high",
+        "max"
+      ],
+      "pricing": {
+        "prompt": 1.2,
+        "completion": 4,
+        "cacheReadInputPer1kTokens": 0.00012,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.0076,
+      "providers": [
+        "mock-fast",
+        "mock-cheap",
+        "mock-precise"
+      ],
+      "subscription": {
+        "included": false,
+        "inputTokenMultiplier": 1,
+        "note": "Not included in subscription"
+      }
+    },
+    {
+      "id": "mock/paid-premium",
+      "object": "model",
+      "created": 1795046400,
+      "owned_by": "mock",
+      "architecture": {
+        "modality": "text+image->text",
+        "input_modalities": [
+          "text",
+          "image"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [],
+      "category": "More",
+      "name": "Mock Paid Premium",
+      "description": "Pay-as-you-go only, expensive, with vision.",
+      "context_length": 131072,
+      "max_output_tokens": 16384,
+      "capabilities": {
+        "vision": false,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": true,
+        "pdf_upload": false,
+        "batch_api": false
+      },
+      "open_weights": false,
+      "reasoning_efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "pricing": {
+        "prompt": 5,
+        "completion": 25,
+        "cacheReadInputPer1kTokens": 0.0005,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.04,
+      "providers": [
+        "mock-cheap",
+        "mock-precise"
+      ],
+      "subscription": {
+        "included": false,
+        "inputTokenMultiplier": 1,
+        "note": "Not included in subscription"
+      }
+    },
+    {
+      "id": "mock/structured-unsupported",
+      "object": "model",
+      "created": 1795046400,
+      "owned_by": "mock",
+      "architecture": {
+        "modality": "text->text",
+        "input_modalities": [
+          "text"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [],
+      "category": "More",
+      "name": "Mock Structured Unsupported",
+      "description": "Answers 400 model_response_format_unsupported when the request has response_format.",
+      "context_length": 131072,
+      "max_output_tokens": 16384,
+      "capabilities": {
+        "vision": false,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": false,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": false,
+        "pdf_upload": false,
+        "batch_api": false
+      },
+      "open_weights": true,
+      "pricing": {
+        "prompt": 0.1,
+        "completion": 0.3,
+        "cacheReadInputPer1kTokens": 0.00001,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.0006,
+      "subscription": {
+        "included": true,
+        "inputTokenMultiplier": 1,
+        "note": "Included in subscription"
+      }
+    },
+    {
+      "id": "mock/no-selection",
+      "object": "model",
+      "created": 1795046400,
+      "owned_by": "mock",
+      "architecture": {
+        "modality": "text->text",
+        "input_modalities": [
+          "text"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [],
+      "category": "More",
+      "name": "Mock No Provider Selection",
+      "description": "Runs on a fixed route: provider selection is not supported.",
+      "context_length": 131072,
+      "max_output_tokens": 16384,
+      "capabilities": {
+        "vision": false,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": false,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": true,
+        "pdf_upload": false,
+        "batch_api": false
+      },
+      "open_weights": true,
+      "pricing": {
+        "prompt": 0.4,
+        "completion": 1.8,
+        "cacheReadInputPer1kTokens": 0.0004,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.003,
+      "subscription": {
+        "included": true,
+        "inputTokenMultiplier": 1,
+        "note": "Included in subscription"
+      }
+    },
+    {
+      "id": "mock/uncensored-rp",
+      "object": "model",
+      "created": 1795046400,
+      "owned_by": "mock",
+      "architecture": {
+        "modality": "text->text",
+        "input_modalities": [
+          "text"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [],
+      "category": "Uncensored",
+      "name": "Mock Uncensored RP",
+      "description": "A roleplay finetune on three hosts with different precision.",
+      "context_length": 131072,
+      "max_output_tokens": 16384,
+      "capabilities": {
+        "vision": false,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": true,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": true,
+        "pdf_upload": false,
+        "batch_api": false
+      },
+      "open_weights": true,
+      "reasoning_efforts": [
+        "none",
+        "high"
+      ],
+      "pricing": {
+        "prompt": 0.3,
+        "completion": 1.1,
+        "cacheReadInputPer1kTokens": 0.00003,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.002,
+      "providers": [
+        "mock-fast",
+        "mock-cheap",
+        "mock-precise"
+      ],
+      "subscription": {
+        "included": true,
+        "inputTokenMultiplier": 1,
+        "note": "Included in subscription"
+      }
+    },
+    {
+      "id": "mock/paused",
+      "object": "model",
+      "created": 1795046400,
+      "owned_by": "mock",
+      "architecture": {
+        "modality": "text->text",
+        "input_modalities": [
+          "text"
+        ],
+        "output_modalities": [
+          "text"
+        ]
+      },
+      "supported_service_tiers": [],
+      "supported_batch_endpoints": [],
+      "category": "More",
+      "name": "Mock Paused",
+      "description": "Listed but unavailable (status paused): chat answers 503 model_not_available.",
+      "context_length": 131072,
+      "max_output_tokens": 16384,
+      "capabilities": {
+        "vision": false,
+        "video_input": false,
+        "audio_input": false,
+        "reasoning": false,
+        "tool_calling": true,
+        "parallel_tool_calls": false,
+        "structured_output": true,
+        "pdf_upload": false,
+        "batch_api": false
+      },
+      "open_weights": true,
+      "pricing": {
+        "prompt": 0.5,
+        "completion": 1,
+        "cacheReadInputPer1kTokens": 0.00005,
+        "currency": "USD",
+        "unit": "per_million_tokens"
+      },
+      "cost_estimate": 0.0025,
+      "subscription": {
+        "included": false,
+        "inputTokenMultiplier": 1,
+        "note": "Not included in subscription"
+      },
+      "available": false,
+      "status": "paused",
+      "unavailable_reason": "maintenance"
+    }
+  ]
+}

@@ -1,0 +1,325 @@
+{
+ "canonicalId": "moonshotai/kimi-k3.1-pro",
+ "displayName": "Kimi K3.1 Pro",
+ "supportsProviderSelection": true,
+ "defaultPrice": {
+  "inputPer1kTokens": 0.0014,
+  "outputPer1kTokens": 0.007,
+  "cacheReadInputPer1kTokens": 0.00014,
+  "cacheWriteInputPer1kTokens": 0.0014,
+  "cacheWriteInputPer1kTokens1h": 0.0028
+ },
+ "autoPricing": {
+  "zdr": {
+   "inputPer1kTokens": 0.0014,
+   "outputPer1kTokens": 0.007,
+   "cacheReadInputPer1kTokens": 0.00014,
+   "cacheWriteInputPer1kTokens": 0.0014,
+   "cacheWriteInputPer1kTokens1h": 0.0028
+  },
+  "anonymized": {
+   "inputPer1kTokens": 0.0014,
+   "outputPer1kTokens": 0.007,
+   "cacheReadInputPer1kTokens": 0.00014,
+   "cacheWriteInputPer1kTokens": 0.0014,
+   "cacheWriteInputPer1kTokens1h": 0.0028
+  }
+ },
+ "autoTps": 178.4,
+ "autoTtftMs": 5469,
+ "autoCacheReadRate": 0.9759,
+ "providers": [
+  {
+   "provider": "neuralwatt",
+   "displayName": "NeuralWatt",
+   "pricing": {
+    "inputPer1kTokens": 0.0021000000000000003,
+    "outputPer1kTokens": 0.0105,
+    "cacheReadInputPer1kTokens": 0.00021
+   },
+   "available": true,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 1048560,
+   "maxOutputTokens": 1048576,
+   "tps": 164.8,
+   "ttftMs": 6436,
+   "cacheReadRate": 0.9908,
+   "privacy": {
+    "classification": "no_training",
+    "retainsPrompts": true,
+    "training": false
+   },
+   "region": {
+    "code": "US",
+    "label": "United States"
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "imageInput": true,
+    "promptCaching": true,
+    "reasoningEfforts": [
+     "low",
+     "high",
+     "max"
+    ],
+    "reasoningAlwaysOn": true
+   },
+   "supportedReasoningEfforts": [
+    "low",
+    "high",
+    "max"
+   ],
+   "uptime": {
+    "uptimePct": 99.71,
+    "failures": {
+     "rateLimitedPct": 0,
+     "errorPct": 0.29
+    },
+    "windowHours": 72
+   }
+  },
+  {
+   "provider": "scx",
+   "displayName": "SCX (Global)",
+   "pricing": {
+    "inputPer1kTokens": 0.0019950000000000002,
+    "outputPer1kTokens": 0.009975,
+    "cacheReadInputPer1kTokens": 0.00019950000000000002
+   },
+   "available": true,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 1048576,
+   "maxOutputTokens": 1048576,
+   "tps": 27.1,
+   "ttftMs": 3700,
+   "cacheReadRate": 0,
+   "privacy": {
+    "classification": "zdr",
+    "retainsPrompts": false,
+    "training": false
+   },
+   "region": {
+    "code": "GLB",
+    "label": "Distributed or global network"
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "imageInput": true,
+    "promptCaching": true,
+    "reasoningEfforts": [
+     "low",
+     "high",
+     "max"
+    ]
+   },
+   "supportedReasoningEfforts": [
+    "none",
+    "low",
+    "high",
+    "max"
+   ],
+   "uptime": {
+    "uptimePct": 17.58,
+    "failures": {
+     "rateLimitedPct": 0,
+     "errorPct": 82.42
+    },
+    "windowHours": 72
+   }
+  },
+  {
+   "provider": "engy",
+   "displayName": "EngyAI",
+   "pricing": {
+    "inputPer1kTokens": 0.00147,
+    "outputPer1kTokens": 0.007350000000000001,
+    "cacheReadInputPer1kTokens": 0.000147
+   },
+   "available": true,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 1113088,
+   "maxOutputTokens": 1048576,
+   "tps": 82.7,
+   "ttftMs": 2104,
+   "cacheReadRate": 0.5845,
+   "privacy": {
+    "classification": "zdr",
+    "retainsPrompts": false,
+    "training": false
+   },
+   "region": {
+    "code": "GLB",
+    "label": "Distributed or global network"
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "imageInput": true,
+    "promptCaching": true,
+    "reasoningEfforts": [
+     "low",
+     "high",
+     "max"
+    ],
+    "reasoningAlwaysOn": true
+   },
+   "supportedReasoningEfforts": [
+    "low",
+    "high",
+    "max"
+   ],
+   "uptime": {
+    "uptimePct": 99.92,
+    "failures": {
+     "rateLimitedPct": 0,
+     "errorPct": 0.08
+    },
+    "windowHours": 72
+   }
+  },
+  {
+   "provider": "moonshot",
+   "displayName": "Moonshot",
+   "pricing": {
+    "inputPer1kTokens": 0.0021000000000000003,
+    "outputPer1kTokens": 0.0105,
+    "cacheReadInputPer1kTokens": 0.00021,
+    "cacheWriteInputPer1kTokens": 0.0021000000000000003,
+    "cacheWriteInputPer1kTokens1h": 0.004200000000000001
+   },
+   "available": false,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 1048576,
+   "maxOutputTokens": 1048576,
+   "privacy": {
+    "classification": "zdr",
+    "retainsPrompts": false,
+    "training": false
+   },
+   "region": {
+    "code": "SG",
+    "label": "Singapore"
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "imageInput": true,
+    "promptCaching": true,
+    "reasoningEfforts": [
+     "low",
+     "high",
+     "max"
+    ]
+   },
+   "supportedReasoningEfforts": [
+    "low",
+    "high",
+    "max"
+   ],
+   "uptime": {
+    "uptimePct": 99.77,
+    "failures": {
+     "rateLimitedPct": 0,
+     "errorPct": 0.23
+    },
+    "windowHours": 72
+   }
+  },
+  {
+   "provider": "streamlake",
+   "displayName": "StreamLake",
+   "pricing": {
+    "inputPer1kTokens": 0.0021000000000000003,
+    "outputPer1kTokens": 0.0105,
+    "cacheReadInputPer1kTokens": 0.00021,
+    "cacheWriteInputPer1kTokens": 0.0021000000000000003,
+    "cacheWriteInputPer1kTokens1h": 0.004200000000000001
+   },
+   "available": true,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 1048576,
+   "maxOutputTokens": 131072,
+   "privacy": {
+    "classification": "no_training",
+    "retainsPrompts": true,
+    "training": false
+   },
+   "region": {
+    "code": "CN",
+    "label": "China"
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "imageInput": false,
+    "promptCaching": true,
+    "reasoningEfforts": [
+     "low",
+     "high",
+     "max"
+    ],
+    "reasoningAlwaysOn": true
+   },
+   "supportedReasoningEfforts": [
+    "low",
+    "high",
+    "max"
+   ],
+   "uptime": {
+    "uptimePct": 97.77,
+    "failures": {
+     "rateLimitedPct": 0,
+     "errorPct": 2.23
+    },
+    "windowHours": 72
+   }
+  },
+  {
+   "provider": "primaera",
+   "displayName": "Prima Era",
+   "pricing": {
+    "inputPer1kTokens": 0.00147,
+    "outputPer1kTokens": 0.007350000000000001,
+    "cacheReadInputPer1kTokens": 0.000147
+   },
+   "available": true,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 1048576,
+   "maxOutputTokens": 32768,
+   "quantization": "fp4",
+   "privacy": {
+    "classification": "zdr",
+    "retainsPrompts": false,
+    "training": false,
+    "note": "Prima Era’s DPA with NanoGPT commits to processing prompts and outputs only in volatile memory, with no disk writes, no training and no forwarding to other providers. An in-memory prefix cache is tied to NanoGPT’s API key rather than to individual users. Per-request metadata is kept for 90 days and daily per-key totals for accounting. This is a contractual commitment, not an independent audit."
+   },
+   "region": {
+    "code": "GLB",
+    "label": "United States, United Kingdom, France, Sweden, India, Indonesia, South Korea and Brazil",
+    "note": "Prima Era (Italy) runs on infrastructure operated by Nebius and Amazon Web Services in the United States, the United Kingdom, France, Sweden, India, Indonesia, South Korea and Brazil; a request may be served in any of them."
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "imageInput": false,
+    "promptCaching": true,
+    "reasoningEfforts": [
+     "low",
+     "high",
+     "max"
+    ],
+    "reasoningAlwaysOn": true
+   },
+   "supportedReasoningEfforts": [
+    "low",
+    "high",
+    "max"
+   ],
+   "uptime": {
+    "windowHours": 72
+   }
+  }
+ ]
+}

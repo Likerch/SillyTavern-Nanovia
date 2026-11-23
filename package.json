@@ -23,7 +23,10 @@
     "format:check": "prettier --check .",
     "check": "npm run typecheck && npm run lint && npm run test",
     "mock": "node tools/mock-nanogpt/server.mjs",
-    "deploy:local": "node scripts/deploy-local.mjs"
+    "deploy:local": "node scripts/deploy-local.mjs",
+    "stand": "node tools/stand/stand.mjs",
+    "stand:stop": "node tools/stand/stand.mjs stop",
+    "fixtures:refresh": "node tools/fixtures/refresh.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
