@@ -116,9 +116,13 @@ Route modules: `src/server/routes/index.ts` exports `ROUTE_MODULES`, an array of
 - `src/features/index.ts` exports `FEATURES: Feature[]`; stages append entries. A `Feature` is
   `{ id: string; init(ctx: FeatureContext): void | (() => void) }`; it registers panel tabs through
   `ctx.panel.registerTab({ id, titleKey, order, render(root, ctx) { ...; return dispose } })`.
-- `FeatureContext` gives: `settings` (UI prefs, versioned, stored under `extension_settings.nanovia`), `plugin` (typed
-  admin-API client with `status()` and `available()`), `connections` (the live list and `refresh()`), `profiles` (CM profile
-  host), `secrets` (write-only ST secret writer for direct mode), `t`, `bus`, `log`.
+- `FeatureContext` gives: `version`, `host`, `settings` (UI prefs, versioned, stored under `extension_settings.nanovia`),
+  `plugin` (typed admin-API client: `status()`, `available()`, raw `request(method, path, { body, timeoutMs })`, the typed
+  connection and key calls), `connections` (the live list and `refresh()`), `catalog` (the model catalog store: plugin,
+  NanoGPT directly, IndexedDB copy), `usage` and `account` (stage 0.4 stores), `doctor` (checks of the whole setup),
+  `mgmt` (Management API store; never holds the token), `profiles` (CM profile host), `secrets` (write-only ST secret
+  writer; `sync()` refreshes ST's own list after the plugin writes a token), `registerRequestHook`, `panel`, `i18n`, `t`,
+  `bus`, `log`.
 - Strings: each feature owns `strings.ts` exporting `{ en: Record<string,string>, ru: Record<string,string> }`, registered
   on init; keys are namespaced `<feature>.<key>`.
 - Profile sync (`src/host/profiles.ts`): connection -> CM profile `{ id, name: PROFILE_NAME_PREFIX + name, mode: 'cc',
@@ -141,7 +145,7 @@ Route modules: `src/server/routes/index.ts` exports `ROUTE_MODULES`, an array of
 
 | stage | version | content |
 | --- | --- | --- |
-| 1 | 0.1.0 | skeleton, plugin + proxy (pass-through), connections <-> profiles, modes, mock |
+| 1 | 0.1.0 | skeleton, plugin + proxy, connections <-> profiles, modes, mock |
 | 2 | 0.2.0 | routing (all provider fields), billing impact + subscription-safe mode, reasoning policy, several keys; `domain/upstream.ts` |
 | 3 | 0.3.0 | catalog, host statistics, routing hints (`contracts-catalog.ts`) |
 | 4 | 0.4.0 | balance, subscription, usage and cost, cache, OpenRouter-style response shim (`contracts-account.ts`) |
@@ -149,6 +153,8 @@ Route modules: `src/server/routes/index.ts` exports `ROUTE_MODULES`, an array of
 | 6 | 0.6.0 | Management API, web search, Context Memory, Doctor (`contracts-mgmt.ts`) |
 | 7 | 0.7.0 | media |
 | 8 | 0.8.0 | NAI Studio image provider |
+
+Stages 0.1–0.6 were built as parallel branches and released together as 0.6.0 (one tag, `v0.6.0`).
 
 Parallel branches stay out of each other's way: a stage appends to `FEATURES`, `ROUTE_MODULES`, `REQUEST_STEPS`,
 `RESPONSE_STEPS` and its own contract file, owns its folders (`src/features/<name>/`, `src/server/routes/<name>.ts`,
