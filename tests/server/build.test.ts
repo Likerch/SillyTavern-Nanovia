@@ -45,7 +45,7 @@ describe('built server/index.js', () => {
 
             const routes = new Map<string, Handler>();
             const router = Object.fromEntries(
-                ['get', 'post', 'put', 'delete'].map((method) => [
+                ['get', 'post', 'put', 'patch', 'delete'].map((method) => [
                     method,
                     (route: string, handler: Handler) => routes.set(`${method.toUpperCase()} ${route}`, handler),
                 ]),
@@ -54,6 +54,9 @@ describe('built server/index.js', () => {
             expect([...routes.keys()].sort()).toEqual([
                 'DELETE /connections/:id',
                 'DELETE /keys/:id',
+                'DELETE /mgmt/keys/:id',
+                'DELETE /mgmt/presets/:name',
+                'DELETE /mgmt/token',
                 'GET /account/balance',
                 'GET /account/subscription',
                 'GET /catalog',
@@ -63,14 +66,22 @@ describe('built server/index.js', () => {
                 'GET /catalog/providers',
                 'GET /connections',
                 'GET /keys',
+                'GET /mgmt/keys',
+                'GET /mgmt/presets',
+                'GET /mgmt/status',
                 'GET /spend',
                 'GET /status',
+                'PATCH /mgmt/keys/:id',
                 'POST /connections',
                 'POST /connections/:id/rotate-token',
                 'POST /keys',
                 'POST /keys/:id/check',
                 'POST /lookup/:requestId',
+                'POST /mgmt/keys',
+                'POST /mgmt/presets',
                 'PUT /connections/:id',
+                'PUT /mgmt/presets/:name',
+                'PUT /mgmt/token',
             ]);
 
             let body: unknown;
@@ -99,6 +110,9 @@ describe('built server/index.js', () => {
             expect(body).toMatchObject({ source: 'live', models: expect.any(Array) });
             expect((body as { models: unknown[] }).models).toHaveLength(SAMPLE_MODEL_COUNT);
             expect(fs.existsSync(path.join(globals.DATA_ROOT as string, '_nanovia', 'catalog.json'))).toBe(true);
+
+            await routes.get('GET /mgmt/status')!({ params: {}, query: {} }, res);
+            expect(body).toEqual({ present: false, valid: null, checkedAt: null, error: null });
 
             const health = await fetch(`http://127.0.0.1:${status.proxy.port}/health`);
             expect(await health.json()).toEqual({ ok: true, version: pkg.version });

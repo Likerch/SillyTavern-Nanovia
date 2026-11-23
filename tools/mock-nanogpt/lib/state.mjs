@@ -1,9 +1,11 @@
 // Everything the mock remembers between requests: request log, balance, subscription counters, billing records,
-// Management API keys and presets. `POST /__mock/reset` puts it all back.
+// Management API keys and presets (seeded: see management-seed.mjs). `POST /__mock/reset` puts it all back.
+import { seedManagement } from './management-seed.mjs';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 function initial() {
+    const management = seedManagement();
     return {
         log: [],
         counter: 0,
@@ -24,10 +26,10 @@ function initial() {
         billing: new Map(),
         /** One row per billed chat request, for `GET /api/v1/usage`. */
         records: [],
-        keys: new Map(),
-        nextKeyId: 1,
+        keys: management.keys,
+        nextKeyId: management.nextKeyId,
         idempotency: new Map(),
-        presets: new Map(),
+        presets: management.presets,
     };
 }
 

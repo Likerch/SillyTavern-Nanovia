@@ -24,6 +24,7 @@ const FORCED_ERRORS = {
     429: ['rate_limit_exceeded', 'Rate limit exceeded'],
     500: ['internal_error', 'Internal server error'],
     502: ['bad_gateway', 'Bad gateway'],
+    503: ['service_unavailable', 'Service temporarily unavailable'],
 };
 
 /** `GET /api/models/:id/providers` style patterns -> a regexp with named groups. */
@@ -70,14 +71,20 @@ export function createMockServer(options = {}) {
     const catalog = loadCatalog(options.fixturesDir);
     const say = options.log ?? (() => {});
 
-    /** The `x-mock-error` header: answer with that error before the route runs. Returns true when it did. */
-    function forcedError(req, res) {
+    /**
+     * The `x-mock-error` header: answer with that error before the route runs. Returns true when it did. The Management
+     * API answers in its own envelope, with its own code for a 401.
+     */
+    function forcedError(req, res, ctx) {
         const wanted = header(req, 'x-mock-error');
         if (!wanted) return false;
         const status = Number.parseInt(wanted, 10);
         const [code, message] = FORCED_ERRORS[status] ?? [];
         if (!code) return false;
-        if (wanted === '502-empty') {
+        if (ctx.management) {
+            const retry = status === 429 || status === 503 ? { 'Retry-After': '1' } : undefined;
+            managementError(ctx, status, status === 401 ? 'invalid_management_token' : code, message, undefined, retry);
+        } else if (wanted === '502-empty') {
             res.writeHead(502, { 'Content-Length': '0' });
             res.end();
         } else {
@@ -174,6 +181,7 @@ export function createMockServer(options = {}) {
             requestId,
             state,
             catalog,
+            management,
             params: {},
         };
         const route = ROUTES.find((r) => r.method === req.method && r.re.test(url.pathname));
@@ -197,7 +205,7 @@ export function createMockServer(options = {}) {
                 return managementError(ctx, 403, 'insufficient_scope', `This token lacks the ${route.scope} scope.`);
             }
         }
-        if (forcedError(req, res)) return undefined;
+        if (forcedError(req, res, ctx)) return undefined;
         return route.handler(ctx);
     }
 

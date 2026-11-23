@@ -1,7 +1,7 @@
 // Nanovia server plugin for SillyTavern (docs/ARCHITECTURE.md §1, §3, §4).
 // Install: copy server/ to <ST>/plugins/nanovia, set enableServerPlugins: true, restart ST.
 // Optional config: <ST>/plugins/nanovia/config.json { "port": 8787, "upstreamBase": "...", "timeoutMs": 300000 };
-// environment overrides: NANOVIA_PORT, NANOVIA_UPSTREAM.
+// environment overrides: NANOVIA_PORT, NANOVIA_UPSTREAM, NANOVIA_SITE, NANOVIA_MGMT (the Management API base).
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { PLUGIN_ID } from '../shared/constants';

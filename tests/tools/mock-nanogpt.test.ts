@@ -504,128 +504,283 @@ describe('CORS', () => {
 
 describe('Management API', () => {
     const mgmt = { Authorization: `Bearer ${MGMT}` };
+    const M = '/api/management/v1';
+    const del = (route: string) => fetch(`${base}${route}`, { method: 'DELETE', headers: mgmt });
 
     it('needs a management token with the right scope', async () => {
-        const none = await get('/api/management/v1/api-keys');
+        const none = await get(`${M}/api-keys`);
         expect(none.status).toBe(401);
         expect((await json(none)).error).toMatchObject({
             code: 'invalid_management_token',
             request_id: expect.stringMatching(/^req_/),
         });
-        expect((await get('/api/management/v1/api-keys', { Authorization: `Bearer ${KEY}` })).status).toBe(401);
-        expect(
-            (await get('/api/management/v1/api-keys', { Authorization: 'Bearer sk-nano-mgmt-revoked-1234' })).status,
-        ).toBe(401);
+        expect((await get(`${M}/api-keys`, { Authorization: `Bearer ${KEY}` })).status).toBe(401);
+        expect((await get(`${M}/api-keys`, { Authorization: 'Bearer sk-nano-mgmt-revoked-1234' })).status).toBe(401);
         const usageOnly = { Authorization: 'Bearer sk-nano-mgmt-usage-1234' };
-        const forbidden = await get('/api/management/v1/api-keys', usageOnly);
+        const forbidden = await get(`${M}/api-keys`, usageOnly);
         expect(forbidden.status).toBe(403);
         expect((await json(forbidden)).error.code).toBe('insufficient_scope');
-        const usage = await json(await get('/api/management/v1/subscription/usage', usageOnly));
+        const usage = await json(await get(`${M}/subscription/usage`, usageOnly));
         expect(usage.active).toBe(true);
         expect(usage.routing).toBeUndefined();
-        expect(
-            (await get('/api/management/v1/model-presets', { Authorization: 'Bearer sk-nano-mgmt-keysread-1234' }))
-                .status,
-        ).toBe(403);
+        const keysOnly = { Authorization: 'Bearer sk-nano-mgmt-keysread-1234' };
+        expect((await get(`${M}/model-presets`, keysOnly)).status).toBe(403);
+        // a keys token does not grant usage, as the contract says
+        expect((await get(`${M}/subscription/usage`, keysOnly)).status).toBe(403);
+    });
+
+    it('starts with a few keys and presets that a reset brings back', async () => {
+        const keys = (await json(await get(`${M}/api-keys`, mgmt))).data;
+        expect(keys.map((k: any) => [k.id, k.name, k.status])).toEqual([
+            ['1', 'Nanovia main', 'active'],
+            ['2', 'Roleplay capped', 'active'],
+            ['3', 'Old test key', 'expired'],
+        ]);
+        // every documented property is there, nothing else, and no secret
+        expect(Object.keys(keys[0]).sort()).toEqual(
+            [
+                'id',
+                'object',
+                'name',
+                'status',
+                'created_at',
+                'expires_at',
+                'zdr_policy',
+                'daily_rpd_limit',
+                'daily_input_token_limit',
+                'daily_usd_limit',
+                'weekly_usd_limit',
+                'monthly_usd_limit',
+                'weekly_request_limit',
+                'monthly_request_limit',
+                'weekly_input_token_limit',
+                'monthly_input_token_limit',
+                'daily_subscription_input_token_limit',
+                'weekly_subscription_input_token_limit',
+                'monthly_subscription_input_token_limit',
+            ].sort(),
+        );
+        expect(keys[0]).toMatchObject({ daily_usd_limit: 5, weekly_usd_limit: 20, monthly_usd_limit: 50 });
+        expect(keys[1]).toMatchObject({
+            daily_rpd_limit: 300,
+            zdr_policy: 'zdr',
+            expires_at: '2099-01-01T00:00:00.000Z',
+        });
+        expect(keys[2]).toMatchObject({ daily_usd_limit: 0, zdr_policy: 'unset' });
+        const presets = (await json(await get(`${M}/model-presets`, mgmt))).data;
+        expect(presets.map((p: any) => p.name)).toEqual(['rp-fast', 'analyst']);
+        expect(presets[1]).toMatchObject({
+            thinking: { type: 'enabled', budget_tokens: 4000 },
+            prompt_caching: { enabled: true, ttl: '1h' },
+        });
+
+        await del(`${M}/api-keys/1`);
+        await send('PUT', `${M}/model-presets/extra`, { model: 'x' }, mgmt);
+        await send('POST', '/__mock/reset', undefined);
+        expect((await json(await get(`${M}/api-keys`, mgmt))).data).toHaveLength(3);
+        expect((await json(await get(`${M}/model-presets`, mgmt))).data).toHaveLength(2);
     });
 
     it('manages API keys: idempotent create, read, update, delete', async () => {
-        const noKey = await send('POST', '/api/management/v1/api-keys', { name: 'ST' }, mgmt);
+        const noKey = await send('POST', `${M}/api-keys`, { name: 'ST' }, mgmt);
         expect(noKey.status).toBe(400);
         expect((await json(noKey)).error.code).toBe('idempotency_key_required');
+        const shortKey = await send('POST', `${M}/api-keys`, { name: 'ST' }, { ...mgmt, 'Idempotency-Key': 'short' });
+        expect(shortKey.status).toBe(400);
 
-        const body = { name: 'Nanovia main', daily_usd_limit: 1.5, weekly_request_limit: 500 };
-        const created = await send('POST', '/api/management/v1/api-keys', body, { ...mgmt, 'Idempotency-Key': 'one' });
+        const body = { name: 'Capped', daily_usd_limit: 1.5, weekly_request_limit: 500 };
+        const once = { ...mgmt, 'Idempotency-Key': 'create-one' };
+        const created = await send('POST', `${M}/api-keys`, body, once);
         expect(created.status).toBe(201);
+        expect(created.headers.get('idempotent-replayed')).toBeNull();
         const key = await json(created);
         expect(key).toMatchObject({
-            id: '1',
+            id: '4',
             object: 'api_key',
-            name: 'Nanovia main',
+            name: 'Capped',
             status: 'active',
             daily_usd_limit: 1.5,
             daily_rpd_limit: null,
+            zdr_policy: 'off',
             key: expect.stringMatching(/^sk-nano-/),
         });
 
-        const replay = await json(
-            await send('POST', '/api/management/v1/api-keys', body, { ...mgmt, 'Idempotency-Key': 'one' }),
-        );
-        expect(replay.key).toBe(key.key);
-        expect(
-            (
-                await send(
-                    'POST',
-                    '/api/management/v1/api-keys',
-                    { name: 'other' },
-                    { ...mgmt, 'Idempotency-Key': 'one' },
-                )
-            ).status,
-        ).toBe(409);
+        const replayed = await send('POST', `${M}/api-keys`, body, once);
+        expect(replayed.status).toBe(201);
+        expect(replayed.headers.get('idempotent-replayed')).toBe('true');
+        expect((await json(replayed)).key).toBe(key.key);
+        expect((await send('POST', `${M}/api-keys`, { name: 'other' }, once)).status).toBe(409);
 
         const bad = await send(
             'POST',
-            '/api/management/v1/api-keys',
-            { name: 'x', daily_usd_limit: -1, nonsense: true },
-            { ...mgmt, 'Idempotency-Key': 'two' },
+            `${M}/api-keys`,
+            {
+                name: 'x',
+                daily_usd_limit: -1,
+                weekly_request_limit: 1.5,
+                monthly_usd_limit: 0.00004,
+                nonsense: true,
+                zdr_policy: 'unset',
+            },
+            { ...mgmt, 'Idempotency-Key': 'create-two' },
         );
         expect(bad.status).toBe(400);
-        expect((await json(bad)).error.details).toEqual(
-            expect.arrayContaining([
-                expect.objectContaining({ field: 'daily_usd_limit' }),
-                expect.objectContaining({ field: 'nonsense' }),
-            ]),
+        expect((await json(bad)).error.details.map((d: any) => d.field).sort()).toEqual([
+            'daily_usd_limit',
+            'monthly_usd_limit',
+            'nonsense',
+            'weekly_request_limit',
+            'zdr_policy',
+        ]);
+        const tooMany = await send(
+            'POST',
+            `${M}/api-keys`,
+            { name: 'x', daily_rpd_limit: 10_000_001 },
+            { ...mgmt, 'Idempotency-Key': 'create-three' },
         );
+        expect(tooMany.status).toBe(400);
 
-        const listed = await json(await get('/api/management/v1/api-keys', mgmt));
-        expect(listed.data).toHaveLength(1);
-        expect(listed.data[0].key).toBeUndefined();
-        expect((await json(await get('/api/management/v1/api-keys/1', mgmt))).name).toBe('Nanovia main');
+        const listed = await json(await get(`${M}/api-keys`, mgmt));
+        expect(listed.data).toHaveLength(4);
+        expect(listed.data.every((k: any) => k.key === undefined)).toBe(true);
+        expect((await json(await get(`${M}/api-keys/4`, mgmt))).name).toBe('Capped');
 
         const patched = await json(
-            await send('PATCH', '/api/management/v1/api-keys/1', { monthly_usd_limit: 20, name: ' Renamed ' }, mgmt),
+            await send(
+                'PATCH',
+                `${M}/api-keys/4`,
+                { monthly_usd_limit: 20, name: ' Renamed ', zdr_policy: 'unset' },
+                mgmt,
+            ),
         );
-        expect(patched).toMatchObject({ name: 'Renamed', monthly_usd_limit: 20, daily_usd_limit: 1.5 });
-        expect((await send('PATCH', '/api/management/v1/api-keys/1', {}, mgmt)).status).toBe(400);
-        expect((await send('PATCH', '/api/management/v1/api-keys/9', { name: 'x' }, mgmt)).status).toBe(404);
+        expect(patched).toMatchObject({
+            name: 'Renamed',
+            monthly_usd_limit: 20,
+            daily_usd_limit: 1.5,
+            zdr_policy: 'unset',
+        });
+        const cleared = await json(
+            await send(
+                'PATCH',
+                `${M}/api-keys/4`,
+                { daily_usd_limit: null, expires_at: '2030-01-01T00:00:00.000Z' },
+                mgmt,
+            ),
+        );
+        expect(cleared).toMatchObject({
+            daily_usd_limit: null,
+            expires_at: '2030-01-01T00:00:00.000Z',
+            monthly_usd_limit: 20,
+        });
+        expect((await send('PATCH', `${M}/api-keys/4`, {}, mgmt)).status).toBe(400);
+        expect((await send('PATCH', `${M}/api-keys/4`, { name: null }, mgmt)).status).toBe(400);
+        expect((await send('PATCH', `${M}/api-keys/4`, { expires_at: 'someday' }, mgmt)).status).toBe(400);
+        expect((await send('PATCH', `${M}/api-keys/9`, { name: 'x' }, mgmt)).status).toBe(404);
+        expect((await send('PATCH', `${M}/api-keys/abc`, { name: 'x' }, mgmt)).status).toBe(404);
 
-        expect((await fetch(`${base}/api/management/v1/api-keys/1`, { method: 'DELETE', headers: mgmt })).status).toBe(
-            204,
-        );
-        expect((await get('/api/management/v1/api-keys/1', mgmt)).status).toBe(404);
+        expect((await del(`${M}/api-keys/4`)).status).toBe(204);
+        expect((await get(`${M}/api-keys/4`, mgmt)).status).toBe(404);
+        expect((await del(`${M}/api-keys/4`)).status).toBe(404);
     });
 
-    it('manages model presets', async () => {
+    it('manages model presets with the documented names, limits and codes', async () => {
         const put = await send(
             'PUT',
-            '/api/management/v1/model-presets/rp-fast',
+            `${M}/model-presets/RP-Slow`,
             { model: 'deepseek/deepseek-v4.1-flash', temperature: 0.8 },
             mgmt,
         );
         expect(put.status).toBe(200);
         const preset = await json(put);
         expect(preset).toMatchObject({
-            name: 'rp-fast',
+            name: 'rp-slow',
             model: 'deepseek/deepseek-v4.1-flash',
             temperature: 0.8,
             top_p: null,
+            thinking: null,
             created_at: expect.any(String),
         });
-        const again = await json(
-            await send('PUT', '/api/management/v1/model-presets/rp-fast', { model: 'z-ai/glm-5.3' }, mgmt),
-        );
+        const again = await json(await send('PUT', `${M}/model-presets/rp-slow`, { model: 'z-ai/glm-5.3' }, mgmt));
         expect(again).toMatchObject({ model: 'z-ai/glm-5.3', temperature: null, created_at: preset.created_at });
-        expect((await json(await get('/api/management/v1/model-presets', mgmt))).data).toHaveLength(1);
-        expect((await json(await get('/api/management/v1/model-presets/rp-fast', mgmt))).model).toBe('z-ai/glm-5.3');
-        expect((await send('PUT', '/api/management/v1/model-presets/bad', { temperature: 1 }, mgmt)).status).toBe(400);
-        expect((await send('PUT', '/api/management/v1/model-presets/bad%20name', { model: 'x' }, mgmt)).status).toBe(
-            400,
+        expect((await json(await get(`${M}/model-presets`, mgmt))).data).toHaveLength(3);
+        expect((await json(await get(`${M}/model-presets/Rp-Slow`, mgmt))).model).toBe('z-ai/glm-5.3');
+
+        const code = async (route: string, body: unknown) =>
+            (await json(await send('PUT', route, body, mgmt))).error.code;
+        expect(await code(`${M}/model-presets/bad`, { temperature: 1 })).toBe('invalid_preset');
+        expect(await code(`${M}/model-presets/bad%20name`, { model: 'x' })).toBe('invalid_preset_name');
+        expect(await code(`${M}/model-presets/-bad`, { model: 'x' })).toBe('invalid_preset_name');
+        expect(await code(`${M}/model-presets/${'a'.repeat(81)}`, { model: 'x' })).toBe('invalid_preset_name');
+        expect(await code(`${M}/model-presets/dot.name`, { model: 'x' })).toBe('invalid_preset_name');
+        for (const extra of [
+            { temperature: 2.5 },
+            { top_p: 1.5 },
+            { max_tokens: 0 },
+            { top_k: 1.5 },
+            { frequency_penalty: -3 },
+            { reasoning_effort: 'ultra' },
+            { service_tier: 'warp' },
+            { structured_outputs: true },
+            { thinking: 'yes' },
+            { prompt_caching: { enabled: true, ttl: '1d' } },
+            { service_tier: 'flex', provider_routing_preference: 'latency' },
+            { system_prompt: 'x'.repeat(12_001) },
+            { provider: { only: ['a'] } },
+        ]) {
+            const res = await send('PUT', `${M}/model-presets/bad`, { model: 'm', ...extra }, mgmt);
+            expect(res.status, JSON.stringify(extra)).toBe(400);
+            expect((await json(res)).error.code).toBe('invalid_preset');
+        }
+        const fine = {
+            model: 'm',
+            structured_outputs: true,
+            response_format_type: 'json_object',
+            thinking: true,
+            prompt_caching: false,
+        };
+        expect((await send('PUT', `${M}/model-presets/ok`, fine, mgmt)).status).toBe(200);
+        const huge = await send(
+            'PUT',
+            `${M}/model-presets/huge`,
+            { model: 'm', system_prompt: '€'.repeat(6000) },
+            mgmt,
         );
-        expect(
-            (await fetch(`${base}/api/management/v1/model-presets/rp-fast`, { method: 'DELETE', headers: mgmt }))
-                .status,
-        ).toBe(204);
-        expect((await get('/api/management/v1/model-presets/rp-fast', mgmt)).status).toBe(404);
+        expect(huge.status).toBe(413);
+
+        expect((await del(`${M}/model-presets/rp-slow`)).status).toBe(204);
+        expect((await del(`${M}/model-presets/rp-slow`)).status).toBe(204); // gone already: still 204
+        const missing = await get(`${M}/model-presets/rp-slow`, mgmt);
+        expect(missing.status).toBe(404);
+        expect((await json(missing)).error.code).toBe('model_preset_not_found');
+    });
+
+    it('refuses a 101st preset but still replaces an existing one', async () => {
+        for (let i = 0; i < 98; i++) {
+            expect((await send('PUT', `${M}/model-presets/p${i}`, { model: 'm' }, mgmt)).status).toBe(200);
+        }
+        const full = await send('PUT', `${M}/model-presets/one-too-many`, { model: 'm' }, mgmt);
+        expect(full.status).toBe(409);
+        expect((await json(full)).error.code).toBe('preset_limit_reached');
+        expect((await send('PUT', `${M}/model-presets/p0`, { model: 'other' }, mgmt)).status).toBe(200);
+    });
+
+    it('forces the Management API error envelope with x-mock-error', async () => {
+        const wanted = [
+            [401, 'invalid_management_token'],
+            [429, 'rate_limit_exceeded'],
+            [503, 'service_unavailable'],
+            [500, 'internal_error'],
+        ] as const;
+        for (const [status, code] of wanted) {
+            const res = await get(`${M}/api-keys`, { ...mgmt, 'x-mock-error': String(status) });
+            expect(res.status).toBe(status);
+            expect((await json(res)).error).toMatchObject({
+                code,
+                message: expect.any(String),
+                request_id: expect.stringMatching(/^req_/),
+            });
+            if (status === 429 || status === 503) expect(res.headers.get('retry-after')).toBe('1');
+        }
     });
 });
 

@@ -1,7 +1,13 @@
 // Plugin configuration: defaults from shared/constants, overridden by `server/config.json` (next to the bundle) and
 // then by the NANOVIA_* environment variables. A broken file or value never stops the plugin: it falls back to the
 // default and reports a warning.
-import { DEFAULT_PROXY_PORT, NANOGPT_API_BASE, NANOGPT_API_BASE_FALLBACK, NANOGPT_SITE } from '../shared/constants';
+import {
+    DEFAULT_PROXY_PORT,
+    NANOGPT_API_BASE,
+    NANOGPT_API_BASE_FALLBACK,
+    NANOGPT_MGMT_BASE,
+    NANOGPT_SITE,
+} from '../shared/constants';
 
 export const DEFAULT_TIMEOUT_MS = 300_000;
 const MIN_TIMEOUT_MS = 1_000;
@@ -16,6 +22,12 @@ export interface ServerConfig {
     upstreamFallbackBase: string | null;
     /** NanoGPT site, for the balance check. */
     siteBase: string;
+    /**
+     * The Management API base (`.../api/management/v1`), where the user's Management token goes. One host and no
+     * fallback: whatever is set here is the only place the token is ever sent (a custom base never falls back to the
+     * public one). A stand or a mock must set it too (`NANOVIA_MGMT`), the other bases do not carry over.
+     */
+    mgmtBase: string;
     /** Time to wait for the upstream answer, and between two chunks of a stream. */
     timeoutMs: number;
     /**
@@ -37,6 +49,7 @@ export function defaultConfig(): ServerConfig {
         upstreamBase: NANOGPT_API_BASE,
         upstreamFallbackBase: NANOGPT_API_BASE_FALLBACK,
         siteBase: NANOGPT_SITE,
+        mgmtBase: NANOGPT_MGMT_BASE,
         timeoutMs: DEFAULT_TIMEOUT_MS,
         nanogptKey: null,
     };
@@ -90,6 +103,13 @@ export function parseConfig(fileText: string | null, env: Record<string, string 
         const base = cleanBase(site);
         if (base) config.siteBase = base;
         else warnings.push('siteBase is not an http(s) URL; default used');
+    }
+
+    const mgmt = pick(file['mgmtBase'], env['NANOVIA_MGMT']);
+    if (mgmt !== undefined) {
+        const base = cleanBase(mgmt);
+        if (base) config.mgmtBase = base;
+        else warnings.push('mgmtBase is not an http(s) URL; default used');
     }
 
     if (file['timeoutMs'] !== undefined) {

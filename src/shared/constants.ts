@@ -19,6 +19,10 @@ export const DEFAULT_PROXY_PORT = 8787;
 export const NANOGPT_API_BASE = 'https://api.nano-gpt.com/api/v1';
 export const NANOGPT_API_BASE_FALLBACK = 'https://nano-gpt.com/api/v1';
 export const NANOGPT_SITE = 'https://nano-gpt.com';
+/** The Management API (API keys with limits, model presets). Its own host path, no CORS, no fallback host. */
+export const NANOGPT_MGMT_BASE = 'https://nano-gpt.com/api/management/v1';
+/** Every Management token starts with this; a normal inference key (`sk-nano-<uuid>`) does not work there. */
+export const MGMT_TOKEN_PREFIX = 'sk-nano-mgmt-';
 
 /** Names of ST secrets (src/endpoints/secrets.js SECRET_KEYS). Several values per key, each with an id and a label. */
 export const SECRET_KEY_NANOGPT = 'api_key_nanogpt';

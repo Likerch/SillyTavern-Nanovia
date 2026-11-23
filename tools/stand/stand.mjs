@@ -38,6 +38,8 @@ const PROXY_PORT = Number(env.STAND_PROXY_PORT ?? 8788);
 const ST_URL = `http://127.0.0.1:${ST_PORT}/`;
 const MOCK_ORIGIN = `http://127.0.0.1:${MOCK_PORT}`;
 const MOCK_BASE = `${MOCK_ORIGIN}/api/v1`;
+/** The Management API of the mock: the plugin sends a Management token only to its own `mgmtBase`, so the stand sets it. */
+const MOCK_MGMT_BASE = `${MOCK_ORIGIN}/api/management/v1`;
 /** Any HTTP answer means the proxy listener is alive (the plugin owns the route table; /health is the documented one). */
 const PROXY_HEALTH = `http://127.0.0.1:${PROXY_PORT}/health`;
 
@@ -302,8 +304,14 @@ function installPlugin() {
         return { installed: false };
     }
     ok(deployPlugin(PLUGIN_DIR, { repo: REPO }));
-    writeJson(path.join(PLUGIN_DIR, 'config.json'), { port: PROXY_PORT, upstreamBase: MOCK_BASE, siteBase: MOCK_ORIGIN, timeoutMs: 30000 });
-    ok(`plugin config.json: proxy port ${PROXY_PORT}, upstreamBase ${MOCK_BASE}, siteBase ${MOCK_ORIGIN}`);
+    writeJson(path.join(PLUGIN_DIR, 'config.json'), {
+        port: PROXY_PORT,
+        upstreamBase: MOCK_BASE,
+        siteBase: MOCK_ORIGIN,
+        mgmtBase: MOCK_MGMT_BASE,
+        timeoutMs: 30000,
+    });
+    ok(`plugin config.json: proxy port ${PROXY_PORT}, upstreamBase ${MOCK_BASE}, siteBase ${MOCK_ORIGIN}, mgmtBase ${MOCK_MGMT_BASE}`);
     return { installed: true };
 }
 
