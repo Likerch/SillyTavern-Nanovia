@@ -1,0 +1,2281 @@
+{
+ "object": "list",
+ "data": [
+  {
+   "id": "speridlabs/iris-z",
+   "object": "model",
+   "created": 1794873600,
+   "owned_by": "speridlabs",
+   "name": "Iris-Z",
+   "description": "Iris-Z is a FLUX.2-based joint RGB and depth model. Generate an image from text, create RGB with a matching depth visualization and float32 log-depth array, estimate depth from one image, or generate from a square depth map. Text generation supports up to 1,310,720 pixels with 16-pixel increments. Depth-guided output is square at 512 or 1024 pixels. Prompts are limited to 4096 characters and truncated to 512 encoder tokens.",
+   "architecture": {
+    "modality": "text+image->image",
+    "input_modalities": [
+     "text",
+     "image"
+    ],
+    "output_modalities": [
+     "image"
+    ]
+   },
+   "pricing": {
+    "per_image": {
+     "square": 0.1,
+     "square_hd": 0.1,
+     "portrait_4_3": 0.1,
+     "landscape_4_3": 0.1,
+     "portrait_16_9": 0.1,
+     "landscape_16_9": 0.1
+    },
+    "currency": "USD"
+   },
+   "capabilities": {
+    "image_generation": true,
+    "image_to_image": true,
+    "inpainting": false,
+    "nsfw": false
+   },
+   "supported_parameters": {
+    "max_prompt_characters": 4096,
+    "prompt_length": {
+     "status": "known",
+     "unit": "unicode_code_points",
+     "trim_whitespace": true
+    },
+    "resolutions": [
+     "square",
+     "square_hd",
+     "portrait_4_3",
+     "landscape_4_3",
+     "portrait_16_9",
+     "landscape_16_9"
+    ],
+    "max_images": 1,
+    "max_output_images": 1,
+    "max_input_images": 1,
+    "input_image_constraints": {
+     "max_items": 1,
+     "route": {
+      "min_width": 8,
+      "min_height": 8,
+      "max_width": 16384,
+      "max_height": 16384,
+      "max_bytes": 31457280,
+      "formats": [
+       "png",
+       "jpeg",
+       "webp"
+      ],
+      "source": "route-preflight",
+      "note": "NanoGPT route-level validation before provider submission."
+     },
+     "provider": {
+      "max_width": 2048,
+      "max_height": 2048,
+      "source": "route-preflight",
+      "note": "NanoGPT supports Iris-Z input edges up to 2048px; depth-guided generation currently requires a square depth map."
+     }
+    },
+    "fixed_image_count": 1
+   },
+   "tags": [
+    "text-to-image",
+    "depth-estimation",
+    "depth-to-image"
+   ],
+   "category": "image",
+   "supports_streaming": false,
+   "endpoints": "/api/v1/images/models/speridlabs/iris-z/endpoints"
+  },
+  {
+   "id": "topaz-image-upscale",
+   "object": "model",
+   "created": 1793577600,
+   "owned_by": "topaz",
+   "name": "Topaz Image Upscale",
+   "description": "Topaz Image Upscale enlarges one image with precision, generative, or creative algorithms. Choose Standard, High Fidelity, Low Resolution, CGI, Text Refine, Wonder, Recover, Standard MAX, Redefine, Detail, or Bloom variants. Use 1–4× scaling or an aspect-preserving 2K, 4K, or 8K target area within 1–6× enlargement per edge; actual dimensions may be rounded. Wonder 4 and Detail require a target size. Accepts one still PNG, JPEG, or WebP up to 40 MP and 30 MiB; output is limited to 100 MP in JPEG or PNG.",
+   "architecture": {
+    "modality": "text+image->image",
+    "input_modalities": [
+     "text",
+     "image"
+    ],
+    "output_modalities": [
+     "image"
+    ]
+   },
+   "pricing": {
+    "per_image": {},
+    "starting_at": 0.08,
+    "billing": "started_megapixel_blocks",
+    "megapixel_pixels": 1000000,
+    "area_basis": "output",
+    "tariffs": [
+     {
+      "algorithm": "Standard V2",
+      "scale": {
+       "usd_per_started_block": 0.08,
+       "megapixels_per_block": 24
+      },
+      "target": {
+       "usd_per_started_block": 0.1,
+       "megapixels_per_block": 24
+      }
+     },
+     {
+      "algorithm": "High Fidelity V2",
+      "scale": {
+       "usd_per_started_block": 0.08,
+       "megapixels_per_block": 24
+      }
+     },
+     {
+      "algorithm": "High Fidelity V3",
+      "scale": {
+       "usd_per_started_block": 0.08,
+       "megapixels_per_block": 24
+      },
+      "target": {
+       "usd_per_started_block": 0.1,
+       "megapixels_per_block": 24
+      }
+     },
+     {
+      "algorithm": "Low Resolution V2",
+      "scale": {
+       "usd_per_started_block": 0.08,
+       "megapixels_per_block": 24
+      },
+      "target": {
+       "usd_per_started_block": 0.1,
+       "megapixels_per_block": 24
+      }
+     },
+     {
+      "algorithm": "CGI",
+      "scale": {
+       "usd_per_started_block": 0.08,
+       "megapixels_per_block": 24
+      },
+      "target": {
+       "usd_per_started_block": 0.1,
+       "megapixels_per_block": 24
+      }
+     },
+     {
+      "algorithm": "Text Refine",
+      "scale": {
+       "usd_per_started_block": 0.08,
+       "megapixels_per_block": 24
+      },
+      "target": {
+       "usd_per_started_block": 0.1,
+       "megapixels_per_block": 24
+      }
+     },
+     {
+      "algorithm": "Bloom 2",
+      "scale": {
+       "usd_per_started_block": 0.08,
+       "megapixels_per_block": 2
+      },
+      "target": {
+       "usd_per_started_block": 0.1,
+       "megapixels_per_block": 2
+      }
+     },
+     {
+      "algorithm": "Bloom",
+      "scale": {
+       "usd_per_started_block": 0.08,
+       "megapixels_per_block": 2
+      },
+      "target": {
+       "usd_per_started_block": 0.1,
+       "megapixels_per_block": 2
+      }
+     },
+     {
+      "algorithm": "Bloom Realism",
+      "scale": {
+       "usd_per_started_block": 0.08,
+       "megapixels_per_block": 2
+      },
+      "target": {
+       "usd_per_started_block": 0.1,
+       "megapixels_per_block": 2
+      }
+     },
+     {
+      "algorithm": "Wonder 4",
+      "target": {
+       "usd_per_started_block": 0.1,
+       "megapixels_per_block": 8
+      }
+     },
+     {
+      "algorithm": "Wonder 3.5",
+      "scale": {
+       "usd_per_started_block": 0.08,
+       "megapixels_per_block": 8
+      },
+      "target": {
+       "usd_per_started_block": 0.1,
+       "megapixels_per_block": 8
+      }
+     },
+     {
+      "algorithm": "Wonder 3",
+      "scale": {
+       "usd_per_started_block": 0.08,
+       "megapixels_per_block": 8
+      }
+     },
+     {
+      "algorithm": "Wonder 2",
+      "scale": {
+       "usd_per_started_block": 0.08,
+       "megapixels_per_block": 4
+      }
+     },
+     {
+      "algorithm": "Wonder",
+      "scale": {
+       "usd_per_started_block": 0.08,
+       "megapixels_per_block": 4
+      }
+     },
+     {
+      "algorithm": "Recover 3",
+      "scale": {
+       "usd_per_started_block": 0.08,
+       "megapixels_per_block": 4
+      },
+      "target": {
+       "usd_per_started_block": 0.1,
+       "megapixels_per_block": 4
+      }
+     },
+     {
+      "algorithm": "Standard MAX",
+      "scale": {
+       "usd_per_started_block": 0.08,
+       "megapixels_per_block": 4
+      },
+      "target": {
+       "usd_per_started_block": 0.1,
+       "megapixels_per_block": 4
+      }
+     },
+     {
+      "algorithm": "Redefine",
+      "scale": {
+       "usd_per_started_block": 0.08,
+       "megapixels_per_block": 4
+      },
+      "target": {
+       "usd_per_started_block": 0.1,
+       "megapixels_per_block": 4
+      }
+     },
+     {
+      "algorithm": "Detail",
+      "target": {
+       "usd_per_started_block": 0.1,
+       "megapixels_per_block": 24
+      }
+     }
+    ],
+    "target_megapixels": {
+     "2k": 4.194304,
+     "4k": 16.777216,
+     "8k": 67.108864
+    },
+    "target_integer_scale_tariff": "Targets exactly matching an integer 1–4× scale use the scale tariff where that algorithm supports scale mode.",
+    "quote_endpoint": "/api/estimate-image-cost",
+    "currency": "USD"
+   },
+   "capabilities": {
+    "image_generation": true,
+    "image_to_image": true,
+    "inpainting": false,
+    "nsfw": false
+   },
+   "supported_parameters": {
+    "max_prompt_characters": 1024,
+    "prompt_length": {
+     "status": "known",
+     "unit": "utf16_code_units",
+     "trim_whitespace": true,
+     "notes": "Optional; supported only by Bloom algorithms in target mode."
+    },
+    "topaz_model": [
+     "Standard V2",
+     "High Fidelity V2",
+     "High Fidelity V3",
+     "Low Resolution V2",
+     "CGI",
+     "Text Refine",
+     "Bloom 2",
+     "Bloom",
+     "Bloom Realism",
+     "Wonder 4",
+     "Wonder 3.5",
+     "Wonder 3",
+     "Wonder 2",
+     "Wonder",
+     "Recover 3",
+     "Standard MAX",
+     "Redefine",
+     "Detail"
+    ],
+    "output_format": [
+     "jpeg",
+     "png"
+    ],
+    "upscale_factor": {
+     "type": "integer",
+     "minimum": 1,
+     "maximum": 4,
+     "default": 2,
+     "applies_to": "scale"
+    },
+    "target_enlargement_per_edge": {
+     "minimum": 1,
+     "maximum": 6
+    },
+    "target_only_algorithms": [
+     "Wonder 4",
+     "Detail"
+    ],
+    "exact_factor_target_algorithms": [
+     "High Fidelity V2",
+     "Wonder 3",
+     "Wonder 2",
+     "Wonder"
+    ],
+    "bloom_creativity": {
+     "type": "integer",
+     "minimum": 1,
+     "maximum": 9,
+     "default": 3,
+     "applies_to": [
+      "Bloom 2",
+      "Bloom",
+      "Bloom Realism"
+     ]
+    },
+    "optional_prompt": {
+     "max_characters": 1024,
+     "applies_to": "Bloom algorithms in target mode"
+    },
+    "max_output_pixels": 100000000,
+    "quote_source_dimensions": [
+     "topaz_input_width",
+     "topaz_input_height"
+    ],
+    "resolutions": [
+     "scale",
+     "2k",
+     "4k",
+     "8k"
+    ],
+    "max_images": 1,
+    "max_output_images": 1,
+    "max_input_images": 1,
+    "input_image_constraints": {
+     "max_items": 1,
+     "route": {
+      "min_width": 8,
+      "min_height": 8,
+      "max_width": 16384,
+      "max_height": 16384,
+      "max_bytes": 31457280,
+      "formats": [
+       "png",
+       "jpeg",
+       "webp"
+      ],
+      "source": "route-preflight",
+      "note": "NanoGPT route-level validation before provider submission."
+     },
+     "provider": {
+      "min_width": 64,
+      "min_height": 64,
+      "max_width": 16384,
+      "max_height": 16384,
+      "max_total_pixels": 40000000,
+      "max_bytes": 31457280,
+      "formats": [
+       "png",
+       "jpeg",
+       "webp"
+      ],
+      "source": "route-preflight",
+      "note": "One still image, up to 40 MP input and 100 MP output."
+     }
+    },
+    "fixed_image_count": 1
+   },
+   "tags": [
+    "image-to-image",
+    "upscale",
+    "topaz"
+   ],
+   "category": "image",
+   "supports_streaming": false,
+   "endpoints": "/api/v1/images/models/topaz-image-upscale/endpoints"
+  },
+  {
+   "id": "topaz-transparent-upscale",
+   "object": "model",
+   "created": 1793577600,
+   "owned_by": "topaz",
+   "name": "Topaz Transparent Upscale",
+   "description": "Topaz Transparent Upscale enlarges one PNG, JPEG, or WebP image and preserves transparency in PNG output. Output is fixed at 4× width and height (16× the pixel area).",
+   "architecture": {
+    "modality": "image->image",
+    "input_modalities": [
+     "image"
+    ],
+    "output_modalities": [
+     "image"
+    ]
+   },
+   "pricing": {
+    "per_image": {},
+    "starting_at": 0.08,
+    "billing": "started_megapixel_blocks",
+    "megapixel_pixels": 1000000,
+    "area_basis": "output",
+    "tariffs": [
+     {
+      "algorithm": "Transparent",
+      "scale": {
+       "usd_per_started_block": 0.08,
+       "megapixels_per_block": 24
+      }
+     }
+    ],
+    "quote_endpoint": "/api/estimate-image-cost",
+    "currency": "USD"
+   },
+   "capabilities": {
+    "image_generation": true,
+    "image_to_image": true,
+    "inpainting": false,
+    "nsfw": false
+   },
+   "supported_parameters": {
+    "max_prompt_characters": null,
+    "prompt_length": {
+     "status": "not_applicable",
+     "unit": null,
+     "trim_whitespace": null
+    },
+    "topaz_model": [
+     "Transparent"
+    ],
+    "output_format": [
+     "png"
+    ],
+    "fixed_upscale_factor": 4,
+    "max_output_pixels": 100000000,
+    "quote_source_dimensions": [
+     "topaz_input_width",
+     "topaz_input_height"
+    ],
+    "resolutions": [
+     "scale"
+    ],
+    "max_images": 1,
+    "max_output_images": 1,
+    "max_input_images": 1,
+    "input_image_constraints": {
+     "max_items": 1,
+     "route": {
+      "min_width": 8,
+      "min_height": 8,
+      "max_width": 16384,
+      "max_height": 16384,
+      "max_bytes": 31457280,
+      "formats": [
+       "png",
+       "jpeg",
+       "webp"
+      ],
+      "source": "route-preflight",
+      "note": "NanoGPT route-level validation before provider submission."
+     },
+     "provider": {
+      "min_width": 64,
+      "min_height": 64,
+      "max_width": 16384,
+      "max_height": 16384,
+      "max_total_pixels": 40000000,
+      "max_bytes": 31457280,
+      "formats": [
+       "png",
+       "jpeg",
+       "webp"
+      ],
+      "source": "route-preflight",
+      "note": "One still image, up to 40 MP input and 100 MP output."
+     }
+    },
+    "fixed_image_count": 1
+   },
+   "tags": [
+    "image-to-image",
+    "upscale",
+    "topaz"
+   ],
+   "category": "image",
+   "supports_streaming": false,
+   "endpoints": "/api/v1/images/models/topaz-transparent-upscale/endpoints"
+  },
+  {
+   "id": "qwen-image-3-uncensored",
+   "object": "model",
+   "created": 1792800000,
+   "owned_by": "qwen",
+   "name": "Qwen Image 3 Uncensored",
+   "description": "Uncensored Qwen Image 3 text-to-image. Create images from prompts up to 10,000 characters, with native 1K or 2K output, eight aspect ratios, and PNG, JPEG or WebP format. $0.04 per image at either resolution.",
+   "architecture": {
+    "modality": "text->image",
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "image"
+    ]
+   },
+   "pricing": {
+    "per_image": {
+     "1k": 0.04,
+     "2k": 0.04,
+     "auto": 0.04
+    },
+    "currency": "USD"
+   },
+   "capabilities": {
+    "image_generation": true,
+    "image_to_image": false,
+    "inpainting": false,
+    "nsfw": true
+   },
+   "supported_parameters": {
+    "max_prompt_characters": 10000,
+    "prompt_length": {
+     "status": "known",
+     "unit": "unicode_code_points",
+     "trim_whitespace": true
+    },
+    "resolutions": [
+     "1k",
+     "2k"
+    ],
+    "aspect_ratio": [
+     "1:1",
+     "3:2",
+     "16:9",
+     "21:9",
+     "9:16",
+     "2:3",
+     "3:4",
+     "4:5"
+    ],
+    "max_images": 4,
+    "max_output_images": 4
+   },
+   "icon_url": "/icons/Qwen.svg",
+   "tags": [
+    "text-to-image",
+    "qwen",
+    "nsfw"
+   ],
+   "category": "Featured",
+   "supports_streaming": false,
+   "endpoints": "/api/v1/images/models/qwen-image-3-uncensored/endpoints"
+  },
+  {
+   "id": "kitani/morgana-v1.2",
+   "object": "model",
+   "created": 1793404800,
+   "owned_by": "kitani",
+   "name": "Morgana v1.2",
+   "description": "Generate one 1024×1024 PNG from a text prompt. Choose low (10 steps), medium (20 steps, default), or high (32 steps) quality, and optionally set a seed. Text-to-image only.",
+   "architecture": {
+    "modality": "text->image",
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "image"
+    ]
+   },
+   "pricing": {
+    "per_image": {
+     "1024x1024": 0.01
+    },
+    "currency": "USD"
+   },
+   "capabilities": {
+    "image_generation": true,
+    "image_to_image": false,
+    "inpainting": false,
+    "nsfw": false
+   },
+   "supported_parameters": {
+    "max_prompt_characters": 4000,
+    "prompt_length": {
+     "status": "known",
+     "unit": "unicode_code_points",
+     "trim_whitespace": true
+    },
+    "min_prompt_characters": 1,
+    "quality": {
+     "values": [
+      "low",
+      "medium",
+      "high"
+     ],
+     "default": "medium",
+     "steps": {
+      "low": 10,
+      "medium": 20,
+      "high": 32
+     }
+    },
+    "seed": {
+     "type": "integer",
+     "min": 0,
+     "max": 2147483647,
+     "default": -1
+    },
+    "output_format": [
+     "png"
+    ],
+    "negative_prompt": false,
+    "resolutions": [
+     "1024x1024"
+    ],
+    "max_images": 1,
+    "max_output_images": 1
+   },
+   "icon_url": "/icons/Kitani.svg",
+   "tags": [
+    "text-to-image",
+    "photorealistic"
+   ],
+   "category": "image",
+   "supports_streaming": false,
+   "endpoints": "/api/v1/images/models/kitani/morgana-v1.2/endpoints"
+  },
+  {
+   "id": "moss-image",
+   "object": "model",
+   "created": 1792368000,
+   "owned_by": "openmoss",
+   "name": "MOSS Image",
+   "description": "MOSS Image by OpenMOSS generates images from natural-language prompts, tag sequences, or serialized JSON layouts, with Chinese and English text rendering and control over text placement and object arrangement. Create 1–4 images per request in JPEG, PNG, or WebP, with dimensions from 512 to 2048 pixels per side aligned to multiples of 16. Optional prompt expansion plans a structured layout and falls back to your original prompt if unavailable. Supports negative prompts, 1–100 steps, guidance from 0 to 10, and reproducible seeds. Text-to-image only.",
+   "architecture": {
+    "modality": "text->image",
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "image"
+    ]
+   },
+   "pricing": {
+    "per_image": {
+     "1024x1024": 0.052429,
+     "512x512": 0.013107,
+     "1536x1024": 0.078643,
+     "1024x1536": 0.078643,
+     "1920x1072": 0.102912,
+     "2048x2048": 0.209715
+    },
+    "per_megapixel": 0.05,
+    "megapixel_pixels": 1000000,
+    "currency": "USD"
+   },
+   "capabilities": {
+    "image_generation": true,
+    "image_to_image": false,
+    "inpainting": false,
+    "nsfw": false
+   },
+   "supported_parameters": {
+    "max_prompt_characters": 16384,
+    "prompt_length": {
+     "status": "known",
+     "unit": "unicode_code_points",
+     "trim_whitespace": true
+    },
+    "min_prompt_characters": 1,
+    "output_format": [
+     "jpeg",
+     "png",
+     "webp"
+    ],
+    "image_size": {
+     "min_width": 512,
+     "max_width": 2048,
+     "min_height": 512,
+     "max_height": 2048,
+     "multiple_of": 16,
+     "rounding": "floor",
+     "default": "square_hd"
+    },
+    "num_inference_steps": {
+     "min": 1,
+     "max": 100,
+     "default": 50
+    },
+    "guidance_scale": {
+     "min": 0,
+     "max": 10,
+     "default": 3
+    },
+    "enable_prompt_expansion": {
+     "default": true
+    },
+    "negative_prompt": true,
+    "seed": true,
+    "resolutions": [
+     "1024x1024",
+     "512x512",
+     "1536x1024",
+     "1024x1536",
+     "1920x1072",
+     "2048x2048"
+    ],
+    "max_images": 4,
+    "max_output_images": 4
+   },
+   "tags": [
+    "text-to-image"
+   ],
+   "category": "image",
+   "supports_streaming": false,
+   "endpoints": "/api/v1/images/models/moss-image/endpoints"
+  },
+  {
+   "id": "gpt-image-2.6-flare",
+   "object": "model",
+   "created": 1793836800,
+   "owned_by": "openai",
+   "name": "GPT Image 2.6 Flare",
+   "description": "GPT Image 2.6 Flare generates images from text and edits images with up to 16 references. Designed for fast iteration. Choose low, medium, or high complexity independently of five quality levels, with 1K, 2K, or 4K output and 15 aspect ratios. Custom pixel sizes are also supported through the API. Supports PNG, JPEG, WebP, transparent PNG/WebP backgrounds, and transparent PNG markup annotations for regional edits through the API. Also generates animated GIFs from a prompt or from reference images. Prices are estimated before generation and settled from actual token usage.",
+   "architecture": {
+    "modality": "text+image->image",
+    "input_modalities": [
+     "text",
+     "image"
+    ],
+    "output_modalities": [
+     "image"
+    ]
+   },
+   "pricing": {
+    "per_image": {
+     "1k": 0.089556,
+     "2k": 0.181968,
+     "4k": 0.30243
+    },
+    "billing": "actual_usage",
+    "token_rates_per_million": {
+     "text_input": 8.5,
+     "cached_text_input": 2.125,
+     "image_input": 13.6,
+     "cached_image_input": 3.4,
+     "image_output": 51
+    },
+    "estimate_note": "Per-image tier estimates cover square image output at high quality (the most expensive aspect ratio). Request quotes add conservative prompt and reference allowances; a GIF is priced as the single frame sheet OpenAI renders and bills for each animation. Final billing uses returned token usage. Complexity has no separate fee. Cached input rates apply only when cached token counts are reported.",
+    "currency": "USD"
+   },
+   "capabilities": {
+    "image_generation": true,
+    "image_to_image": true,
+    "inpainting": false,
+    "nsfw": false
+   },
+   "supported_parameters": {
+    "max_prompt_characters": 32000,
+    "prompt_length": {
+     "status": "known",
+     "unit": "unicode_code_points",
+     "trim_whitespace": true
+    },
+    "min_prompt_characters": 1,
+    "quality": [
+     "low",
+     "medium",
+     "high",
+     "xhigh",
+     "max"
+    ],
+    "complexity": {
+     "values": [
+      "low",
+      "medium",
+      "high"
+     ],
+     "default": "high"
+    },
+    "output_format": [
+     "png",
+     "jpeg",
+     "webp",
+     "gif"
+    ],
+    "gif": {
+     "generation_only": false,
+     "frame_count": {
+      "min": 2,
+      "max": 16,
+      "default": 9
+     },
+     "frame_duration_ms": {
+      "min": 20,
+      "max": 2000,
+      "default": 200,
+      "step": 10
+     },
+     "size_default": "auto",
+     "frame_sheet": {
+      "layouts": {
+       "9": [
+        "3x3"
+       ],
+       "2-8": [
+        "4x2",
+        "2x4"
+       ],
+       "10-12": [
+        "4x3",
+        "3x4",
+        "4x4"
+       ],
+       "13-16": [
+        "4x4"
+       ]
+      },
+      "max_edge": 3840,
+      "min_pixels": 655360,
+      "max_pixels": 8294400,
+      "max_aspect_ratio": 3,
+      "per_output": true,
+      "billed_as_one_image": true
+     }
+    },
+    "output_compression": {
+     "min": 0,
+     "max": 100,
+     "formats": [
+      "jpeg",
+      "webp"
+     ]
+    },
+    "background": [
+     "auto",
+     "opaque",
+     "transparent"
+    ],
+    "markup": {
+     "type": "transparent_png",
+     "applies_to": "first_input_image",
+     "max_pixels": 16777216
+    },
+    "resolutions": [
+     "1k",
+     "2k",
+     "4k"
+    ],
+    "aspect_ratio": [
+     "1:1",
+     "1:2",
+     "2:1",
+     "1:3",
+     "3:1",
+     "2:3",
+     "3:2",
+     "3:4",
+     "4:3",
+     "4:5",
+     "5:4",
+     "9:16",
+     "16:9",
+     "9:21",
+     "21:9"
+    ],
+    "max_images": 4,
+    "max_output_images": 4,
+    "max_input_images": 16,
+    "input_image_constraints": {
+     "max_items": 16,
+     "route": {
+      "min_width": 8,
+      "min_height": 8,
+      "max_width": 16384,
+      "max_height": 16384,
+      "max_bytes": 31457280,
+      "formats": [
+       "png",
+       "jpeg",
+       "webp"
+      ],
+      "source": "route-preflight",
+      "note": "NanoGPT route-level validation before provider submission."
+     },
+     "provider": {
+      "max_total_pixels": 16777216,
+      "max_bytes": 31457280,
+      "formats": [
+       "png",
+       "jpeg",
+       "webp"
+      ],
+      "source": "route-preflight"
+     }
+    }
+   },
+   "icon_url": "/icons/OpenAI.svg",
+   "tags": [
+    "text-to-image",
+    "image-edit"
+   ],
+   "category": "image",
+   "supports_streaming": false,
+   "endpoints": "/api/v1/images/models/gpt-image-2.6-flare/endpoints"
+  },
+  {
+   "id": "ideogram/v4/fast",
+   "object": "model",
+   "created": 1783296000,
+   "owned_by": "ideogram",
+   "name": "Ideogram V4 Fast",
+   "description": "Ideogram V4 Fast is an accelerated Ideogram V4 endpoint for high-quality text-to-image generation with selectable Turbo, Balanced, and Quality rendering speeds.",
+   "architecture": {
+    "modality": "text->image",
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "image"
+    ]
+   },
+   "pricing": {
+    "per_image": {
+     "1024x1024": 0.010499,
+     "1536x1536": 0.023625,
+     "2048x2048": 0.042,
+     "2048x1152": 0.023625,
+     "1152x2048": 0.023625,
+     "1536x1024": 0.015751,
+     "1024x1536": 0.015751,
+     "auto": 0.010499
+    },
+    "by_rendering_speed": {
+     "TURBO": {
+      "1024x1024": 0.00525,
+      "1536x1536": 0.011813,
+      "2048x2048": 0.021,
+      "2048x1152": 0.011813,
+      "1152x2048": 0.011813,
+      "1536x1024": 0.007874,
+      "1024x1536": 0.007874,
+      "auto": 0.00525
+     },
+     "BALANCED": {
+      "1024x1024": 0.010499,
+      "1536x1536": 0.023625,
+      "2048x2048": 0.042,
+      "2048x1152": 0.023625,
+      "1152x2048": 0.023625,
+      "1536x1024": 0.015751,
+      "1024x1536": 0.015751,
+      "auto": 0.010499
+     },
+     "QUALITY": {
+      "1024x1024": 0.0175,
+      "1536x1536": 0.039375,
+      "2048x2048": 0.069999,
+      "2048x1152": 0.039375,
+      "1152x2048": 0.039375,
+      "1536x1024": 0.02625,
+      "1024x1536": 0.02625,
+      "auto": 0.0175
+     }
+    },
+    "currency": "USD"
+   },
+   "capabilities": {
+    "image_generation": true,
+    "image_to_image": false,
+    "inpainting": false,
+    "nsfw": false
+   },
+   "supported_parameters": {
+    "max_prompt_characters": null,
+    "prompt_length": {
+     "status": "unknown",
+     "unit": null,
+     "trim_whitespace": null
+    },
+    "resolutions": [
+     "1024x1024",
+     "1536x1536",
+     "2048x2048",
+     "2048x1152",
+     "1152x2048",
+     "1536x1024",
+     "1024x1536"
+    ],
+    "max_images": 4,
+    "max_output_images": 4,
+    "rendering_speed": [
+     "TURBO",
+     "BALANCED",
+     "QUALITY"
+    ]
+   },
+   "icon_url": "/icons/Ideogram.svg",
+   "tags": [
+    "text-to-image",
+    "typography",
+    "design",
+    "ideogram",
+    "fal"
+   ],
+   "category": "image",
+   "supports_streaming": false,
+   "endpoints": "/api/v1/images/models/ideogram/v4/fast/endpoints"
+  },
+  {
+   "id": "hidream-o1-image",
+   "object": "model",
+   "created": 1778457600,
+   "owned_by": "hidream",
+   "name": "HiDream O1 Image",
+   "description": "HiDream-O1-Image is a unified native image model for detailed text-to-image output and prompt-based edits with uploaded references, high-resolution 2K+ presets, strong prompt adherence, and flexible aspect ratios.",
+   "architecture": {
+    "modality": "text+image->image",
+    "input_modalities": [
+     "text",
+     "image"
+    ],
+    "output_modalities": [
+     "image"
+    ]
+   },
+   "pricing": {
+    "per_image": {
+     "2048*2048": 0.04,
+     "2560*1440": 0.04,
+     "1440*2560": 0.04,
+     "2304*1728": 0.04,
+     "1728*2304": 0.04,
+     "2560*1707": 0.04,
+     "1707*2560": 0.04,
+     "auto": 0.04
+    },
+    "currency": "USD"
+   },
+   "capabilities": {
+    "image_generation": true,
+    "image_to_image": true,
+    "inpainting": false,
+    "nsfw": true
+   },
+   "supported_parameters": {
+    "max_prompt_characters": null,
+    "prompt_length": {
+     "status": "unknown",
+     "unit": null,
+     "trim_whitespace": null
+    },
+    "resolutions": [
+     "2048*2048",
+     "2560*1440",
+     "1440*2560",
+     "2304*1728",
+     "1728*2304",
+     "2560*1707",
+     "1707*2560"
+    ],
+    "max_images": 4,
+    "max_output_images": 4,
+    "max_input_images": 3,
+    "input_image_constraints": {
+     "max_items": 3,
+     "route": {
+      "min_width": 8,
+      "min_height": 8,
+      "max_width": 16384,
+      "max_height": 16384,
+      "max_bytes": 31457280,
+      "formats": [
+       "png",
+       "jpeg",
+       "webp"
+      ],
+      "source": "route-preflight",
+      "note": "NanoGPT route-level validation before provider submission."
+     }
+    }
+   },
+   "icon_url": "/icons/Hidream.webp",
+   "tags": [
+    "text-to-image",
+    "image-edit",
+    "hidream",
+    "2k",
+    "nsfw"
+   ],
+   "category": "image",
+   "supports_streaming": false,
+   "endpoints": "/api/v1/images/models/hidream-o1-image/endpoints"
+  },
+  {
+   "id": "nano-banana-2.1",
+   "object": "model",
+   "created": 1791244800,
+   "owned_by": "gemini",
+   "name": "Nano Banana 2.1",
+   "description": "Google’s Nano Banana 2.1 improves visual quality, text rendering, panoramic compositions and consistency across edits. Generate from a prompt or combine up to 14 reference images, with 1K and 2K output and thinking. Prices are estimates; final cost varies with your prompt, reference images, thinking and web search.",
+   "architecture": {
+    "modality": "text+image->image",
+    "input_modalities": [
+     "text",
+     "image"
+    ],
+    "output_modalities": [
+     "image"
+    ]
+   },
+   "pricing": {
+    "per_image": {
+     "1k": 0.060384,
+     "2k": 0.088944
+    },
+    "billing": "actual_usage",
+    "token_rates_per_million": {
+     "input": 2.55,
+     "text_and_thinking_output": 12.75,
+     "image_output": 51
+    },
+    "web_search_per_call": 0.0238,
+    "image_tokens_by_resolution": {
+     "1K": 1120,
+     "2K": 1680
+    },
+    "estimate_output_token_allowance": {
+     "minimal": 256,
+     "high": 8192
+    },
+    "estimate_note": "Per-image estimates include an allowance for text/thinking. Input token estimates use four characters per token and 1120 tokens per reference; actual input tokens and searches add cost. Final billing uses actual provider usage; high thinking has no fixed fee.",
+    "currency": "USD"
+   },
+   "capabilities": {
+    "image_generation": true,
+    "image_to_image": true,
+    "reasoning": true,
+    "inpainting": false,
+    "nsfw": false
+   },
+   "supported_parameters": {
+    "max_prompt_characters": 50000,
+    "prompt_length": {
+     "status": "known",
+     "unit": "unicode_code_points",
+     "trim_whitespace": true,
+     "notes": "Minimum prompt length is 1 character."
+    },
+    "min_prompt_characters": 1,
+    "thinking_level": [
+     "minimal",
+     "high"
+    ],
+    "enable_web_search": {
+     "type": "boolean",
+     "default": false
+    },
+    "output_format": [
+     "png",
+     "jpeg",
+     "webp"
+    ],
+    "seed": {
+     "type": "integer",
+     "default": -1
+    },
+    "system_prompt": {
+     "type": "string"
+    },
+    "resolutions": [
+     "1k",
+     "2k"
+    ],
+    "aspect_ratio": [
+     "auto",
+     "1:1",
+     "2:3",
+     "3:2",
+     "3:4",
+     "4:3",
+     "4:5",
+     "5:4",
+     "9:16",
+     "16:9",
+     "21:9",
+     "1:4",
+     "4:1",
+     "1:8",
+     "8:1"
+    ],
+    "max_images": 4,
+    "max_output_images": 4,
+    "max_input_images": 14,
+    "input_image_constraints": {
+     "max_items": 14,
+     "route": {
+      "min_width": 8,
+      "min_height": 8,
+      "max_width": 16384,
+      "max_height": 16384,
+      "max_bytes": 31457280,
+      "formats": [
+       "png",
+       "jpeg",
+       "webp"
+      ],
+      "source": "route-preflight",
+      "note": "NanoGPT route-level validation before provider submission."
+     }
+    }
+   },
+   "icon_url": "/icons/Gemini.svg",
+   "tags": [
+    "text-to-image",
+    "image-edit",
+    "2k",
+    "reasoning"
+   ],
+   "category": "image",
+   "supports_streaming": false,
+   "endpoints": "/api/v1/images/models/nano-banana-2.1/endpoints"
+  },
+  {
+   "id": "Cropper",
+   "object": "model",
+   "created": 1704067200,
+   "owned_by": "nanogpt",
+   "name": "Crop image",
+   "description": "Crop an uploaded image to a specific aspect ratio.",
+   "architecture": {
+    "modality": "image->image",
+    "input_modalities": [
+     "image"
+    ],
+    "output_modalities": [
+     "image"
+    ]
+   },
+   "pricing": {
+    "per_image": {
+     "auto": 0
+    },
+    "currency": "USD"
+   },
+   "capabilities": {
+    "image_generation": true,
+    "image_to_image": true,
+    "inpainting": false,
+    "nsfw": false
+   },
+   "supported_parameters": {
+    "max_prompt_characters": null,
+    "prompt_length": {
+     "status": "not_applicable",
+     "unit": null,
+     "trim_whitespace": null
+    },
+    "resolutions": [
+     "auto"
+    ],
+    "max_images": 1,
+    "max_output_images": 1
+   },
+   "icon_url": "/icons/icon-192x192.png",
+   "category": "Tools",
+   "supports_streaming": false,
+   "endpoints": "/api/v1/images/models/Cropper/endpoints"
+  },
+  {
+   "id": "gpt-image-1",
+   "object": "model",
+   "created": 1704067200,
+   "owned_by": "openai",
+   "name": "GPT 4o Image",
+   "description": "OpenAI's GPT Image 1 model supports both text-to-image and multi-image editing. Can generate images from text or create new combined images from multiple inputs. Pricing includes input token costs.",
+   "architecture": {
+    "modality": "text+image->image",
+    "input_modalities": [
+     "text",
+     "image"
+    ],
+    "output_modalities": [
+     "image"
+    ]
+   },
+   "pricing": {
+    "per_image": {
+     "1024x1024": 0.2839,
+     "1536x1024": 0.425,
+     "1024x1536": 0.425,
+     "auto": 0.2839
+    },
+    "currency": "USD"
+   },
+   "capabilities": {
+    "image_generation": true,
+    "image_to_image": true,
+    "inpainting": false,
+    "nsfw": false
+   },
+   "supported_parameters": {
+    "max_prompt_characters": null,
+    "prompt_length": {
+     "status": "unknown",
+     "unit": null,
+     "trim_whitespace": null
+    },
+    "resolutions": [
+     "1024x1024",
+     "1536x1024",
+     "1024x1536",
+     "auto"
+    ],
+    "max_images": 4,
+    "max_output_images": 4,
+    "max_input_images": 4,
+    "input_image_constraints": {
+     "max_items": 4,
+     "route": {
+      "min_width": 8,
+      "min_height": 8,
+      "max_width": 16384,
+      "max_height": 16384,
+      "max_bytes": 31457280,
+      "formats": [
+       "png",
+       "jpeg",
+       "webp"
+      ],
+      "source": "route-preflight",
+      "note": "NanoGPT route-level validation before provider submission."
+     }
+    }
+   },
+   "icon_url": "/icons/OpenAI.svg",
+   "category": "image",
+   "supports_streaming": false,
+   "endpoints": "/api/v1/images/models/gpt-image-1/endpoints"
+  },
+  {
+   "id": "minimax-h3/text-to-image",
+   "object": "model",
+   "created": 1788652800,
+   "owned_by": "minimax",
+   "name": "MiniMax H3 Image",
+   "description": "Generate photorealistic and cinematic images from text at 1K or 2K resolution, with fifteen aspect ratios.",
+   "architecture": {
+    "modality": "text->image",
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "image"
+    ]
+   },
+   "pricing": {
+    "per_image": {
+     "1k": 0.02,
+     "2k": 0.06,
+     "auto": 0.02
+    },
+    "lora": {
+     "per_image": {
+      "1k": 0.035,
+      "2k": 0.075
+     }
+    },
+    "currency": "USD"
+   },
+   "capabilities": {
+    "image_generation": true,
+    "image_to_image": false,
+    "inpainting": false,
+    "nsfw": false
+   },
+   "supported_parameters": {
+    "max_prompt_characters": null,
+    "prompt_length": {
+     "status": "unknown",
+     "unit": null,
+     "trim_whitespace": null
+    },
+    "resolutions": [
+     "1k",
+     "2k"
+    ],
+    "aspect_ratio": [
+     "1:1",
+     "1:2",
+     "2:1",
+     "1:3",
+     "3:1",
+     "2:3",
+     "3:2",
+     "3:4",
+     "4:3",
+     "4:5",
+     "5:4",
+     "9:16",
+     "16:9",
+     "9:21",
+     "21:9"
+    ],
+    "loras": {
+     "max_items": 3,
+     "item": {
+      "path": "HTTPS URL",
+      "scale": "number"
+     },
+     "url_fields": [
+      "lora_url_1",
+      "lora_url_2",
+      "lora_url_3"
+     ]
+    },
+    "max_images": 4,
+    "max_output_images": 4
+   },
+   "icon_url": "/icons/Minimax.svg",
+   "tags": [
+    "text-to-image",
+    "minimax"
+   ],
+   "category": "image",
+   "supports_streaming": false,
+   "endpoints": "/api/v1/images/models/minimax-h3/text-to-image/endpoints"
+  },
+  {
+   "id": "flux-2-turbo",
+   "object": "model",
+   "created": 1766361600,
+   "owned_by": "flux",
+   "name": "FLUX.2 [turbo]",
+   "description": "FLUX.2 [turbo] is a speed-optimized image model for real-time workflows with strong prompt adherence and clean typography. Generate from text or upload up to four reference images for fast edits and variations.",
+   "architecture": {
+    "modality": "text+image->image",
+    "input_modalities": [
+     "text",
+     "image"
+    ],
+    "output_modalities": [
+     "image"
+    ]
+   },
+   "pricing": {
+    "per_image": {
+     "1024*1024": 0.04,
+     "1280*720": 0.04,
+     "720*1280": 0.04,
+     "1536*1024": 0.04,
+     "1024*1536": 0.04
+    },
+    "per_image_with_references": 0.048,
+    "included_reference_images": 1,
+    "extra_reference_image_per_output": 0.008,
+    "currency": "USD"
+   },
+   "capabilities": {
+    "image_generation": true,
+    "image_to_image": true,
+    "inpainting": false,
+    "nsfw": false
+   },
+   "supported_parameters": {
+    "max_prompt_characters": null,
+    "prompt_length": {
+     "status": "unknown",
+     "unit": null,
+     "trim_whitespace": null
+    },
+    "resolutions": [
+     "1024*1024",
+     "1280*720",
+     "720*1280",
+     "1536*1024",
+     "1024*1536"
+    ],
+    "max_images": 4,
+    "max_output_images": 4,
+    "max_input_images": 4,
+    "input_image_constraints": {
+     "max_items": 4,
+     "route": {
+      "min_width": 8,
+      "min_height": 8,
+      "max_width": 16384,
+      "max_height": 16384,
+      "max_bytes": 31457280,
+      "formats": [
+       "png",
+       "jpeg",
+       "webp"
+      ],
+      "source": "route-preflight",
+      "note": "NanoGPT route-level validation before provider submission."
+     }
+    }
+   },
+   "icon_url": "/icons/Flux.svg",
+   "tags": [
+    "text-to-image",
+    "image-edit"
+   ],
+   "category": "image",
+   "supports_streaming": false,
+   "endpoints": "/api/v1/images/models/flux-2-turbo/endpoints"
+  },
+  {
+   "id": "flux-2-flash",
+   "object": "model",
+   "created": 1766361600,
+   "owned_by": "flux",
+   "name": "FLUX.2 [flash]",
+   "description": "FLUX.2 [flash] is a fast text-to-image model built for low-latency, high-volume generation with realistic renders and crisp on-image text. Designed for rapid iteration, batch pipelines, and production creatives.",
+   "architecture": {
+    "modality": "text->image",
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "image"
+    ]
+   },
+   "pricing": {
+    "per_image": {
+     "1024*1024": 0.025,
+     "1280*720": 0.025,
+     "720*1280": 0.025,
+     "1536*1024": 0.025,
+     "1024*1536": 0.025
+    },
+    "per_processed_megapixel_with_references": 0.005,
+    "megapixel_pixels": 1048576,
+    "currency": "USD"
+   },
+   "capabilities": {
+    "image_generation": true,
+    "image_to_image": false,
+    "inpainting": false,
+    "nsfw": false
+   },
+   "supported_parameters": {
+    "max_prompt_characters": null,
+    "prompt_length": {
+     "status": "unknown",
+     "unit": null,
+     "trim_whitespace": null
+    },
+    "resolutions": [
+     "1024*1024",
+     "1280*720",
+     "720*1280",
+     "1536*1024",
+     "1024*1536"
+    ],
+    "max_images": 4,
+    "max_output_images": 4,
+    "max_input_images": 4,
+    "input_image_constraints": {
+     "max_items": 4,
+     "route": {
+      "min_width": 8,
+      "min_height": 8,
+      "max_width": 16384,
+      "max_height": 16384,
+      "max_bytes": 31457280,
+      "formats": [
+       "png",
+       "jpeg",
+       "webp"
+      ],
+      "source": "route-preflight",
+      "note": "NanoGPT route-level validation before provider submission."
+     }
+    }
+   },
+   "icon_url": "/icons/Flux.svg",
+   "tags": [
+    "text-to-image",
+    "image-edit"
+   ],
+   "category": "image",
+   "supports_streaming": false,
+   "endpoints": "/api/v1/images/models/flux-2-flash/endpoints"
+  },
+  {
+   "id": "meta/muse-image/text-to-image",
+   "object": "model",
+   "created": 1787788800,
+   "owned_by": "meta",
+   "name": "Muse Image",
+   "description": "Meta Muse Image generates high-fidelity images with strong instruction following, detailed typography, plots, and QR codes. Upload up to 10 reference images to switch automatically to edit mode.",
+   "architecture": {
+    "modality": "text+image->image",
+    "input_modalities": [
+     "text",
+     "image"
+    ],
+    "output_modalities": [
+     "image"
+    ]
+   },
+   "pricing": {
+    "per_image": {
+     "1:1": 0.011,
+     "21:9": 0.011,
+     "16:9": 0.011,
+     "4:3": 0.011,
+     "3:2": 0.011,
+     "2:3": 0.011,
+     "3:4": 0.011,
+     "9:16": 0.011,
+     "9:21": 0.011,
+     "auto": 0.011
+    },
+    "currency": "USD"
+   },
+   "capabilities": {
+    "image_generation": true,
+    "image_to_image": true,
+    "inpainting": false,
+    "nsfw": false
+   },
+   "supported_parameters": {
+    "max_prompt_characters": null,
+    "prompt_length": {
+     "status": "unknown",
+     "unit": null,
+     "trim_whitespace": null
+    },
+    "resolutions": [
+     "1:1",
+     "21:9",
+     "16:9",
+     "4:3",
+     "3:2",
+     "2:3",
+     "3:4",
+     "9:16",
+     "9:21"
+    ],
+    "max_images": 10,
+    "max_output_images": 10,
+    "max_input_images": 10,
+    "input_image_constraints": {
+     "max_items": 10,
+     "route": {
+      "min_width": 8,
+      "min_height": 8,
+      "max_width": 16384,
+      "max_height": 16384,
+      "max_bytes": 31457280,
+      "formats": [
+       "png",
+       "jpeg",
+       "webp"
+      ],
+      "source": "route-preflight",
+      "note": "NanoGPT route-level validation before provider submission."
+     }
+    }
+   },
+   "icon_url": "/icons/Meta.svg",
+   "tags": [
+    "text-to-image",
+    "image-edit",
+    "multi-image",
+    "meta"
+   ],
+   "category": "New",
+   "supports_streaming": false,
+   "endpoints": "/api/v1/images/models/meta/muse-image/text-to-image/endpoints"
+  },
+  {
+   "id": "flux-kontext",
+   "object": "model",
+   "created": 1748476800,
+   "owned_by": "flux",
+   "name": "Flux Kontext",
+   "description": "Frontier image generation model with both text-to-image and image-to-image capabilities. Understands context and makes editing easy.",
+   "architecture": {
+    "modality": "text+image->image",
+    "input_modalities": [
+     "text",
+     "image"
+    ],
+    "output_modalities": [
+     "image"
+    ]
+   },
+   "pricing": {
+    "per_image": {
+     "1344x640": 0.04,
+     "1024x576": 0.04,
+     "1024x768": 0.04,
+     "1536x1024": 0.04,
+     "1024x1024": 0.04,
+     "1024x1536": 0.04,
+     "768x1024": 0.04,
+     "576x1024": 0.04,
+     "640x1344": 0.04,
+     "auto": 0.04
+    },
+    "currency": "USD"
+   },
+   "capabilities": {
+    "image_generation": true,
+    "image_to_image": true,
+    "inpainting": false,
+    "nsfw": false
+   },
+   "supported_parameters": {
+    "max_prompt_characters": null,
+    "prompt_length": {
+     "status": "unknown",
+     "unit": null,
+     "trim_whitespace": null
+    },
+    "resolutions": [
+     "auto",
+     "1344x640",
+     "1024x576",
+     "1024x768",
+     "1536x1024",
+     "1024x1024",
+     "1024x1536",
+     "768x1024",
+     "576x1024",
+     "640x1344"
+    ],
+    "max_images": 4,
+    "max_output_images": 4
+   },
+   "icon_url": "/icons/Flux.svg",
+   "category": "image",
+   "supports_streaming": false,
+   "endpoints": "/api/v1/images/models/flux-kontext/endpoints"
+  },
+  {
+   "id": "recraft-v3",
+   "object": "model",
+   "created": 1704067200,
+   "owned_by": "recraft",
+   "name": "Recraft V3",
+   "description": "Recraft V3 is a state-of-the-art image generation model that is known for its high quality and prompt adherence.",
+   "architecture": {
+    "modality": "text->image",
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "image"
+    ]
+   },
+   "pricing": {
+    "per_image": {
+     "1024x1024": 0.04,
+     "1024x768": 0.04,
+     "1024x576": 0.04,
+     "768x1024": 0.04,
+     "576x1024": 0.04
+    },
+    "currency": "USD"
+   },
+   "capabilities": {
+    "image_generation": true,
+    "image_to_image": false,
+    "inpainting": false,
+    "nsfw": false
+   },
+   "supported_parameters": {
+    "max_prompt_characters": null,
+    "prompt_length": {
+     "status": "unknown",
+     "unit": null,
+     "trim_whitespace": null
+    },
+    "resolutions": [
+     "1024x1024",
+     "1024x768",
+     "1024x576",
+     "768x1024",
+     "576x1024"
+    ],
+    "max_images": 8,
+    "max_output_images": 8
+   },
+   "icon_url": "/icons/Recraft.svg",
+   "category": "image",
+   "supports_streaming": false,
+   "endpoints": "/api/v1/images/models/recraft-v3/endpoints"
+  },
+  {
+   "id": "flux-lora/inpainting",
+   "object": "model",
+   "created": 1704067200,
+   "owned_by": "flux",
+   "name": "Flux LoRA Inpainting",
+   "description": "FLUX.1 [dev] inpainting model with LoRA support. Requires an image and mask for selective editing and improvements. Warning: results are often not great.",
+   "architecture": {
+    "modality": "text+image->image",
+    "input_modalities": [
+     "text",
+     "image"
+    ],
+    "output_modalities": [
+     "image"
+    ]
+   },
+   "pricing": {
+    "per_image": {
+     "1024x1024": 0.0595,
+     "1024x768": 0.0459,
+     "1024x576": 0.034,
+     "768x1024": 0.0459,
+     "576x1024": 0.034,
+     "1344x640": 0.0527,
+     "640x1344": 0.0527,
+     "1536x512": 0.0476,
+     "512x1536": 0.0476
+    },
+    "currency": "USD"
+   },
+   "capabilities": {
+    "image_generation": true,
+    "image_to_image": true,
+    "inpainting": true,
+    "nsfw": false
+   },
+   "supported_parameters": {
+    "max_prompt_characters": null,
+    "prompt_length": {
+     "status": "unknown",
+     "unit": null,
+     "trim_whitespace": null
+    },
+    "resolutions": [
+     "1024x1024",
+     "1024x768",
+     "1024x576",
+     "768x1024",
+     "576x1024",
+     "1344x640",
+     "640x1344",
+     "1536x512",
+     "512x1536"
+    ],
+    "max_images": 1,
+    "max_output_images": 1
+   },
+   "icon_url": "/icons/Flux.svg",
+   "tags": [
+    "inpaint",
+    "inpainting",
+    "image-edit"
+   ],
+   "category": "More",
+   "supports_streaming": false,
+   "endpoints": "/api/v1/images/models/flux-lora/inpainting/endpoints"
+  },
+  {
+   "id": "auto-image-selection",
+   "object": "model",
+   "created": 1704067200,
+   "owned_by": "nanogpt",
+   "name": "Image Model Recommender",
+   "description": "Categorizes your prompt and recommends the best image model for your task. Does not immediately generate an image itself.",
+   "architecture": {
+    "modality": "text->image",
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "image"
+    ]
+   },
+   "pricing": {
+    "per_image": {
+     "1024x1024": 0
+    },
+    "currency": "USD"
+   },
+   "capabilities": {
+    "image_generation": true,
+    "image_to_image": false,
+    "inpainting": false,
+    "nsfw": false
+   },
+   "supported_parameters": {
+    "max_prompt_characters": null,
+    "prompt_length": {
+     "status": "unknown",
+     "unit": null,
+     "trim_whitespace": null
+    },
+    "resolutions": [
+     "1024x1024"
+    ],
+    "max_images": 1,
+    "max_output_images": 1
+   },
+   "icon_url": "/icons/icon-192x192.png",
+   "category": "image",
+   "supports_streaming": false,
+   "endpoints": "/api/v1/images/models/auto-image-selection/endpoints"
+  },
+  {
+   "id": "rev-animated",
+   "object": "model",
+   "created": 1704067200,
+   "owned_by": "zovya",
+   "name": "Rev Animated",
+   "description": "Rev Animated - Versatile anime-style model with excellent character generation and animation aesthetics.",
+   "architecture": {
+    "modality": "text->image",
+    "input_modalities": [
+     "text"
+    ],
+    "output_modalities": [
+     "image"
+    ]
+   },
+   "pricing": {
+    "per_image": {
+     "512x512": 0.0017,
+     "768x768": 0.0017,
+     "512x768": 0.0017,
+     "768x512": 0.0017,
+     "1024x1024": 0.0017,
+     "768x1024": 0.0017,
+     "1024x768": 0.0017,
+     "576x1024": 0.0017,
+     "1024x576": 0.0017
+    },
+    "currency": "USD"
+   },
+   "capabilities": {
+    "image_generation": true,
+    "image_to_image": false,
+    "inpainting": false,
+    "nsfw": false
+   },
+   "supported_parameters": {
+    "max_prompt_characters": 3000,
+    "prompt_length": {
+     "status": "known",
+     "unit": "utf16_code_units",
+     "trim_whitespace": true
+    },
+    "resolutions": [
+     "512x512",
+     "768x768",
+     "512x768",
+     "768x512",
+     "1024x1024",
+     "768x1024",
+     "1024x768",
+     "576x1024",
+     "1024x576"
+    ],
+    "max_images": 20,
+    "max_output_images": 20
+   },
+   "icon_url": "/icons/Zovya.png",
+   "category": "More",
+   "supports_streaming": false,
+   "endpoints": "/api/v1/images/models/rev-animated/endpoints"
+  },
+  {
+   "id": "pixelwave",
+   "object": "model",
+   "created": 1704067200,
+   "owned_by": "humblemikey",
+   "name": "PixelWave",
+   "description": "Stylized pixel art and wave-inspired aesthetic model. CivitAI model 141592@992642.",
+   "architecture": {
+    "modality": "text+image->image",
+    "input_modalities": [
+     "text",
+     "image"
+    ],
+    "output_modalities": [
+     "image"
+    ]
+   },
+   "pricing": {
+    "per_image": {
+     "1024x1024": 0.0051,
+     "1920x1088": 0.0051,
+     "1088x1920": 0.0051,
+     "768x1024": 0.0051,
+     "1024x768": 0.0051,
+     "1408x1024": 0.0051,
+     "1024x1408": 0.0051,
+     "512x512": 0.0034,
+     "2048x2048": 0.0068,
+     "768x768": 0.00425,
+     "896x896": 0.0051,
+     "1152x1152": 0.0051,
+     "1280x1280": 0.0051,
+     "1536x1536": 0.00595
+    },
+    "currency": "USD"
+   },
+   "capabilities": {
+    "image_generation": true,
+    "image_to_image": true,
+    "inpainting": false,
+    "nsfw": true
+   },
+   "supported_parameters": {
+    "max_prompt_characters": 3000,
+    "prompt_length": {
+     "status": "known",
+     "unit": "utf16_code_units",
+     "trim_whitespace": true
+    },
+    "resolutions": [
+     "1024x1024",
+     "1920x1088",
+     "1088x1920",
+     "768x1024",
+     "1024x768",
+     "1408x1024",
+     "1024x1408",
+     "512x512",
+     "2048x2048"
+    ],
+    "max_images": 20,
+    "max_output_images": 20,
+    "max_input_images": 1,
+    "input_image_constraints": {
+     "max_items": 1,
+     "route": {
+      "min_width": 8,
+      "min_height": 8,
+      "max_width": 16384,
+      "max_height": 16384,
+      "max_bytes": 31457280,
+      "formats": [
+       "png",
+       "jpeg",
+       "webp"
+      ],
+      "source": "route-preflight",
+      "note": "NanoGPT route-level validation before provider submission."
+     }
+    }
+   },
+   "icon_url": "/icons/humblemikey.jpg",
+   "category": "More",
+   "supports_streaming": false,
+   "endpoints": "/api/v1/images/models/pixelwave/endpoints"
+  },
+  {
+   "id": "cyberrealistic-pony-v9",
+   "object": "model",
+   "created": 1704067200,
+   "owned_by": "cyberdelia",
+   "name": "CyberRealistic Pony v9.0",
+   "description": "Cyberpunk-themed realistic model with Pony aesthetics. CivitAI model 443821@1691220.",
+   "architecture": {
+    "modality": "text+image->image",
+    "input_modalities": [
+     "text",
+     "image"
+    ],
+    "output_modalities": [
+     "image"
+    ]
+   },
+   "pricing": {
+    "per_image": {
+     "1024x1024": 0.0051,
+     "1920x1088": 0.0051,
+     "1088x1920": 0.0051,
+     "768x1024": 0.0051,
+     "1024x768": 0.0051,
+     "1408x1024": 0.0051,
+     "1024x1408": 0.0051,
+     "512x512": 0.0034,
+     "2048x2048": 0.0068,
+     "768x768": 0.00425,
+     "896x896": 0.0051,
+     "1152x1152": 0.0051,
+     "1280x1280": 0.0051,
+     "1536x1536": 0.00595
+    },
+    "currency": "USD"
+   },
+   "capabilities": {
+    "image_generation": true,
+    "image_to_image": true,
+    "inpainting": false,
+    "nsfw": true
+   },
+   "supported_parameters": {
+    "max_prompt_characters": 3000,
+    "prompt_length": {
+     "status": "known",
+     "unit": "utf16_code_units",
+     "trim_whitespace": true
+    },
+    "resolutions": [
+     "1024x1024",
+     "1920x1088",
+     "1088x1920",
+     "768x1024",
+     "1024x768",
+     "1408x1024",
+     "1024x1408",
+     "512x512",
+     "2048x2048"
+    ],
+    "max_images": 20,
+    "max_output_images": 20,
+    "max_input_images": 1,
+    "input_image_constraints": {
+     "max_items": 1,
+     "route": {
+      "min_width": 8,
+      "min_height": 8,
+      "max_width": 16384,
+      "max_height": 16384,
+      "max_bytes": 31457280,
+      "formats": [
+       "png",
+       "jpeg",
+       "webp"
+      ],
+      "source": "route-preflight",
+      "note": "NanoGPT route-level validation before provider submission."
+     }
+    }
+   },
+   "icon_url": "/icons/Cyberdelia.jpg",
+   "category": "More",
+   "supports_streaming": false,
+   "endpoints": "/api/v1/images/models/cyberrealistic-pony-v9/endpoints"
+  },
+  {
+   "id": "wai-illustrious-sdxl",
+   "object": "model",
+   "created": 1704067200,
+   "owned_by": "wai0731",
+   "name": "WAI Illustrious SDXL",
+   "description": "High-quality illustration model based on SDXL with anime-focused outputs.",
+   "architecture": {
+    "modality": "text+image->image",
+    "input_modalities": [
+     "text",
+     "image"
+    ],
+    "output_modalities": [
+     "image"
+    ]
+   },
+   "pricing": {
+    "per_image": {
+     "1024x1024": 0.0051,
+     "1920x1088": 0.0051,
+     "1088x1920": 0.0051,
+     "768x1024": 0.0051,
+     "1024x768": 0.0051,
+     "1408x1024": 0.0051,
+     "1024x1408": 0.0051,
+     "512x512": 0.0034,
+     "2048x2048": 0.0068,
+     "768x768": 0.00425,
+     "896x896": 0.0051,
+     "1152x1152": 0.0051,
+     "1280x1280": 0.0051,
+     "1536x1536": 0.00595
+    },
+    "currency": "USD"
+   },
+   "capabilities": {
+    "image_generation": true,
+    "image_to_image": true,
+    "inpainting": false,
+    "nsfw": true
+   },
+   "supported_parameters": {
+    "max_prompt_characters": 3000,
+    "prompt_length": {
+     "status": "known",
+     "unit": "utf16_code_units",
+     "trim_whitespace": true
+    },
+    "resolutions": [
+     "1024x1024",
+     "1920x1088",
+     "1088x1920",
+     "768x1024",
+     "1024x768",
+     "1408x1024",
+     "1024x1408",
+     "512x512",
+     "2048x2048"
+    ],
+    "max_images": 20,
+    "max_output_images": 20,
+    "max_input_images": 1,
+    "input_image_constraints": {
+     "max_items": 1,
+     "route": {
+      "min_width": 8,
+      "min_height": 8,
+      "max_width": 16384,
+      "max_height": 16384,
+      "max_bytes": 31457280,
+      "formats": [
+       "png",
+       "jpeg",
+       "webp"
+      ],
+      "source": "route-preflight",
+      "note": "NanoGPT route-level validation before provider submission."
+     }
+    }
+   },
+   "icon_url": "/icons/WAI0731.jpg",
+   "category": "More",
+   "supports_streaming": false,
+   "endpoints": "/api/v1/images/models/wai-illustrious-sdxl/endpoints"
+  }
+ ],
+ "meta": {
+  "count": 24,
+  "generated_at": "2026-11-23T17:08:02.650Z",
+  "trimmed_from": 264
+ }
+}

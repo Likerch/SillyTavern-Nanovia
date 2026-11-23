@@ -1,0 +1,842 @@
+{
+ "object": "list",
+ "data": [
+  {
+   "id": "qwen/qwen3-asr-0.6b",
+   "object": "model",
+   "created": 1795453687,
+   "owned_by": "qwen",
+   "name": "Qwen3 ASR 0.6B",
+   "description": "Qwen3 ASR 0.6B is the smaller open-weight speech recognition model from Qwen. Transcribes 30 languages and 22 Chinese dialects with automatic language detection. Language hints may be ignored. Accepts MP3, WAV, FLAC, and OGG recordings up to 10 minutes, with direct uploads up to 4 MB or audio URLs up to 25 MB. Returns a completed JSON transcript without timestamps, speaker labels, or translation. Billed per started input second.",
+   "architecture": {
+    "modality": "audio->text",
+    "input_modalities": [
+     "audio"
+    ],
+    "output_modalities": [
+     "text"
+    ]
+   },
+   "pricing": {
+    "per_minute": 0.0001998,
+    "per_second": 0.00000333,
+    "billing_increment_seconds": 1,
+    "rounding": "ceil",
+    "currency": "USD"
+   },
+   "capabilities": {
+    "speech_to_text": true
+   },
+   "supported_parameters": {
+    "max_duration_seconds": 600,
+    "response_formats": [
+     "json"
+    ],
+    "timestamp_granularities": [],
+    "max_request_body_mb": 4,
+    "supports_remote_url": true,
+    "max_file_size_mb": 25,
+    "supported_formats": [
+     "MP3",
+     "WAV",
+     "FLAC",
+     "OGG"
+    ],
+    "supported_languages": [
+     "auto",
+     "zh",
+     "en",
+     "yue",
+     "ar",
+     "de",
+     "fr",
+     "es",
+     "pt",
+     "id",
+     "it",
+     "ko",
+     "ru",
+     "th",
+     "vi",
+     "ja",
+     "tr",
+     "hi",
+     "ms",
+     "nl",
+     "sv",
+     "da",
+     "fi",
+     "pl",
+     "cs",
+     "fil",
+     "fa",
+     "el",
+     "hu",
+     "mk",
+     "ro"
+    ],
+    "features": [
+     "30 languages and 22 Chinese dialects",
+     "Automatic language detection",
+     "JSON transcription",
+     "Billed per started second"
+    ]
+   },
+   "icon_url": "/icons/Qwen.svg",
+   "subscription": {
+    "included": false
+   },
+   "zero_data_retention": false,
+   "example": {
+    "audioUrl": "https://media.nano-gpt.cloud/media/f9b4440ac8393e47c14a6240e9739dea09b645bb1592b8f2dd48feb9666cea7f.wav",
+    "text": "Oh yeah, yeah. He wasn't even that big when I started listening to him. But and his solo music didn't do overly well, but he did very well when he started writing for other people.",
+    "sourceUrl": "https://huggingface.co/Qwen/Qwen3-ASR-0.6B/blob/main/README.md",
+    "inputSourceUrl": "https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen3-ASR-Repo/asr_en.wav",
+    "durationSeconds": 15.051229166666667
+   },
+   "context_length": 4096,
+   "max_output_length": 4096,
+   "category": "audio_stt"
+  },
+  {
+   "id": "qwen/qwen3-asr-1.7b",
+   "object": "model",
+   "created": 1795453687,
+   "owned_by": "qwen",
+   "name": "Qwen3 ASR 1.7B",
+   "description": "Qwen3 ASR 1.7B is the larger open-weight speech recognition model from Qwen. Transcribes 30 languages and 22 Chinese dialects with automatic language detection. Language hints may be ignored. Accepts MP3, WAV, FLAC, and OGG recordings up to 10 minutes, with direct uploads up to 4 MB or audio URLs up to 25 MB. Returns a completed JSON transcript without timestamps, speaker labels, or translation. Billed per started input second.",
+   "architecture": {
+    "modality": "audio->text",
+    "input_modalities": [
+     "audio"
+    ],
+    "output_modalities": [
+     "text"
+    ]
+   },
+   "pricing": {
+    "per_minute": 0.00045,
+    "per_second": 0.0000075,
+    "billing_increment_seconds": 1,
+    "rounding": "ceil",
+    "currency": "USD"
+   },
+   "capabilities": {
+    "speech_to_text": true
+   },
+   "supported_parameters": {
+    "max_duration_seconds": 600,
+    "response_formats": [
+     "json"
+    ],
+    "timestamp_granularities": [],
+    "max_request_body_mb": 4,
+    "supports_remote_url": true,
+    "max_file_size_mb": 25,
+    "supported_formats": [
+     "MP3",
+     "WAV",
+     "FLAC",
+     "OGG"
+    ],
+    "supported_languages": [
+     "auto",
+     "zh",
+     "en",
+     "yue",
+     "ar",
+     "de",
+     "fr",
+     "es",
+     "pt",
+     "id",
+     "it",
+     "ko",
+     "ru",
+     "th",
+     "vi",
+     "ja",
+     "tr",
+     "hi",
+     "ms",
+     "nl",
+     "sv",
+     "da",
+     "fi",
+     "pl",
+     "cs",
+     "fil",
+     "fa",
+     "el",
+     "hu",
+     "mk",
+     "ro"
+    ],
+    "features": [
+     "30 languages and 22 Chinese dialects",
+     "Automatic language detection",
+     "JSON transcription",
+     "Billed per started second"
+    ]
+   },
+   "icon_url": "/icons/Qwen.svg",
+   "subscription": {
+    "included": false
+   },
+   "zero_data_retention": false,
+   "example": {
+    "audioUrl": "https://media.nano-gpt.cloud/media/f9b4440ac8393e47c14a6240e9739dea09b645bb1592b8f2dd48feb9666cea7f.wav",
+    "text": "Uh huh. Oh yeah, yeah. He wasn't even that big when I started listening to him, but and his solo music didn't do overly well, but he did very well when he started writing for other people.",
+    "sourceUrl": "https://huggingface.co/Qwen/Qwen3-ASR-1.7B/blob/main/README.md",
+    "inputSourceUrl": "https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen3-ASR-Repo/asr_en.wav",
+    "durationSeconds": 15.051229166666667
+   },
+   "context_length": 4096,
+   "max_output_length": 4096,
+   "category": "audio_stt"
+  },
+  {
+   "id": "elevenlabs/scribe-v3",
+   "object": "model",
+   "created": 1795453687,
+   "owned_by": "elevenlabs",
+   "name": "ElevenLabs Scribe v3",
+   "description": "ElevenLabs Scribe v3 transcribes recorded speech with automatic language detection, word timestamps, optional speaker labels, and audio event tagging. Choose digits or words for numbers, add secondary language hints, or provide up to 100 keyterms. Supports MP3, WAV, OGG, M4A, and AAC recordings up to 60 minutes, with direct uploads up to 4 MB or audio URLs up to 25 MB. Pricing is $0.01 per input minute, or $0.012 with keyterms, with a 10-second minimum and proportional billing thereafter.",
+   "architecture": {
+    "modality": "audio->text",
+    "input_modalities": [
+     "audio"
+    ],
+    "output_modalities": [
+     "text"
+    ]
+   },
+   "pricing": {
+    "per_minute": 0.01,
+    "with_keyterms_per_minute": 0.012,
+    "minimum_billable_seconds": 10,
+    "maximum_billable_seconds": 3600,
+    "rounding": "proportional",
+    "currency": "USD"
+   },
+   "capabilities": {
+    "speech_to_text": true,
+    "diarization": true,
+    "word_timestamps": true
+   },
+   "supported_parameters": {
+    "max_duration_seconds": 3600,
+    "diarize_default": false,
+    "tag_audio_events_default": true,
+    "numbers_format": [
+     "digits",
+     "words"
+    ],
+    "secondary_language_codes_max": 100,
+    "keyterms_max": 100,
+    "keyterm_max_characters": 49,
+    "keyterm_max_words": 5,
+    "response_formats": [
+     "json",
+     "text",
+     "verbose_json"
+    ],
+    "timestamp_granularities": [
+     "word"
+    ],
+    "max_request_body_mb": 4,
+    "supports_remote_url": true,
+    "max_file_size_mb": 25,
+    "supported_formats": [
+     "MP3",
+     "WAV",
+     "OGG",
+     "M4A",
+     "AAC"
+    ],
+    "features": [
+     "Automatic language detection",
+     "Word-level timestamps",
+     "Speaker diarization",
+     "Audio event tagging",
+     "Number formatting",
+     "Secondary language hints",
+     "Keyterms (20% surcharge)"
+    ]
+   },
+   "icon_url": "/icons/ElevenLabs.svg",
+   "subscription": {
+    "included": false
+   },
+   "zero_data_retention": false,
+   "example": {
+    "audioUrl": "https://media.nano-gpt.cloud/media/b51b4352d6360c0e1f3fbe1a5bfc9009bf1446d2e42d5507ccf8027fb51582aa.wav",
+    "text": "This week, I traveled to Chicago to deliver my final farewell address to the nation, following in the tradition of presidents before me.",
+    "durationSeconds": 8.3
+   },
+   "category": "audio_stt"
+  },
+  {
+   "id": "kotoba-technologies/kotoba-stt/v1/speech-to-text",
+   "object": "model",
+   "created": 1795453687,
+   "owned_by": "kotoba-technologies",
+   "name": "Kotoba STT v1",
+   "description": "Transcribe audio or video clips up to 120 seconds in Japanese, English, Korean, Mandarin, Taiwanese Mandarin, Hong Kong Cantonese, or Spanish. Requires an explicit spoken language; no language detection or translation. Optional word timestamps and beta speaker diarization.",
+   "architecture": {
+    "modality": "audio->text",
+    "input_modalities": [
+     "audio",
+     "video"
+    ],
+    "output_modalities": [
+     "text"
+    ]
+   },
+   "pricing": {
+    "per_minute": 0.007083,
+    "currency": "USD"
+   },
+   "capabilities": {
+    "speech_to_text": true,
+    "diarization": true,
+    "language_detection": false,
+    "realtime": false,
+    "diarization_beta": true,
+    "word_timestamps": true
+   },
+   "supported_parameters": {
+    "max_duration_seconds": 120,
+    "language_required": true,
+    "response_formats": [
+     "json",
+     "text",
+     "verbose_json"
+    ],
+    "timestamp_granularities": [
+     "word"
+    ],
+    "max_request_body_mb": 4,
+    "supports_remote_url": true,
+    "max_file_size_mb": 100,
+    "supported_formats": [
+     "WAV",
+     "MP3",
+     "M4A",
+     "MP4",
+     "WEBM",
+     "OGG",
+     "FLAC",
+     "AAC"
+    ],
+    "supported_languages": [
+     "ja",
+     "en",
+     "ko",
+     "zh",
+     "zh-tw",
+     "zh-hk",
+     "es"
+    ],
+    "features": [
+     "Audio and video clips up to 120 seconds",
+     "Word-level timestamps",
+     "Beta speaker diarization",
+     "Explicit spoken language"
+    ]
+   },
+   "category": "audio_stt"
+  },
+  {
+   "id": "Whisper-Large-V3",
+   "object": "model",
+   "created": 1795453687,
+   "owned_by": "openai",
+   "name": "Whisper Large V3",
+   "description": "OpenAI's state-of-the-art speech recognition model",
+   "architecture": {
+    "modality": "audio->text",
+    "input_modalities": [
+     "audio"
+    ],
+    "output_modalities": [
+     "text"
+    ]
+   },
+   "pricing": {
+    "per_minute": 0.000495,
+    "currency": "USD"
+   },
+   "capabilities": {
+    "speech_to_text": true,
+    "word_timestamps": true
+   },
+   "supported_parameters": {
+    "response_formats": [
+     "json",
+     "text",
+     "verbose_json",
+     "srt",
+     "vtt"
+    ],
+    "timestamp_granularities": [
+     "segment",
+     "word"
+    ],
+    "max_request_body_mb": 4,
+    "supports_remote_url": true,
+    "max_file_size_mb": 500,
+    "supported_formats": [
+     "MP3",
+     "OGG",
+     "WAV",
+     "M4A",
+     "AAC"
+    ],
+    "features": [
+     "Auto language detection",
+     "High accuracy",
+     "Fast processing",
+     "Word-level timestamps"
+    ]
+   },
+   "icon_url": "/icons/OpenAI.svg",
+   "category": "audio_stt"
+  },
+  {
+   "id": "Wizper",
+   "object": "model",
+   "created": 1795453687,
+   "owned_by": "openai",
+   "name": "Wizper",
+   "description": "Fast and efficient speech-to-text model",
+   "architecture": {
+    "modality": "audio->text",
+    "input_modalities": [
+     "audio"
+    ],
+    "output_modalities": [
+     "text"
+    ]
+   },
+   "pricing": {
+    "per_minute": 0.017,
+    "currency": "USD"
+   },
+   "capabilities": {
+    "speech_to_text": true
+   },
+   "supported_parameters": {
+    "response_formats": [
+     "json",
+     "text",
+     "verbose_json"
+    ],
+    "timestamp_granularities": [
+     "segment"
+    ],
+    "max_request_body_mb": 4,
+    "supports_remote_url": true,
+    "max_file_size_mb": 500,
+    "supported_formats": [
+     "MP3",
+     "OGG",
+     "WAV",
+     "M4A",
+     "AAC"
+    ],
+    "features": [
+     "Auto language detection",
+     "Optimized for speed"
+    ]
+   },
+   "icon_url": "/icons/OpenAI.svg",
+   "category": "audio_stt"
+  },
+  {
+   "id": "Elevenlabs-STT",
+   "object": "model",
+   "created": 1795453687,
+   "owned_by": "elevenlabs",
+   "name": "ElevenLabs Scribe V1",
+   "description": "ElevenLabs Scribe V1 transcription with word-level timestamps and speaker identification",
+   "architecture": {
+    "modality": "audio->text",
+    "input_modalities": [
+     "audio"
+    ],
+    "output_modalities": [
+     "text"
+    ]
+   },
+   "pricing": {
+    "per_minute": 0.051,
+    "currency": "USD"
+   },
+   "capabilities": {
+    "speech_to_text": true,
+    "diarization": true,
+    "word_timestamps": true
+   },
+   "supported_parameters": {
+    "response_formats": [
+     "json"
+    ],
+    "timestamp_granularities": [],
+    "max_request_body_mb": 4,
+    "supports_remote_url": true,
+    "max_file_size_mb": 500,
+    "supported_formats": [
+     "MP3",
+     "OGG",
+     "WAV",
+     "M4A",
+     "AAC"
+    ],
+    "supported_languages": [
+     "eng",
+     "spa",
+     "fra",
+     "deu",
+     "jpn",
+     "zho",
+     "rus",
+     "por",
+     "ita",
+     "kor",
+     "nld",
+     "pol",
+     "swe",
+     "tur",
+     "ara",
+     "hin",
+     "heb",
+     "ind",
+     "vie",
+     "tha"
+    ],
+    "features": [
+     "Word-level timestamps",
+     "Speaker diarization",
+     "Audio event tagging (laughter, applause)",
+     "99 languages supported",
+     "State-of-the-art accuracy"
+    ]
+   },
+   "icon_url": "/icons/ElevenLabs.svg",
+   "category": "audio_stt"
+  },
+  {
+   "id": "qwen-voice-clone",
+   "object": "model",
+   "created": 1795453687,
+   "owned_by": "qwen",
+   "name": "Qwen Voice Clone (1.7B)",
+   "description": "Generate a reusable Qwen speaker embedding from a short reference clip (zero-shot voice cloning).",
+   "architecture": {
+    "modality": "audio->text",
+    "input_modalities": [
+     "audio"
+    ],
+    "output_modalities": [
+     "text"
+    ]
+   },
+   "pricing": {
+    "per_minute": 0.425,
+    "currency": "USD"
+   },
+   "capabilities": {
+    "speech_to_text": true
+   },
+   "supported_parameters": {
+    "response_formats": [
+     "json"
+    ],
+    "timestamp_granularities": [],
+    "max_request_body_mb": 4,
+    "supports_remote_url": true,
+    "max_file_size_mb": 500,
+    "supported_formats": [
+     "MP3",
+     "OGG",
+     "WAV",
+     "M4A",
+     "AAC"
+    ],
+    "features": [
+     "Zero-shot voice cloning",
+     "Outputs speaker embedding (.safetensors)",
+     "Works with Qwen 3 TTS",
+     "Optional reference text improves quality"
+    ]
+   },
+   "icon_url": "/icons/Qwen.svg",
+   "category": "audio_stt"
+  },
+  {
+   "id": "whisper-1",
+   "object": "model",
+   "created": 1795453687,
+   "owned_by": "openai",
+   "name": "Whisper-1",
+   "description": "OpenAI's original Whisper model with full format support including SRT and VTT subtitles",
+   "architecture": {
+    "modality": "audio->text",
+    "input_modalities": [
+     "audio",
+     "video"
+    ],
+    "output_modalities": [
+     "text"
+    ]
+   },
+   "pricing": {
+    "per_minute": 0.0102,
+    "currency": "USD"
+   },
+   "capabilities": {
+    "speech_to_text": true
+   },
+   "supported_parameters": {
+    "response_formats": [
+     "json",
+     "text",
+     "verbose_json",
+     "srt",
+     "vtt"
+    ],
+    "timestamp_granularities": [
+     "segment",
+     "word"
+    ],
+    "max_request_body_mb": 4,
+    "supports_remote_url": true,
+    "max_file_size_mb": 25,
+    "supported_formats": [
+     "MP3",
+     "MP4",
+     "MPEG",
+     "MPGA",
+     "M4A",
+     "WAV",
+     "WEBM",
+     "OGG",
+     "FLAC"
+    ],
+    "features": [
+     "Subtitle format support (SRT, VTT)",
+     "Verbose JSON with timestamps",
+     "Auto language detection",
+     "Prompt support",
+     "Translation support"
+    ]
+   },
+   "icon_url": "/icons/OpenAI.svg",
+   "category": "audio_stt"
+  },
+  {
+   "id": "gpt-4o-mini-transcribe",
+   "object": "model",
+   "created": 1795453687,
+   "owned_by": "openai",
+   "name": "GPT-4o Mini Transcribe",
+   "description": "OpenAI's efficient speech-to-text model with improved accuracy over Whisper",
+   "architecture": {
+    "modality": "audio->text",
+    "input_modalities": [
+     "audio",
+     "video"
+    ],
+    "output_modalities": [
+     "text"
+    ]
+   },
+   "pricing": {
+    "per_minute": 0.0051,
+    "currency": "USD"
+   },
+   "capabilities": {
+    "speech_to_text": true
+   },
+   "supported_parameters": {
+    "response_formats": [
+     "json"
+    ],
+    "timestamp_granularities": [],
+    "max_request_body_mb": 4,
+    "supports_remote_url": true,
+    "max_file_size_mb": 25,
+    "supported_formats": [
+     "MP3",
+     "MP4",
+     "MPEG",
+     "MPGA",
+     "M4A",
+     "WAV",
+     "WEBM",
+     "OGG",
+     "FLAC"
+    ],
+    "features": [
+     "Improved word error rate vs Whisper",
+     "Better language recognition",
+     "Log probabilities support",
+     "Prompt support"
+    ]
+   },
+   "icon_url": "/icons/OpenAI.svg",
+   "category": "audio_stt"
+  },
+  {
+   "id": "minimax-voice-clone",
+   "object": "model",
+   "created": 1795453687,
+   "owned_by": "minimax",
+   "name": "MiniMax Voice Clone",
+   "description": "Clone a voice into a reusable MiniMax custom voice ID (flat-priced per run).",
+   "architecture": {
+    "modality": "audio->text",
+    "input_modalities": [
+     "audio"
+    ],
+    "output_modalities": [
+     "text"
+    ]
+   },
+   "pricing": {
+    "per_minute": 2.72,
+    "currency": "USD"
+   },
+   "capabilities": {
+    "speech_to_text": true
+   },
+   "supported_parameters": {
+    "response_formats": [
+     "json"
+    ],
+    "timestamp_granularities": [],
+    "max_request_body_mb": 4,
+    "supports_remote_url": true,
+    "max_file_size_mb": 500,
+    "supported_formats": [
+     "MP3",
+     "M4A",
+     "WAV"
+    ],
+    "features": [
+     "Creates reusable custom voice ID",
+     "Includes preview generation",
+     "Noise reduction and normalization options",
+     "Flat $1.60 per run"
+    ]
+   },
+   "icon_url": "/icons/Minimax.svg",
+   "category": "audio_stt"
+  },
+  {
+   "id": "omnivoice-voice-clone",
+   "object": "model",
+   "created": 1795453687,
+   "owned_by": "omnivoice",
+   "name": "OmniVoice Voice Clone",
+   "description": "Clone a voice from a short sample and synthesize new speech in that voice.",
+   "architecture": {
+    "modality": "audio->text",
+    "input_modalities": [
+     "audio"
+    ],
+    "output_modalities": [
+     "text"
+    ]
+   },
+   "pricing": {
+    "per_generation": 1,
+    "per_thousand_chars": 0.05,
+    "pricing_formula": "max(per_generation, text_characters < 100 ? 0.005 : text_characters / 1000 * per_thousand_chars)",
+    "currency": "USD"
+   },
+   "capabilities": {
+    "speech_to_text": true
+   },
+   "supported_parameters": {
+    "response_formats": [
+     "json"
+    ],
+    "timestamp_granularities": [],
+    "max_request_body_mb": 4,
+    "supports_remote_url": true,
+    "max_file_size_mb": 500,
+    "supported_formats": [
+     "MP3",
+     "OGG",
+     "WAV",
+     "M4A",
+     "AAC"
+    ],
+    "features": [
+     "Zero-shot voice cloning",
+     "Requires synthesis text",
+     "Optional reference transcript",
+     "Adjustable playback speed",
+     "Priced per run; long synthesis text is billed per character"
+    ]
+   },
+   "icon_url": "/icons/OmniVoice.webp",
+   "category": "audio_stt"
+  },
+  {
+   "id": "inworld-voice-clone",
+   "object": "model",
+   "created": 1795453687,
+   "owned_by": "inworld",
+   "name": "Inworld Voice Clone",
+   "description": "Clone a custom Inworld TTS voice from a short reference clip (flat-priced per run).",
+   "architecture": {
+    "modality": "audio->text",
+    "input_modalities": [
+     "audio"
+    ],
+    "output_modalities": [
+     "text"
+    ]
+   },
+   "pricing": {
+    "per_minute": 1.7,
+    "currency": "USD"
+   },
+   "capabilities": {
+    "speech_to_text": true
+   },
+   "supported_parameters": {
+    "response_formats": [
+     "json"
+    ],
+    "timestamp_granularities": [],
+    "max_request_body_mb": 4,
+    "supports_remote_url": true,
+    "max_file_size_mb": 10,
+    "supported_formats": [
+     "MP3",
+     "OGG",
+     "WAV",
+     "M4A",
+     "AAC"
+    ],
+    "features": [
+     "Creates reusable Inworld custom voice ID",
+     "Saved to your account only",
+     "Works with Inworld TTS 1.5 Max and Mini",
+     "Flat-priced per run"
+    ]
+   },
+   "icon_url": "/icons/Inworld.svg",
+   "category": "audio_stt"
+  }
+ ],
+ "meta": {
+  "count": 13,
+  "generated_at": "2026-11-23T17:08:07.414Z",
+  "trimmed_from": 24
+ }
+}
