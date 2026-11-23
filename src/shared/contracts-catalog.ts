@@ -7,18 +7,38 @@ import type { CatalogModel, ModelProviders, Quantization, RoutingConfig } from '
 // NanoGPT (`GET /api/v1/models?detailed=true`, `GET /api/models/<id>/providers`), runs the result through
 // normalizeCatalog / normalizeModelProviders and caches it; the browser never talks to NanoGPT for the catalog.
 //
-//   GET /catalog                -> CatalogResponse
-//   GET /catalog/:id/providers  -> ModelProvidersResponse        (`:id` is encodeURIComponent(modelId): ids contain `/`)
+//   GET /catalog                -> CatalogResponse                (`?refresh=1` forces a fetch)
+//   GET /catalog/:id/providers  -> ModelProvidersResponse         (`:id` is encodeURIComponent(modelId): ids contain `/`)
+//   GET /catalog/:id/hints      -> RoutingHintsResponse           (routingHints(model, hosts); hosts left out if unfetchable)
+//
+// Model ids contain `/` and `:`. Express (4 and 5) decodes `%2F` in `req.params`, so the encoded path works behind
+// ST's own server (tests/server/catalog-routes.test.ts checks it). Reverse proxies are less reliable: nginx with a
+// `proxy_pass` URI decodes `%2F` into a real slash, Apache answers 404 unless AllowEncodedSlashes is on. So the two id
+// routes also exist without the id segment, taking the id from the query, which no proxy rewrites:
+//   GET /catalog/providers?id=<modelId>      GET /catalog/hints?id=<modelId>
+// A client should prefer the query form; `?id=` also wins when both are present. Suffixes (`:online`, `:memory-7`) are
+// accepted: the model is resolved through the catalog and the answer carries the catalog id in `modelId`.
+//
+// Errors (contracts.ts shape): 400 invalid_request (no or bad id), 404 model_not_found, 502 catalog_unavailable
+// (no live data and no stored copy), 502 providers_unavailable (the host list could not be fetched and none is stored).
 
 export interface CatalogResponse {
     models: CatalogModel[];
     /** Epoch ms of the NanoGPT fetch this answer is made of. */
     fetchedAt: number;
-    /** live: fetched for this request; cache: a fresh cache hit; stale: the cache is old and the live fetch failed. */
+    /**
+     * live: fetched for this request; cache: a fresh copy (younger than the 10 min TTL); stale: an old copy that was not
+     * refreshed for this answer (the fetch failed, just failed, or is still running at start-up).
+     */
     source: 'live' | 'cache' | 'stale';
 }
 
+/** `fetchedAt` is the epoch ms of the NanoGPT fetch of this host list (an old one when the refresh failed). */
 export type ModelProvidersResponse = ModelProviders & { fetchedAt: number };
+
+export interface RoutingHintsResponse {
+    hints: RoutingHint[];
+}
 
 /* ------------------------------------------------------------------------------------------------ list: filter, sort */
 

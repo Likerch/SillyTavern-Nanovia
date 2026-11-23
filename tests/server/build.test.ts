@@ -5,6 +5,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { build } from 'vite';
+import { SAMPLE_MODEL_COUNT, startFakeNanoGpt } from './catalog-fake';
 import { cleanTempDirs, makeTempDir } from './helpers';
 
 afterEach(cleanTempDirs);
@@ -23,7 +24,14 @@ type Handler = (req: unknown, res: unknown) => unknown;
 describe('built server/index.js', () => {
     it('imports and exposes info, init and exit, serves the proxy and the admin routes, and exits cleanly', async () => {
         const previousPort = process.env['NANOVIA_PORT'];
+        const previousSite = process.env['NANOVIA_SITE'];
+        const globals = globalThis as { DATA_ROOT?: unknown };
+        const previousRoot = globals.DATA_ROOT;
+        // The plugin fetches the public catalog at start: point it at a fake site and a scratch data root.
+        const nano = await startFakeNanoGpt();
         process.env['NANOVIA_PORT'] = '0';
+        process.env['NANOVIA_SITE'] = nano.site;
+        globals.DATA_ROOT = makeTempDir();
         const quiet = [vi.spyOn(console, 'info'), vi.spyOn(console, 'warn')].map((s) => s.mockImplementation(() => {}));
         try {
             const plugin = (await import(/* @vite-ignore */ pathToFileURL(bundle).href)) as PluginModule;
@@ -46,6 +54,11 @@ describe('built server/index.js', () => {
             expect([...routes.keys()].sort()).toEqual([
                 'DELETE /connections/:id',
                 'DELETE /keys/:id',
+                'GET /catalog',
+                'GET /catalog/:id/hints',
+                'GET /catalog/:id/providers',
+                'GET /catalog/hints',
+                'GET /catalog/providers',
                 'GET /connections',
                 'GET /keys',
                 'GET /status',
@@ -78,6 +91,11 @@ describe('built server/index.js', () => {
             });
             expect(status.proxy.port).toBeGreaterThan(0);
 
+            await routes.get('GET /catalog')!({ params: {}, query: {} }, res);
+            expect(body).toMatchObject({ source: 'live', models: expect.any(Array) });
+            expect((body as { models: unknown[] }).models).toHaveLength(SAMPLE_MODEL_COUNT);
+            expect(fs.existsSync(path.join(globals.DATA_ROOT as string, '_nanovia', 'catalog.json'))).toBe(true);
+
             const health = await fetch(`http://127.0.0.1:${status.proxy.port}/health`);
             expect(await health.json()).toEqual({ ok: true, version: pkg.version });
 
@@ -87,6 +105,11 @@ describe('built server/index.js', () => {
             quiet.forEach((s) => s.mockRestore());
             if (previousPort === undefined) delete process.env['NANOVIA_PORT'];
             else process.env['NANOVIA_PORT'] = previousPort;
+            if (previousSite === undefined) delete process.env['NANOVIA_SITE'];
+            else process.env['NANOVIA_SITE'] = previousSite;
+            if (previousRoot === undefined) delete globals.DATA_ROOT;
+            else globals.DATA_ROOT = previousRoot;
+            await nano.close();
         }
     });
 
