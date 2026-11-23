@@ -7,6 +7,7 @@ import {
     priceRank,
     selectModels,
     sortModels,
+    startsFromPrompt,
 } from '../../src/core/media-select';
 import { mediaModel } from '../helpers/media-fake';
 
@@ -130,5 +131,45 @@ describe('defaultModel', () => {
             mediaModel({ id: 'a', name: 'A', medium: 'image', price: price(null) }),
         ];
         expect(defaultModel(unpriced)?.id).toBe('a');
+    });
+});
+
+describe('the first choice of a studio', () => {
+    const tool = mediaModel({
+        id: 'cropper',
+        name: 'Cropper',
+        medium: 'image',
+        price: price(0),
+        capabilities: { imageToImage: true },
+    });
+    const maker = mediaModel({
+        id: 'maker',
+        name: 'Maker',
+        medium: 'image',
+        price: price(0.02),
+        capabilities: { textToImage: true },
+    });
+
+    it('skips a free tool that cannot start from a prompt, but only when a real generator exists', () => {
+        const suitable = (m: (typeof models)[number]) => startsFromPrompt('image', m);
+        expect(defaultModel([tool, maker], { suitable })?.id).toBe('maker');
+        expect(defaultModel([tool], { suitable })?.id).toBe('cropper');
+        expect(defaultModel([tool, maker])?.id).toBe('cropper');
+    });
+
+    it('knows what starts from a prompt in each medium', () => {
+        expect(startsFromPrompt('image', maker)).toBe(true);
+        expect(startsFromPrompt('image', tool)).toBe(false);
+        expect(
+            startsFromPrompt('video', mediaModel({ id: 'v', medium: 'video', capabilities: { textToVideo: true } })),
+        ).toBe(true);
+        expect(
+            startsFromPrompt('video', mediaModel({ id: 'v', medium: 'video', capabilities: { videoToVideo: true } })),
+        ).toBe(false);
+        expect(
+            startsFromPrompt('stt', mediaModel({ id: 's', medium: 'stt', capabilities: { voiceCloning: true } })),
+        ).toBe(false);
+        expect(startsFromPrompt('stt', mediaModel({ id: 's', medium: 'stt' }))).toBe(true);
+        expect(startsFromPrompt('tts', mediaModel({ id: 't', medium: 'tts' }))).toBe(true);
     });
 });

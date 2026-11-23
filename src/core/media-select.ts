@@ -1,7 +1,7 @@
 // Choosing among the models of a media catalog: speech or music (the TTS list mixes both), the adult-capable ones, a text
 // search, a sort by price or name. Pure functions of their arguments, used by the Media tab, the studios and the TTS
 // provider alike, so "the models a studio offers" is one definition.
-import type { MediaModel } from '../shared/contracts-media';
+import type { MediaModel, Medium } from '../shared/contracts-media';
 
 export type TtsKind = 'speech' | 'music' | 'all';
 export type ModelSort = 'name' | 'price';
@@ -83,7 +83,7 @@ export function selectModels(models: readonly MediaModel[], query: ModelQuery = 
  */
 export function defaultModel(
     models: readonly MediaModel[],
-    options: { remembered?: string | null; preferred?: string } = {},
+    options: { remembered?: string | null; preferred?: string; suitable?: (model: MediaModel) => boolean } = {},
 ): MediaModel | null {
     if (models.length === 0) return null;
     const remembered = options.remembered ? models.find((model) => model.id === options.remembered) : undefined;
@@ -91,7 +91,19 @@ export function defaultModel(
     const preferred = options.preferred?.toLowerCase();
     const wanted = preferred ? models.find((model) => model.id.toLowerCase() === preferred) : undefined;
     if (wanted) return wanted;
-    const priced = sortModels(models, 'price')[0];
+    // The cheapest model is often a tool that cannot start from a prompt (a cropper, an upscaler, a video reframer): prefer
+    // the ones that can, and fall back to the whole list only when none qualifies.
+    const fit = options.suitable ? models.filter(options.suitable) : [];
+    const pool = fit.length > 0 ? fit : models;
+    const priced = sortModels(pool, 'price')[0];
     if (priced && Number.isFinite(priceRank(priced))) return priced;
-    return sortModels(models, 'name')[0] ?? null;
+    return sortModels(pool, 'name')[0] ?? null;
+}
+
+/** Whether a model can be the studio's first choice: it works from the user's own text (or recording) alone. */
+export function startsFromPrompt(medium: Medium, model: MediaModel): boolean {
+    if (medium === 'image') return model.capabilities.textToImage === true;
+    if (medium === 'video') return model.capabilities.textToVideo === true;
+    if (medium === 'stt') return model.capabilities.voiceCloning !== true;
+    return true;
 }

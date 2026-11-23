@@ -7398,9 +7398,18 @@ function defaultModel(models, options = {}) {
 	const preferred = options.preferred?.toLowerCase();
 	const wanted = preferred ? models.find((model) => model.id.toLowerCase() === preferred) : void 0;
 	if (wanted) return wanted;
-	const priced = sortModels(models, "price")[0];
+	const fit = options.suitable ? models.filter(options.suitable) : [];
+	const pool = fit.length > 0 ? fit : models;
+	const priced = sortModels(pool, "price")[0];
 	if (priced && Number.isFinite(priceRank(priced))) return priced;
-	return sortModels(models, "name")[0] ?? null;
+	return sortModels(pool, "name")[0] ?? null;
+}
+/** Whether a model can be the studio's first choice: it works from the user's own text (or recording) alone. */
+function startsFromPrompt(medium, model) {
+	if (medium === "image") return model.capabilities.textToImage === true;
+	if (medium === "video") return model.capabilities.textToVideo === true;
+	if (medium === "stt") return model.capabilities.voiceCloning !== true;
+	return true;
 }
 /** When the plugin's billing lookup is re-read for an image's real cost (ms after the call). */
 var COST_RECONCILE_DELAYS_MS = [
@@ -16005,7 +16014,10 @@ function createPicker(options) {
 			drawCard(null);
 			return;
 		}
-		const target = current ?? defaultModel(listed, { ...options.preferred ? { preferred: options.preferred } : {} });
+		const target = current ?? defaultModel(listed, {
+			...options.preferred ? { preferred: options.preferred } : {},
+			suitable: (model) => startsFromPrompt(medium, model)
+		});
 		const selectEl = select({
 			value: target?.id ?? "",
 			label: t("media.picker.model"),

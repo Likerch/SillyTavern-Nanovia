@@ -3,7 +3,7 @@
 // picker is built to be filtered; the search box is built once and never redrawn, so typing is not interrupted when the
 // catalog or the plugin's state changes underneath it.
 import type { FeatureContext } from '../../core/context';
-import { defaultModel } from '../../core/media-select';
+import { defaultModel, startsFromPrompt } from '../../core/media-select';
 import type { ModelSort } from '../../core/media-select';
 import type { MediaModel, Medium } from '../../shared/contracts-media';
 import { button, chip, clear, el, field, select, textInput, toggle } from '../../ui';
@@ -151,7 +151,11 @@ export function createPicker(options: PickerOptions): Picker {
         }
 
         const target =
-            current ?? defaultModel(listed, { ...(options.preferred ? { preferred: options.preferred } : {}) });
+            current ??
+            defaultModel(listed, {
+                ...(options.preferred ? { preferred: options.preferred } : {}),
+                suitable: (model) => startsFromPrompt(medium, model),
+            });
         const selectEl = select<string>({
             value: target?.id ?? '',
             label: t('media.picker.model'),
