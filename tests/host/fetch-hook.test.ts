@@ -32,6 +32,22 @@ afterEach(() => {
     globalThis.fetch = realFetch;
 });
 
+describe('the wrapper keeps the browser contract of fetch', () => {
+    it('calls the original fetch with the window as `this` (a browser throws "Illegal invocation" otherwise)', async () => {
+        const seen: unknown[] = [];
+        const scope = {
+            fetch: function (this: unknown): Promise<Response> {
+                seen.push(this);
+                return Promise.resolve(new Response('{}'));
+            },
+        } as unknown as typeof globalThis;
+        const own = installFetchHook(memoryLogger(), scope);
+        await (scope.fetch as unknown as (input: string) => Promise<Response>)('/api/anything');
+        expect(seen).toEqual([scope]);
+        own.uninstall();
+    });
+});
+
 function post(body: unknown, url: string = GENERATE_PATH): Promise<Response> {
     return fetch(url, { method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' } });
 }

@@ -215,7 +215,8 @@ export function installFetchHook(log: Logger, scope: typeof globalThis = globalT
                     created.log.warn('request hooks failed; the request goes on as it was', error);
                 }
             }
-            return created.original(input, effective);
+            // Called as a method of `created` the browser's fetch throws 'Illegal invocation': it must see the window as `this`.
+            return created.original.call(scope, input, effective);
         };
         holder.fetch = created.wrapper as unknown as typeof fetch;
         holder[STATE_KEY] = created;

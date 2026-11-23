@@ -1267,7 +1267,7 @@ function installFetchHook(log, scope = globalThis) {
 			} catch (error) {
 				created.log.warn("request hooks failed; the request goes on as it was", error);
 			}
-			return created.original(input, effective);
+			return created.original.call(scope, input, effective);
 		};
 		holder.fetch = created.wrapper;
 		holder[STATE_KEY] = created;
