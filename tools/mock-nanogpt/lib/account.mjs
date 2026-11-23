@@ -107,6 +107,12 @@ export function usage({ res, url, state, keyId }) {
 /** GET /api/v1/usage/requests/:id : the recorded primary charge of one request (24 hours, same key only). */
 export function requestBilling({ res, params, state, keyId }) {
     const record = state.billing.get(decodeURIComponent(params.id));
+    if (state.billingMisses > 0) {
+        state.billingMisses -= 1;
+        return sendError(res, 404, 'request_not_found', 'No billing record for this request id.', {
+            headers: { 'Retry-After': '30' },
+        });
+    }
     if (!record || record.keyId !== keyId) {
         return sendError(res, 404, 'request_not_found', 'No billing record for this request id.', {
             headers: { 'Retry-After': '30' },
@@ -123,9 +129,4 @@ export function requestBilling({ res, params, state, keyId }) {
         cost_scope: 'primary_charge',
         usage: { input_tokens: record.input, output_tokens: record.output, reasoning_tokens: record.reasoning },
     });
-}
-
-/** POST /api/v1/images/generations and POST /api/v1/images (stage 7 stubs): one tiny PNG. */
-export function images({ res }) {
-    sendJson(res, 200, { created: Math.floor(Date.now() / 1000), data: [{ b64_json: TINY_PNG_BASE64 }] });
 }

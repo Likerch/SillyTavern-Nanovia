@@ -7,8 +7,8 @@ export const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export const randomId = (prefix, bytes = 8) => `${prefix}${randomBytes(bytes).toString('hex')}`;
 
-/** Reads the whole request body as text. */
-export function readBody(req) {
+/** Reads the whole request body as bytes. */
+export function readBuffer(req) {
     return new Promise((resolve, reject) => {
         const chunks = [];
         let size = 0;
@@ -21,9 +21,43 @@ export function readBody(req) {
             }
             chunks.push(chunk);
         });
-        req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+        req.on('end', () => resolve(Buffer.concat(chunks)));
         req.on('error', reject);
     });
+}
+
+/** Reads the whole request body as text. */
+export async function readBody(req) {
+    return (await readBuffer(req)).toString('utf8');
+}
+
+/**
+ * A `multipart/form-data` body as `{ fields, files }`: text fields by name, and the file parts with their bytes. Enough for
+ * the transcription route; not a general parser.
+ */
+export function parseMultipart(body, contentType) {
+    const boundary = /boundary=(?:"([^"]+)"|([^;\s]+))/i.exec(contentType ?? '');
+    const result = { fields: {}, files: [] };
+    if (!boundary) return result;
+    const delimiter = Buffer.from(`--${boundary[1] ?? boundary[2]}`, 'latin1');
+    let at = body.indexOf(delimiter);
+    while (at !== -1) {
+        const headStart = at + delimiter.length;
+        if (body[headStart] === 0x2d && body[headStart + 1] === 0x2d) break;
+        const headEnd = body.indexOf('\r\n\r\n', headStart, 'latin1');
+        if (headEnd === -1) break;
+        const head = body.subarray(headStart, headEnd).toString('latin1');
+        const next = body.indexOf(delimiter, headEnd + 4);
+        const data = body.subarray(headEnd + 4, next === -1 ? body.length : Math.max(headEnd + 4, next - 2));
+        const name = /name="([^"]*)"/i.exec(head)?.[1] ?? '';
+        const filename = /filename="([^"]*)"/i.exec(head)?.[1];
+        if (filename !== undefined) {
+            const mime = /content-type:\s*([^\r\n]+)/i.exec(head)?.[1]?.trim() ?? 'application/octet-stream';
+            result.files.push({ name, filename, mime, data });
+        } else result.fields[name] = data.toString('utf8');
+        at = next;
+    }
+    return result;
 }
 
 export function sendJson(res, status, value, headers = {}) {
