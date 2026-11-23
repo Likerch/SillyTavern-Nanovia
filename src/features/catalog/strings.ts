@@ -109,7 +109,8 @@ export const CATALOG_STRINGS: I18nParts = {
         'catalog.hosts.none': 'NanoGPT lists no separate hosts for this model.',
         'catalog.hosts.fixedRoute':
             'This model runs on a fixed route: choosing hosts does nothing, so the routing settings of a connection have no effect on it.',
-        'catalog.hosts.auto': 'Automatic routing: {tps} tokens/s, first token after {ttft} ms, {cache} of the prompt from cache.',
+        'catalog.hosts.auto':
+            'Automatic routing: {tps} tokens/s, first token after {ttft} ms, {cache} of the prompt from cache.',
         'catalog.hosts.priority': 'Rank by',
         'catalog.hosts.priority.balanced': 'Balance of price, speed and uptime',
         'catalog.hosts.priority.price': 'Price first',
@@ -317,8 +318,7 @@ export const CATALOG_STRINGS: I18nParts = {
             'Часть хостов {model} отдаёт её ниже fp8 ({lowHosts}: {low}), и ни про один не известно, что он достигает fp8, поэтому граница оставила бы маршрутизацию без вариантов. Качество хостов не проверено.',
         'catalog.hint.quant.deepseekNative':
             'Эксперты {model} родом в MXFP4, поэтому хост с меткой mxfp4 отдаёт оригинал. Хостов с 4-битной копией под другой меткой: {suspiciousHosts} ({suspicious}); она может быть пережатой, такие хосты можно игнорировать.',
-        'catalog.hint.hosts.few':
-            'Эту модель отдаёт мало хостов ({hosts}): если один упадёт, запасных почти нет.',
+        'catalog.hint.hosts.few': 'Эту модель отдаёт мало хостов ({hosts}): если один упадёт, запасных почти нет.',
         'catalog.hint.routing.fixedRoute':
             'NanoGPT ведёт {model} по фиксированному маршруту: выбор провайдера на неё не действует (порядок, only, ignore и точность не применяются).',
         'catalog.hint.cache.lowRate':
@@ -339,7 +339,8 @@ export const CATALOG_STRINGS: I18nParts = {
         'catalog.suggest.enable': 'включить выбор провайдера',
 
         'catalog.action.create': 'Создать подключение с этой моделью',
-        'catalog.action.createHint': 'Новое подключение с этой моделью, настройками по умолчанию и отмеченным маршрутом.',
+        'catalog.action.createHint':
+            'Новое подключение с этой моделью, настройками по умолчанию и отмеченным маршрутом.',
         'catalog.action.useIn': 'Использовать в подключении…',
         'catalog.action.useIn.select': 'Подключение',
         'catalog.action.useIn.apply': 'Взять эту модель',

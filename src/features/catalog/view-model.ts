@@ -36,7 +36,7 @@ export type Translate = (key: string, params?: I18nParams) => string;
 export function formatUsd(usd: number): string {
     if (!Number.isFinite(usd) || usd <= 0) return '$0';
     if (usd < 0.0001) return '<$0.0001';
-    const fixed = usd >= 1 ? usd.toFixed(2) : usd >= 0.01 ? usd.toFixed(3) : usd.toFixed(4);
+    const fixed = usd >= 1 ? usd.toFixed(2) : usd.toFixed(4);
     // At least two decimals for amounts that are not tiny: "$0.50", not "$0.5".
     const trimmed = trimZeros(fixed);
     const decimals = trimmed.includes('.') ? (trimmed.split('.')[1]?.length ?? 0) : 0;
