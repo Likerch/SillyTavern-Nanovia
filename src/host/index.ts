@@ -11,6 +11,8 @@ export type { HostEvents, HostEventsImpl } from './events';
 export type { HostModulesImpl, ModuleImporter, ModuleNamespace } from './modules';
 export { createPluginClient, isPluginDown, parseConnectionView, parseStatus } from './plugin-client';
 export type { PluginClient, PluginError, PluginErrorCode, PluginResult } from './plugin-client';
+export { createPluginAccount } from './plugin-account';
+export type { PluginAccount, SpendRange } from './plugin-account';
 export { createProfilesHost, profileDrift, profileName } from './profiles';
 export type { ProfileResult, ProfileSpec, ProfilesHost } from './profiles';
 export { createSecretsHost } from './secrets';

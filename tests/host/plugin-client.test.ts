@@ -217,3 +217,19 @@ describe('keys', () => {
         expect(await client.checkKey(added.data.id)).toMatchObject({ ok: false, error: { code: 'not_found' } });
     });
 });
+
+describe('request', () => {
+    it('makes a raw call with the same headers and notes that the plugin answered', async () => {
+        const result = await client.request('GET', '/status');
+        expect(result).toMatchObject({ ok: true, data: { plugin: true } });
+        expect(backend.pluginCalls().at(-1)?.headers['X-CSRF-Token']).toBe('csrf-token-1');
+        expect(await client.available()).toBe(true);
+    });
+
+    it('never throws: a missing route and a dead plugin are error values', async () => {
+        expect(await client.request('GET', '/nowhere')).toMatchObject({ ok: false, error: { code: 'not_found' } });
+        backend.plugin.up = false;
+        expect(await client.request('GET', '/status')).toMatchObject({ ok: false, error: { code: 'unreachable' } });
+        expect(await client.available()).toBe(false);
+    });
+});

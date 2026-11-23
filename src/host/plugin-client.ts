@@ -55,6 +55,12 @@ export interface PluginClient {
     addKey(label: string, value: string): Promise<PluginResult<KeyInfo>>;
     deleteKey(id: string): Promise<PluginResult<true>>;
     checkKey(id: string): Promise<PluginResult<KeyCheck>>;
+    /**
+     * One raw call of the admin API (`path` starts with `/`, query included): what the typed wrappers of the stages
+     * (host/plugin-account.ts …) are built on. Same rules as every other method: never throws, a dead plugin is an
+     * ordinary error value, availability is noted.
+     */
+    request(method: string, path: string, body?: unknown, timeoutMs?: number): Promise<PluginResult<unknown>>;
 }
 
 export interface PluginClientDeps {
@@ -237,6 +243,8 @@ export function createPluginClient(deps: PluginClientDeps): PluginClient {
     }
 
     const client: PluginClient = {
+        request: (method, path, body, timeoutMs) => call(method, path, body, timeoutMs),
+
         async status() {
             const result = map(await call('GET', '/status'), parseStatus, 'status');
             if (result.ok) {
