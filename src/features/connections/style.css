@@ -124,3 +124,12 @@
     margin: 0;
     box-sizing: border-box;
 }
+
+/* Context Memory: the switch, its hint, the days field and (maybe) the Qvink warning stay together. */
+.nanovia-memory {
+    margin: 4px 0;
+}
+
+.nanovia-memory .nanovia-notice {
+    margin-top: var(--nanovia-gap-sm);
+}

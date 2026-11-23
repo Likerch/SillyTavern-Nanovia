@@ -11,6 +11,7 @@ import {
     chipsFor,
     emptyForm,
     formFromConfig,
+    formIssue,
     issueText,
     patchFromForm,
     showsDirectKey,
@@ -198,15 +199,7 @@ export function renderConnectionsTab(root: HTMLElement, ctx: FeatureContext): ()
         const issues = validateForm(form, formCtx);
         const first = issues[0];
         if (first) {
-            notify(
-                'error',
-                issueText(
-                    first.field === 'directKey'
-                        ? { code: 'direct_key_required' }
-                        : { code: 'invalid', params: { field: first.field } },
-                    t,
-                ),
-            );
+            notify('error', issueText(formIssue(first), t));
             return;
         }
         const result = await ctx.connections.save({
