@@ -46,13 +46,17 @@ describe('built server/index.js', () => {
             expect([...routes.keys()].sort()).toEqual([
                 'DELETE /connections/:id',
                 'DELETE /keys/:id',
+                'GET /account/balance',
+                'GET /account/subscription',
                 'GET /connections',
                 'GET /keys',
+                'GET /spend',
                 'GET /status',
                 'POST /connections',
                 'POST /connections/:id/rotate-token',
                 'POST /keys',
                 'POST /keys/:id/check',
+                'POST /lookup/:requestId',
                 'PUT /connections/:id',
             ]);
 

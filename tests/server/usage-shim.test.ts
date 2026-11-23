@@ -388,6 +388,19 @@ describe('the usage record', () => {
         expect(text).not.toContain(NANO_KEY);
     });
 
+    it('redacts the key even from an upstream error code', async () => {
+        const server = await upstream((_req, res) => {
+            res.writeHead(400, { 'content-type': 'application/json' });
+            res.end(JSON.stringify({ error: { message: 'bad', code: `code_${NANO_KEY}` } }));
+        });
+        const h = await bootOn(server);
+        const { view, token } = await h.connect();
+        await chat(h, view.id, token, { messages: MESSAGES });
+        const [record] = await records(h);
+        expect(record!.error).toBe('code_[redacted]');
+        expect(JSON.stringify(record)).not.toContain(NANO_KEY);
+    });
+
     it('never fails the request when the log cannot be written', async () => {
         const fixedAt = Date.UTC(2023, 10, 14, 12);
         const s = await stack({ now: () => fixedAt });

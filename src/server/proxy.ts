@@ -296,7 +296,7 @@ export function createProxyServer(
         if (!ok) body = normalizeErrorBody(info.status, body, ctx.key);
         info.body = body;
         ctx.usage.status = info.status;
-        if (!ok) ctx.usage.error = upstreamErrorCode(body) ?? `http_${info.status}`;
+        if (!ok) ctx.usage.error = ctx.key.redact(upstreamErrorCode(body) ?? `http_${info.status}`);
         await runResponseSteps(ctx);
 
         const out = info.body ?? Buffer.alloc(0);
