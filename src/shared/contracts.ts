@@ -1,6 +1,8 @@
 // Core contracts shared by the browser extension, the pure domain and the server plugin (docs/ARCHITECTURE.md).
-// Types only, no imports. Each later stage keeps its own additions in a separate file (contracts-catalog.ts,
-// contracts-account.ts, contracts-mgmt.ts) so parallel branches never edit the same lines of this one.
+// Types only (plus a type import of contracts-media.ts). Each later stage keeps its own additions in a separate file (contracts-catalog.ts,
+// contracts-account.ts, contracts-mgmt.ts, contracts-media.ts) so parallel branches never edit the same lines of this one.
+
+import type { MediaApi, Medium } from './contracts-media';
 
 /* ------------------------------------------------------------------------------------------------ connections */
 
@@ -220,6 +222,17 @@ export interface UsageRecord {
     stream: boolean;
     consumer: RequestHints['consumer'];
     error: string | null;
+    /**
+     * Stage 0.7: what kind of request it was; absent (older lines) = chat. A media record has no tokens: `units` says what
+     * was billed on (images, seconds of video, characters of speech, seconds of audio).
+     */
+    medium?: Medium | 'chat';
+    units?: number | null;
+    /**
+     * Where `costUsd` came from: 'response' (the body's own figure; for images a list-price estimate that can understate the
+     * charge) or 'lookup' (corrected from the per-request billing lookup). Absent = 'response'.
+     */
+    costSource?: 'response' | 'lookup' | 'estimate' | 'unknown';
 }
 
 /* ------------------------------------------------------------------------------------------------ admin API */
@@ -406,6 +419,8 @@ export interface NanoviaApi {
     mgmt?: {
         status(): MgmtBrief;
     };
+    /** feature 'media': image, video, speech and transcription through the plugin (stage 0.7; see contracts-media.ts). */
+    media?: MediaApi;
     /** feature 'advice': null when the profile is not a Nanovia connection. */
     advice?: {
         backgroundProfile(profileId: string): BackgroundAdvice | null;
