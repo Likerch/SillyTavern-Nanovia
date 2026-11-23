@@ -34,7 +34,11 @@ export type MgmtErrorCode =
 export interface MgmtStatus {
     present: boolean;
     valid: boolean | null;
-    /** ms since epoch of that contact; null when there was none. */
+    /**
+     * ms since epoch when this state was established: by a check (PUT /mgmt/token, `status?verify=1`) or by a call that
+     * changed it (a 401 turns it to invalid, a success to valid). A later call with the same outcome does not move it.
+     * With `verify=1` and NanoGPT out of reach it is the time of the failed attempt (valid null, the stored state is kept).
+     */
     checkedAt: number | null;
     error: MgmtErrorCode | null;
 }

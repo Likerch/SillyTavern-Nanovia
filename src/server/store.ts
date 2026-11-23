@@ -1,6 +1,8 @@
 // File stores (docs/ARCHITECTURE.md §3):
 //   <user root>/nanovia/connections.json  { version: 1, connections: ConnectionConfig[] }
 //   <data root>/_nanovia/registry.json    { version: 1, tokens: { [sha256(token)]: { connectionId, userHandle } } }
+//   <user root>/nanovia/mgmt.json         { version: 1, token, check: { valid, checkedAt, error } }  (the Management token:
+//                                         write-only for every route, file mode 0600 where the OS has modes)
 // Reads are cached by mtime and size, writes go to a temp file that is renamed over the target, and every read is
 // tolerant: a missing, empty or corrupt file means "nothing stored", a bad entry is dropped. All I/O is synchronous so a
 // read-modify-write never interleaves with another request.
@@ -8,12 +10,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { randomBytes } from 'node:crypto';
 import type { ConnectionConfig } from '../shared/contracts';
+import type { MgmtErrorCode } from '../shared/contracts-mgmt';
 import { isValidConnectionId, normalizeConnection } from '../domain/connection';
 import type { Logger } from './types';
 
 export const STORE_VERSION = 1;
 export const CONNECTIONS_FILE = 'connections.json';
 export const REGISTRY_FILE = 'registry.json';
+export const MGMT_FILE = 'mgmt.json';
 export const USER_DIR_NAME = 'nanovia';
 export const GLOBAL_DIR_NAME = '_nanovia';
 
@@ -43,9 +47,32 @@ export interface RegistryStore {
     mutate(change: (registry: Registry) => void): void;
 }
 
+/** The outcome of the last contact with NanoGPT for a Management token (what GET /mgmt/status reports). */
+export interface MgmtCheck {
+    valid: boolean | null;
+    checkedAt: number | null;
+    error: MgmtErrorCode | null;
+}
+
+export interface MgmtRecord {
+    /** The Management token. Only the plugin's own calls to NanoGPT read it; it is never returned, logged or echoed. */
+    token: string;
+    check: MgmtCheck;
+}
+
+/** One Management token per ST user, kept in the user's own folder. */
+export interface MgmtStore {
+    read(userRoot: string): MgmtRecord | null;
+    /** Replaces the record (atomic write). */
+    write(userRoot: string, record: MgmtRecord): void;
+    /** Deletes the file. No error when there is none. */
+    clear(userRoot: string): void;
+}
+
 export interface Store {
     connections: ConnectionStore;
     registry: RegistryStore;
+    mgmt: MgmtStore;
     /** `<user root>/nanovia`. */
     userDir(userRoot: string): string;
 }
@@ -94,6 +121,15 @@ class JsonFile<T> {
         }
         this.cache = { mtimeMs: stat.mtimeMs, size: stat.size, value };
         return structuredClone(value);
+    }
+
+    /** Deletes the file and the aside copy of a corrupt one (no error when they are not there); forgets the cache. */
+    remove(): void {
+        const file = this.file();
+        fs.rmSync(file, { force: true });
+        fs.rmSync(`${file}.corrupt`, { force: true });
+        this.cache = null;
+        this.corrupt = false;
     }
 
     write(value: T): void {
@@ -174,6 +210,33 @@ function parseRegistry(raw: unknown): Registry {
     return registry;
 }
 
+const MGMT_ERRORS: readonly MgmtErrorCode[] = [
+    'mgmt_token_invalid',
+    'upstream_unreachable',
+    'upstream_timeout',
+    'upstream_error',
+    'rate_limited',
+];
+const STORABLE_TOKEN = /^[!-~]{1,512}$/;
+
+/** A record needs a token that is one printable word; the check block is optional and read leniently. */
+function parseMgmt(raw: unknown): MgmtRecord | null {
+    if (!isRecord(raw)) return null;
+    const token = raw['token'];
+    if (typeof token !== 'string' || !STORABLE_TOKEN.test(token)) return null;
+    const check = isRecord(raw['check']) ? raw['check'] : {};
+    const error = MGMT_ERRORS.find((code) => code === check['error']) ?? null;
+    const checkedAt = check['checkedAt'];
+    return {
+        token,
+        check: {
+            valid: typeof check['valid'] === 'boolean' ? check['valid'] : null,
+            checkedAt: typeof checkedAt === 'number' && Number.isFinite(checkedAt) ? checkedAt : null,
+            error,
+        },
+    };
+}
+
 function emptyRegistry(): Registry {
     return { version: STORE_VERSION, tokens: {} };
 }
@@ -181,6 +244,7 @@ function emptyRegistry(): Registry {
 export function createStore(options: StoreOptions): Store {
     const { dataRoot, now, log } = options;
     const userFiles = new Map<string, JsonFile<ConnectionConfig[]>>();
+    const mgmtFiles = new Map<string, JsonFile<MgmtRecord | null>>();
 
     const connectionsFile = (userRoot: string): JsonFile<ConnectionConfig[]> => {
         let file = userFiles.get(userRoot);
@@ -193,6 +257,21 @@ export function createStore(options: StoreOptions): Store {
                 log,
             );
             userFiles.set(userRoot, file);
+        }
+        return file;
+    };
+
+    const mgmtFile = (userRoot: string): JsonFile<MgmtRecord | null> => {
+        let file = mgmtFiles.get(userRoot);
+        if (!file) {
+            file = new JsonFile<MgmtRecord | null>(
+                () => path.join(userRoot, USER_DIR_NAME, MGMT_FILE),
+                parseMgmt,
+                (record) => ({ version: STORE_VERSION, ...record }),
+                () => null,
+                log,
+            );
+            mgmtFiles.set(userRoot, file);
         }
         return file;
     };
@@ -214,6 +293,11 @@ export function createStore(options: StoreOptions): Store {
                     .read()
                     .find((c) => c.id === id) ?? null,
             save: (userRoot, connections) => connectionsFile(userRoot).write(connections),
+        },
+        mgmt: {
+            read: (userRoot) => mgmtFile(userRoot).read(),
+            write: (userRoot, record) => mgmtFile(userRoot).write(record),
+            clear: (userRoot) => mgmtFile(userRoot).remove(),
         },
         registry: {
             read: () => registryFile.read(),

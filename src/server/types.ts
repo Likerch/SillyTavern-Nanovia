@@ -34,6 +34,7 @@ export interface RouterLike {
     get(path: string, handler: RouteHandler): unknown;
     post(path: string, handler: RouteHandler): unknown;
     put(path: string, handler: RouteHandler): unknown;
+    patch(path: string, handler: RouteHandler): unknown;
     delete(path: string, handler: RouteHandler): unknown;
 }
 
