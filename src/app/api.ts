@@ -6,13 +6,15 @@ import { backgroundAdvice, canDisableReasoning, qvinkInstalled as detectQvink } 
 import type { CatalogStore } from '../core/catalog';
 import type { ConnectionEntry, ConnectionsService } from '../core/connections';
 import type { DoctorService } from '../core/doctor';
+import type { MediaStore } from '../core/media';
 import type { MgmtStore } from '../core/mgmt';
 import type { Logger, SettingsService } from '../core/types';
 import type { UsageStore } from '../core/usage';
 import { parseProxyUrl } from '../host';
-import type { ProfilesHost } from '../host';
+import type { MediaResult, ProfilesHost } from '../host';
 import { NANOVIA_API_GLOBAL, NANOVIA_API_READY_EVENT } from '../shared/constants';
 import type { BackgroundAdvice, CatalogModel, NanoviaApi, ProfileDescription } from '../shared/contracts';
+import type { MediaApi, MediaApiResult } from '../shared/contracts-media';
 
 export interface ApiDeps {
     version: string;
@@ -32,6 +34,8 @@ export interface ApiDeps {
     doctor?: DoctorService;
     /** Installed: `api.mgmt` and the feature 'mgmt'. */
     mgmt?: MgmtStore;
+    /** Installed: `api.media` and the feature 'media'. */
+    media?: MediaStore;
     /** Installed: `api.openPanel` and the feature 'panel'. */
     panel?: { open(tab?: string): void };
     /** Replaced in tests; defaults to looking for Qvink's global interceptor. */
@@ -57,7 +61,7 @@ function capabilitiesOf(model: CatalogModel | null): ProfileDescription['capabil
 }
 
 export function createApiPublisher(deps: ApiDeps): ApiPublisher {
-    const { connections, profiles, settings, catalog, usage, account, doctor, mgmt, panel, log } = deps;
+    const { connections, profiles, settings, catalog, usage, account, doctor, mgmt, media, panel, log } = deps;
     const qvinkInstalled = deps.qvinkInstalled ?? detectQvink;
 
     /** The connection a Connection Manager profile belongs to: by the id we stored, then by a proxy URL it carries. */
@@ -119,6 +123,7 @@ export function createApiPublisher(deps: ApiDeps): ApiPublisher {
         if (usage) list.push('usage');
         if (account) list.push('account');
         if (mgmt) list.push('mgmt');
+        if (media) list.push('media');
         list.push('advice');
         if (doctor) list.push('doctor');
         if (panel) list.push('panel');
@@ -153,6 +158,21 @@ export function createApiPublisher(deps: ApiDeps): ApiPublisher {
                 return mgmt.brief();
             },
         };
+    }
+    if (media) {
+        // Calls from other extensions leave the studios alone: their results are not kept as the studio's last one.
+        const answer = <T>(result: MediaResult<T>): MediaApiResult<T> =>
+            result.ok ? result : { ok: false, error: { code: result.error.code, message: result.error.message } };
+        const mediaApi: MediaApi = {
+            models: (medium) => media.models(medium),
+            catalog: async (medium, options) => answer(await media.ensure(medium, options)),
+            generateImage: async (request) => answer(await media.generateImage(request, { remember: false })),
+            speak: async (request) => answer(await media.speak(request, { remember: false })),
+            transcribe: async (request) => answer(await media.transcribe(request, { remember: false })),
+            startVideo: async (request) => answer(await media.startVideo(request)),
+            videoStatus: async (id) => answer(await media.videoStatus(id)),
+        };
+        api.media = mediaApi;
     }
     if (panel) {
         api.openPanel = (tab) => {

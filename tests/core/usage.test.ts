@@ -445,6 +445,75 @@ describe('ingest()', () => {
     });
 });
 
+describe('a record whose cost the plugin corrected later (stage 0.7)', () => {
+    const response = (patch = {}) =>
+        usageRecord({
+            at: NOW - 100,
+            requestId: 'img-1',
+            medium: 'image',
+            units: 1,
+            costUsd: 0.0017,
+            costSource: 'response',
+            ...patch,
+        });
+    const lookup = () => response({ costUsd: 0.00255, equivalentUsd: 0.00255, costSource: 'lookup' });
+
+    it('replaces the record in the list, announces nothing new and says the numbers changed', () => {
+        r.store.ingest([response()]);
+        const seen = vi.fn();
+        const changed = vi.fn();
+        r.store.onRecord(seen);
+        r.store.onChange(changed);
+        r.store.ingest([lookup()]);
+        expect(r.store.recent()).toHaveLength(1);
+        expect(r.store.recent()[0]).toMatchObject({ costUsd: 0.00255, costSource: 'lookup' });
+        expect(seen).not.toHaveBeenCalled();
+        expect(changed).toHaveBeenCalledOnce();
+    });
+
+    it('fixes today while the plugin summary is missing, without counting the request twice', () => {
+        r.store.ingest([response({ equivalentUsd: 0.0017 })]);
+        expect(r.store.today()).toMatchObject({ requests: 1, costUsd: 0.0017, equivalentUsd: 0.0017 });
+        r.store.ingest([lookup()]);
+        expect(r.store.today()).toMatchObject({ requests: 1, costUsd: 0.00255, equivalentUsd: 0.00255 });
+    });
+
+    it('leaves a confirmed record alone and treats any other repeat as a duplicate', () => {
+        r.store.ingest([lookup()]);
+        const changed = vi.fn();
+        r.store.onChange(changed);
+        r.store.ingest([response()]);
+        r.store.ingest([lookup()]);
+        expect(r.store.recent()[0]).toMatchObject({ costUsd: 0.00255, costSource: 'lookup' });
+        expect(changed).not.toHaveBeenCalled();
+    });
+
+    it('never rewrites what the browser itself saw', async () => {
+        await r.bus.emit('usage:record', { record: response() });
+        r.store.ingest([lookup()]);
+        expect(r.store.recent()[0]).toMatchObject({ costUsd: 0.0017 });
+    });
+});
+
+describe('the spend by kind of request (stage 0.7)', () => {
+    const medium = (name: string, requests: number, cost: number) => ({
+        medium: name,
+        ...totals(requests, cost, cost),
+    });
+
+    it('is merged by medium, heaviest first, and absent when neither side has it', () => {
+        const a = summary(totals(2, 1, 1)) as UsageSummary & { byMedium?: unknown };
+        const b = summary(totals(1, 3, 3)) as UsageSummary & { byMedium?: unknown };
+        expect(mergeSummaries(a, b)).not.toHaveProperty('byMedium');
+        a.byMedium = [medium('chat', 2, 1), medium('image', 1, 0.5)];
+        b.byMedium = [medium('image', 2, 0.25), medium('tts', 1, 3)];
+        const merged = mergeSummaries(a, b) as UsageSummary & { byMedium?: unknown };
+        expect(merged.byMedium).toEqual([medium('tts', 1, 3), medium('chat', 2, 1), medium('image', 3, 0.75)]);
+        // One side alone still shows.
+        expect((mergeSummaries(a, summary(totals(0, 0, 0))) as { byMedium?: unknown[] }).byMedium).toHaveLength(2);
+    });
+});
+
 describe('merging', () => {
     it('adds totals without float noise', () => {
         expect(addTotals(totals(1, 0.1, 0.2), totals(2, 0.2, 0.1))).toMatchObject({
