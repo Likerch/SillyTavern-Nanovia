@@ -1,0 +1,940 @@
+{
+ "canonicalId": "z-ai/glm-5.3-flash",
+ "displayName": "GLM 5.3 Flash",
+ "supportsProviderSelection": true,
+ "defaultPrice": {
+  "inputPer1kTokens": 0.0001,
+  "outputPer1kTokens": 0.0003,
+  "cacheReadInputPer1kTokens": 0.000025
+ },
+ "autoPricing": {
+  "zdr": {
+   "inputPer1kTokens": 0.0001,
+   "outputPer1kTokens": 0.0003,
+   "cacheReadInputPer1kTokens": 0.000025
+  },
+  "anonymized": {
+   "inputPer1kTokens": 0.0001,
+   "outputPer1kTokens": 0.0003,
+   "cacheReadInputPer1kTokens": 0.000025
+  }
+ },
+ "autoTps": 112.5,
+ "autoTtftMs": 2357,
+ "autoCacheReadRate": 0.9177,
+ "providers": [
+  {
+   "provider": "baidu",
+   "displayName": "Baidu",
+   "pricing": {
+    "inputPer1kTokens": 0.00015749999999999998,
+    "outputPer1kTokens": 0.0005250000000000001,
+    "cacheReadInputPer1kTokens": 0.0000315
+   },
+   "available": true,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 1048576,
+   "maxOutputTokens": 131072,
+   "quantization": "fp8",
+   "tps": 37.8,
+   "ttftMs": 3013,
+   "cacheReadRate": 0,
+   "privacy": {
+    "classification": "no_training",
+    "retainsPrompts": true,
+    "training": false,
+    "note": "Zero data retention covers only requests sent to Baidu directly on the NanoGPT account. Baidu endpoints reached any other way are not covered."
+   },
+   "region": {
+    "code": "CN",
+    "label": "China"
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "imageInput": false,
+    "promptCaching": true,
+    "reasoningEfforts": [
+     "low",
+     "high",
+     "max"
+    ],
+    "reasoningAlwaysOn": true
+   },
+   "supportedReasoningEfforts": [
+    "low",
+    "high",
+    "max"
+   ],
+   "uptime": {
+    "uptimePct": 100,
+    "failures": {
+     "rateLimitedPct": 0,
+     "errorPct": 0
+    },
+    "windowHours": 72
+   }
+  },
+  {
+   "provider": "darkbloom",
+   "displayName": "Darkbloom",
+   "pricing": {
+    "inputPer1kTokens": 0.00006824999999999999,
+    "outputPer1kTokens": 0.000189,
+    "cacheReadInputPer1kTokens": 0.000034124999999999996
+   },
+   "available": true,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 262144,
+   "maxOutputTokens": 65536,
+   "quantization": "fp4",
+   "tps": 40.4,
+   "ttftMs": 10738,
+   "cacheReadRate": 0.6652,
+   "privacy": {
+    "classification": "no_training",
+    "retainsPrompts": true,
+    "training": false
+   },
+   "region": {
+    "code": "GLB",
+    "label": "Distributed or global network"
+   },
+   "features": {
+    "toolCalling": false,
+    "structuredOutput": true,
+    "imageInput": true,
+    "promptCaching": true,
+    "reasoningEfforts": [
+     "low",
+     "high",
+     "max"
+    ],
+    "reasoningAlwaysOn": true
+   },
+   "supportedReasoningEfforts": [
+    "low",
+    "high",
+    "max"
+   ],
+   "uptime": {
+    "uptimePct": 7.83,
+    "failures": {
+     "rateLimitedPct": 91.62,
+     "errorPct": 0.55
+    },
+    "windowHours": 72
+   }
+  },
+  {
+   "provider": "astorias",
+   "displayName": "Astorias",
+   "pricing": {
+    "inputPer1kTokens": 0.0000483,
+    "outputPer1kTokens": 0.00027299999999999997,
+    "cacheReadInputPer1kTokens": 0.0000315
+   },
+   "available": true,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 1048576,
+   "maxOutputTokens": 131072,
+   "quantization": "nvfp4",
+   "tps": 110.5,
+   "ttftMs": 1138,
+   "cacheReadRate": 0.7081,
+   "privacy": {
+    "classification": "zdr",
+    "retainsPrompts": false,
+    "training": false
+   },
+   "region": {
+    "code": "IN",
+    "label": "India",
+    "note": "Provider-reported deployment region."
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "imageInput": true,
+    "promptCaching": true,
+    "reasoningEfforts": [
+     "low",
+     "high",
+     "max"
+    ],
+    "reasoningAlwaysOn": true
+   },
+   "uptime": {
+    "uptimePct": 99.5,
+    "failures": {
+     "rateLimitedPct": 0.18,
+     "errorPct": 0.32
+    },
+    "windowHours": 72
+   }
+  },
+  {
+   "provider": "neuralwatt",
+   "displayName": "NeuralWatt",
+   "pricing": {
+    "inputPer1kTokens": 0.00015749999999999998,
+    "outputPer1kTokens": 0.0005250000000000001,
+    "cacheReadInputPer1kTokens": 0.0000315
+   },
+   "available": true,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 1048560,
+   "maxOutputTokens": 131072,
+   "quantization": "fp8",
+   "tps": 163.4,
+   "ttftMs": 2701,
+   "cacheReadRate": 0.1492,
+   "privacy": {
+    "classification": "no_training",
+    "retainsPrompts": true,
+    "training": false
+   },
+   "region": {
+    "code": "US",
+    "label": "United States"
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "imageInput": true,
+    "promptCaching": true,
+    "reasoningEfforts": [
+     "low",
+     "high",
+     "max"
+    ],
+    "reasoningAlwaysOn": true
+   },
+   "uptime": {
+    "uptimePct": 100,
+    "failures": {
+     "rateLimitedPct": 0,
+     "errorPct": 0
+    },
+    "windowHours": 72
+   }
+  },
+  {
+   "provider": "pareto",
+   "displayName": "Pareto Inference",
+   "pricing": {
+    "inputPer1kTokens": 0.0000945,
+    "outputPer1kTokens": 0.00031499999999999996,
+    "cacheReadInputPer1kTokens": 0.000018900000000000002
+   },
+   "available": true,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 1048576,
+   "maxOutputTokens": 131072,
+   "tps": 73.1,
+   "ttftMs": 2380,
+   "cacheReadRate": 0.953,
+   "privacy": {
+    "classification": "zdr",
+    "retainsPrompts": false,
+    "training": false
+   },
+   "region": {
+    "code": "UNK",
+    "label": "Infrastructure region not disclosed"
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "imageInput": false,
+    "promptCaching": true,
+    "reasoningEfforts": [
+     "low",
+     "high",
+     "max"
+    ],
+    "reasoningAlwaysOn": true
+   },
+   "uptime": {
+    "uptimePct": 99.81,
+    "failures": {
+     "rateLimitedPct": 0.04,
+     "errorPct": 0.15
+    },
+    "windowHours": 72
+   }
+  },
+  {
+   "provider": "zai",
+   "displayName": "Z.AI",
+   "pricing": {
+    "inputPer1kTokens": 0.00015749999999999998,
+    "outputPer1kTokens": 0.0005250000000000001,
+    "cacheReadInputPer1kTokens": 0.0000315
+   },
+   "available": true,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 1048576,
+   "maxOutputTokens": 131072,
+   "quantization": "fp8",
+   "tps": 68.3,
+   "ttftMs": 6081,
+   "cacheReadRate": 0.5966,
+   "privacy": {
+    "classification": "zdr",
+    "retainsPrompts": false,
+    "training": false
+   },
+   "region": {
+    "code": "SG",
+    "label": "Singapore"
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "imageInput": true,
+    "promptCaching": true,
+    "reasoningEfforts": [
+     "low",
+     "high",
+     "max"
+    ]
+   },
+   "uptime": {
+    "uptimePct": 94.91,
+    "failures": {
+     "rateLimitedPct": 0,
+     "errorPct": 5.09
+    },
+    "windowHours": 72
+   }
+  },
+  {
+   "provider": "uomi",
+   "displayName": "Uomi",
+   "pricing": {
+    "inputPer1kTokens": 0.00013245015000000002,
+    "outputPer1kTokens": 0.00045914085000000004
+   },
+   "available": true,
+   "maxInputTokens": 1048576,
+   "maxOutputTokens": 65536,
+   "quantization": "bf16",
+   "tps": 73.6,
+   "ttftMs": 7254,
+   "privacy": {
+    "classification": "zdr",
+    "retainsPrompts": false,
+    "training": false
+   },
+   "region": {
+    "code": "GLB",
+    "label": "Distributed or global network"
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "imageInput": true,
+    "promptCaching": false,
+    "reasoningEfforts": [
+     "low",
+     "high",
+     "max"
+    ]
+   },
+   "uptime": {
+    "uptimePct": 96.29,
+    "failures": {
+     "rateLimitedPct": 0,
+     "errorPct": 3.71
+    },
+    "windowHours": 72
+   }
+  },
+  {
+   "provider": "tensorix",
+   "displayName": "TensorX",
+   "pricing": {
+    "inputPer1kTokens": 0.00021,
+    "outputPer1kTokens": 0.0005250000000000001,
+    "cacheReadInputPer1kTokens": 0.0000525
+   },
+   "available": true,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 1048576,
+   "maxOutputTokens": 131072,
+   "tps": 239.7,
+   "ttftMs": 4985,
+   "cacheReadRate": 0.4312,
+   "privacy": {
+    "classification": "zdr",
+    "retainsPrompts": false,
+    "training": false
+   },
+   "region": {
+    "code": "EU",
+    "label": "European Union",
+    "note": "TensorX states that all inference runs in the EU; it does not name the country."
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "imageInput": true,
+    "promptCaching": true,
+    "reasoningEfforts": [
+     "low",
+     "high",
+     "max"
+    ],
+    "reasoningAlwaysOn": true
+   },
+   "uptime": {
+    "uptimePct": 97.82,
+    "failures": {
+     "rateLimitedPct": 0,
+     "errorPct": 2.18
+    },
+    "windowHours": 72
+   }
+  },
+  {
+   "provider": "coreweave",
+   "displayName": "CoreWeave",
+   "pricing": {
+    "inputPer1kTokens": 0.000126,
+    "outputPer1kTokens": 0.00039900000000000005,
+    "cacheReadInputPer1kTokens": 0.000021000000000000002
+   },
+   "available": true,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 1048576,
+   "maxOutputTokens": 131072,
+   "quantization": "nvfp4",
+   "tps": 256.4,
+   "ttftMs": 2959,
+   "cacheReadRate": 0.1926,
+   "privacy": {
+    "classification": "zdr",
+    "retainsPrompts": false,
+    "training": false
+   },
+   "region": {
+    "code": "US",
+    "label": "United States"
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "imageInput": true,
+    "promptCaching": true,
+    "reasoningEfforts": [
+     "low",
+     "high",
+     "max"
+    ]
+   },
+   "uptime": {
+    "uptimePct": 99.91,
+    "failures": {
+     "rateLimitedPct": 0,
+     "errorPct": 0.09
+    },
+    "windowHours": 72
+   }
+  },
+  {
+   "provider": "streamlake",
+   "displayName": "StreamLake",
+   "pricing": {
+    "inputPer1kTokens": 0.00009292500000000001,
+    "outputPer1kTokens": 0.00030974999999999997,
+    "cacheReadInputPer1kTokens": 0.000018585
+   },
+   "available": true,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 1024000,
+   "maxOutputTokens": 128000,
+   "quantization": "fp8",
+   "tps": 65.6,
+   "ttftMs": 4655,
+   "cacheReadRate": 0.1355,
+   "privacy": {
+    "classification": "no_training",
+    "retainsPrompts": true,
+    "training": false
+   },
+   "region": {
+    "code": "CN",
+    "label": "China"
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "imageInput": true,
+    "promptCaching": true,
+    "reasoningEfforts": [
+     "low",
+     "high",
+     "max"
+    ]
+   },
+   "uptime": {
+    "uptimePct": 100,
+    "failures": {
+     "rateLimitedPct": 0,
+     "errorPct": 0
+    },
+    "windowHours": 72
+   }
+  },
+  {
+   "provider": "wafer",
+   "displayName": "Wafer",
+   "pricing": {
+    "inputPer1kTokens": 0.0000525,
+    "outputPer1kTokens": 0.00021,
+    "cacheReadInputPer1kTokens": 0.0000315
+   },
+   "available": true,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 1048576,
+   "maxOutputTokens": 32768,
+   "quantization": "nvfp4",
+   "tps": 163.4,
+   "ttftMs": 8609,
+   "cacheReadRate": 0.6469,
+   "privacy": {
+    "classification": "zdr",
+    "retainsPrompts": false,
+    "training": false
+   },
+   "region": {
+    "code": "US",
+    "label": "United States"
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "imageInput": true,
+    "promptCaching": true,
+    "reasoningEfforts": [
+     "low",
+     "high",
+     "max"
+    ]
+   },
+   "uptime": {
+    "uptimePct": 99.61,
+    "failures": {
+     "rateLimitedPct": 0,
+     "errorPct": 0.39
+    },
+    "windowHours": 72
+   }
+  },
+  {
+   "provider": "deepinfra",
+   "displayName": "DeepInfra",
+   "pricing": {
+    "inputPer1kTokens": 0.000105525,
+    "outputPer1kTokens": 0.00035175,
+    "cacheReadInputPer1kTokens": 0.000021105000000000002
+   },
+   "available": true,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 1048576,
+   "maxOutputTokens": 131072,
+   "quantization": "fp4",
+   "tps": 132.2,
+   "ttftMs": 3067,
+   "cacheReadRate": 0,
+   "privacy": {
+    "classification": "zdr",
+    "retainsPrompts": false,
+    "training": false
+   },
+   "region": {
+    "code": "US",
+    "label": "United States"
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "imageInput": true,
+    "promptCaching": true,
+    "reasoningEfforts": [
+     "low",
+     "high",
+     "max"
+    ]
+   },
+   "uptime": {
+    "uptimePct": 98.92,
+    "failures": {
+     "rateLimitedPct": 0,
+     "errorPct": 1.08
+    },
+    "windowHours": 72
+   }
+  },
+  {
+   "provider": "baseten",
+   "displayName": "BaseTen",
+   "pricing": {
+    "inputPer1kTokens": 0.00015749999999999998,
+    "outputPer1kTokens": 0.0005250000000000001,
+    "cacheReadInputPer1kTokens": 0.0000315
+   },
+   "available": true,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 1048576,
+   "maxOutputTokens": 131072,
+   "quantization": "fp8",
+   "tps": 121,
+   "ttftMs": 1642,
+   "cacheReadRate": 0.4334,
+   "privacy": {
+    "classification": "zdr",
+    "retainsPrompts": false,
+    "training": false
+   },
+   "region": {
+    "code": "US",
+    "label": "United States"
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "imageInput": true,
+    "promptCaching": true,
+    "reasoningEfforts": [
+     "low",
+     "high",
+     "max"
+    ]
+   },
+   "uptime": {
+    "uptimePct": 99.42,
+    "failures": {
+     "rateLimitedPct": 0,
+     "errorPct": 0.58
+    },
+    "windowHours": 72
+   }
+  },
+  {
+   "provider": "venice",
+   "displayName": "Venice",
+   "pricing": {
+    "inputPer1kTokens": 0.00015749999999999998,
+    "outputPer1kTokens": 0.0005250000000000001,
+    "cacheReadInputPer1kTokens": 0.0000315
+   },
+   "available": true,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 1048576,
+   "maxOutputTokens": 131072,
+   "quantization": "unknown",
+   "tps": 98.3,
+   "ttftMs": 2240,
+   "cacheReadRate": 0.4937,
+   "privacy": {
+    "classification": "zdr",
+    "retainsPrompts": false,
+    "training": false
+   },
+   "region": {
+    "code": "US",
+    "label": "United States"
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "imageInput": true,
+    "promptCaching": true,
+    "reasoningEfforts": [
+     "low",
+     "high",
+     "max"
+    ]
+   },
+   "uptime": {
+    "uptimePct": 99.43,
+    "failures": {
+     "rateLimitedPct": 0,
+     "errorPct": 0.57
+    },
+    "windowHours": 72
+   }
+  },
+  {
+   "provider": "parasail",
+   "displayName": "Parasail",
+   "pricing": {
+    "inputPer1kTokens": 0.00015749999999999998,
+    "outputPer1kTokens": 0.0005250000000000001,
+    "cacheReadInputPer1kTokens": 0.0000315
+   },
+   "available": true,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 1048576,
+   "maxOutputTokens": 131072,
+   "quantization": "fp8",
+   "tps": 115.8,
+   "ttftMs": 3174,
+   "cacheReadRate": 0.0776,
+   "privacy": {
+    "classification": "zdr",
+    "retainsPrompts": false,
+    "training": false
+   },
+   "region": {
+    "code": "US",
+    "label": "United States"
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "imageInput": true,
+    "promptCaching": true,
+    "reasoningEfforts": [
+     "low",
+     "high",
+     "max"
+    ]
+   },
+   "uptime": {
+    "uptimePct": 97.28,
+    "failures": {
+     "rateLimitedPct": 0,
+     "errorPct": 2.72
+    },
+    "windowHours": 72
+   }
+  },
+  {
+   "provider": "together",
+   "displayName": "Together",
+   "pricing": {
+    "inputPer1kTokens": 0.00015749999999999998,
+    "outputPer1kTokens": 0.0005250000000000001,
+    "cacheReadInputPer1kTokens": 0.0000315
+   },
+   "available": true,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 1048575,
+   "maxOutputTokens": 131072,
+   "quantization": "unknown",
+   "tps": 179.9,
+   "ttftMs": 1332,
+   "cacheReadRate": 0.3183,
+   "privacy": {
+    "classification": "zdr",
+    "retainsPrompts": false,
+    "training": false
+   },
+   "region": {
+    "code": "US",
+    "label": "United States"
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "imageInput": true,
+    "promptCaching": true,
+    "reasoningEfforts": [
+     "low",
+     "high",
+     "max"
+    ]
+   },
+   "uptime": {
+    "uptimePct": 100,
+    "failures": {
+     "rateLimitedPct": 0,
+     "errorPct": 0
+    },
+    "windowHours": 72
+   }
+  },
+  {
+   "provider": "morph",
+   "displayName": "Morph",
+   "pricing": {
+    "inputPer1kTokens": 0.00013020000000000002,
+    "outputPer1kTokens": 0.00037380000000000003,
+    "cacheReadInputPer1kTokens": 0.00006510000000000001
+   },
+   "available": true,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 1048576,
+   "maxOutputTokens": 131072,
+   "quantization": "fp8",
+   "tps": 60.8,
+   "ttftMs": 3393,
+   "cacheReadRate": 0.4045,
+   "privacy": {
+    "classification": "zdr",
+    "retainsPrompts": false,
+    "training": false
+   },
+   "region": {
+    "code": "US",
+    "label": "United States"
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "imageInput": true,
+    "promptCaching": true,
+    "reasoningEfforts": [
+     "low",
+     "high",
+     "max"
+    ]
+   },
+   "uptime": {
+    "uptimePct": 100,
+    "failures": {
+     "rateLimitedPct": 0,
+     "errorPct": 0
+    },
+    "windowHours": 72
+   }
+  },
+  {
+   "provider": "friendli",
+   "displayName": "Friendli",
+   "pricing": {
+    "inputPer1kTokens": 0.00015749999999999998,
+    "outputPer1kTokens": 0.0005250000000000001,
+    "cacheReadInputPer1kTokens": 0.0000315
+   },
+   "available": true,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 1048576,
+   "maxOutputTokens": 131072,
+   "quantization": "unknown",
+   "tps": 116.6,
+   "ttftMs": 2175,
+   "cacheReadRate": 0,
+   "privacy": {
+    "classification": "no_training",
+    "retainsPrompts": true,
+    "training": false
+   },
+   "region": {
+    "code": "US",
+    "label": "United States"
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "imageInput": true,
+    "promptCaching": true,
+    "reasoningEfforts": [
+     "low",
+     "high",
+     "max"
+    ]
+   },
+   "uptime": {
+    "uptimePct": 100,
+    "failures": {
+     "rateLimitedPct": 0,
+     "errorPct": 0
+    },
+    "windowHours": 72
+   }
+  },
+  {
+   "provider": "siliconflow",
+   "displayName": "SiliconFlow",
+   "pricing": {
+    "inputPer1kTokens": 0.00010499999999999999,
+    "outputPer1kTokens": 0.00041999999999999996,
+    "cacheReadInputPer1kTokens": 0.0000315
+   },
+   "available": true,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 1048576,
+   "maxOutputTokens": 131072,
+   "quantization": "fp8",
+   "tps": 59.1,
+   "ttftMs": 7726,
+   "cacheReadRate": 0.918,
+   "privacy": {
+    "classification": "retention_training_unknown"
+   },
+   "region": {
+    "code": "SG",
+    "label": "Singapore"
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "imageInput": true,
+    "promptCaching": true,
+    "reasoningEfforts": [
+     "low",
+     "high",
+     "max"
+    ]
+   },
+   "uptime": {
+    "uptimePct": 98.55,
+    "failures": {
+     "rateLimitedPct": 0,
+     "errorPct": 1.45
+    },
+    "windowHours": 72
+   }
+  },
+  {
+   "provider": "scx",
+   "displayName": "SCX (Global)",
+   "pricing": {
+    "inputPer1kTokens": 0.0000924,
+    "outputPer1kTokens": 0.00026250000000000004,
+    "cacheReadInputPer1kTokens": 0.00002625
+   },
+   "available": true,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 1048576,
+   "maxOutputTokens": 131072,
+   "quantization": "fp8",
+   "tps": 54.9,
+   "ttftMs": 10272,
+   "cacheReadRate": 0.8019,
+   "privacy": {
+    "classification": "zdr",
+    "retainsPrompts": false,
+    "training": false
+   },
+   "region": {
+    "code": "GLB",
+    "label": "Distributed or global network"
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "imageInput": true,
+    "promptCaching": true,
+    "reasoningEfforts": [
+     "low",
+     "high",
+     "max"
+    ],
+    "reasoningAlwaysOn": true
+   },
+   "uptime": {
+    "uptimePct": 96.88,
+    "failures": {
+     "rateLimitedPct": 0,
+     "errorPct": 3.12
+    },
+    "windowHours": 72
+   }
+  }
+ ]
+}

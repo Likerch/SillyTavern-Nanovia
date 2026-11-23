@@ -1,0 +1,16 @@
+{
+ "canonicalId": "anthropic/claude-sonnet-5.5",
+ "supportsProviderSelection": false,
+ "message": "This model does not support provider selection",
+ "defaultPrice": {
+  "inputPer1kTokens": 0.002,
+  "outputPer1kTokens": 0.01,
+  "cacheReadInputPer1kTokens": 0.0001,
+  "cacheWriteInputPer1kTokens": 0.0025,
+  "cacheWriteInputPer1kTokens1h": 0.004
+ },
+ "autoTps": 189,
+ "autoTtftMs": 4536,
+ "autoCacheReadRate": 0.581,
+ "providerDetails": []
+}

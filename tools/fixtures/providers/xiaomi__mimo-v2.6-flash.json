@@ -1,0 +1,471 @@
+{
+ "canonicalId": "xiaomi/mimo-v2.6-flash",
+ "displayName": "MiMo V2.6 Flash",
+ "supportsProviderSelection": true,
+ "defaultPrice": {
+  "inputPer1kTokens": 0.00014,
+  "outputPer1kTokens": 0.00028,
+  "cacheReadInputPer1kTokens": 0.0000028,
+  "cacheWriteInputPer1kTokens": 0
+ },
+ "autoPricing": {
+  "zdr": {
+   "inputPer1kTokens": 0.00014,
+   "outputPer1kTokens": 0.00028,
+   "cacheReadInputPer1kTokens": 0.0000028,
+   "cacheWriteInputPer1kTokens": 0
+  },
+  "anonymized": {
+   "inputPer1kTokens": 0.00014,
+   "outputPer1kTokens": 0.00028,
+   "cacheReadInputPer1kTokens": 0.0000028,
+   "cacheWriteInputPer1kTokens": 0
+  }
+ },
+ "autoTps": 111.5,
+ "autoTtftMs": 1786,
+ "autoCacheReadRate": 0.5634,
+ "providers": [
+  {
+   "provider": "uomi",
+   "displayName": "Uomi",
+   "pricing": {
+    "inputPer1kTokens": 0.0001764,
+    "outputPer1kTokens": 0.0003528
+   },
+   "available": true,
+   "maxInputTokens": 1048576,
+   "maxOutputTokens": 131072,
+   "quantization": "bf16",
+   "tps": 20.6,
+   "ttftMs": 1486,
+   "privacy": {
+    "classification": "zdr",
+    "retainsPrompts": false,
+    "training": false
+   },
+   "region": {
+    "code": "GLB",
+    "label": "Distributed or global network"
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "imageInput": true,
+    "promptCaching": false,
+    "reasoningEfforts": [
+     "none",
+     "high"
+    ]
+   },
+   "uptime": {
+    "uptimePct": 100,
+    "failures": {
+     "rateLimitedPct": 0,
+     "errorPct": 0
+    },
+    "windowHours": 72
+   }
+  },
+  {
+   "provider": "deepinfra",
+   "displayName": "DeepInfra",
+   "pricing": {
+    "inputPer1kTokens": 0.000147,
+    "outputPer1kTokens": 0.000294,
+    "cacheReadInputPer1kTokens": 0.00000294
+   },
+   "available": true,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 1048576,
+   "maxOutputTokens": 131072,
+   "quantization": "fp8",
+   "tps": 96.9,
+   "ttftMs": 1670,
+   "cacheReadRate": 0.4214,
+   "privacy": {
+    "classification": "zdr",
+    "retainsPrompts": false,
+    "training": false
+   },
+   "region": {
+    "code": "US",
+    "label": "United States"
+   },
+   "features": {
+    "toolCalling": false,
+    "structuredOutput": true,
+    "imageInput": true,
+    "promptCaching": true,
+    "reasoningEfforts": [
+     "none",
+     "high"
+    ]
+   },
+   "uptime": {
+    "uptimePct": 99.35,
+    "failures": {
+     "rateLimitedPct": 0,
+     "errorPct": 0.65
+    },
+    "windowHours": 72
+   }
+  },
+  {
+   "provider": "xiaomi",
+   "displayName": "Xiaomi",
+   "pricing": {
+    "inputPer1kTokens": 0.00014700000000000002,
+    "outputPer1kTokens": 0.00029400000000000004,
+    "cacheReadInputPer1kTokens": 0.00000294
+   },
+   "available": true,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 1048576,
+   "maxOutputTokens": 131072,
+   "quantization": "fp8",
+   "tps": 39.7,
+   "ttftMs": 4432,
+   "cacheReadRate": 0.4938,
+   "privacy": {
+    "classification": "no_training",
+    "retainsPrompts": true,
+    "training": false
+   },
+   "region": {
+    "code": "CN",
+    "label": "China"
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "imageInput": true,
+    "promptCaching": true,
+    "reasoningEfforts": [
+     "none",
+     "high"
+    ]
+   },
+   "uptime": {
+    "uptimePct": 98.83,
+    "failures": {
+     "rateLimitedPct": 0,
+     "errorPct": 1.17
+    },
+    "windowHours": 72
+   }
+  },
+  {
+   "provider": "venice",
+   "displayName": "Venice",
+   "pricing": {
+    "inputPer1kTokens": 0.00018375,
+    "outputPer1kTokens": 0.0003675,
+    "cacheReadInputPer1kTokens": 0.0000039375
+   },
+   "available": true,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 1000000,
+   "maxOutputTokens": 131072,
+   "quantization": "fp8",
+   "tps": 60.3,
+   "ttftMs": 10531,
+   "cacheReadRate": 0.4448,
+   "privacy": {
+    "classification": "zdr",
+    "retainsPrompts": false,
+    "training": false
+   },
+   "region": {
+    "code": "US",
+    "label": "United States"
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "imageInput": true,
+    "promptCaching": true,
+    "reasoningEfforts": [
+     "none",
+     "high"
+    ]
+   },
+   "uptime": {
+    "uptimePct": 100,
+    "failures": {
+     "rateLimitedPct": 0,
+     "errorPct": 0
+    },
+    "windowHours": 72
+   }
+  },
+  {
+   "provider": "inworld",
+   "displayName": "Inworld",
+   "pricing": {
+    "inputPer1kTokens": 0.00014700000000000002,
+    "outputPer1kTokens": 0.00029400000000000004,
+    "cacheReadInputPer1kTokens": 0.0000031500000000000003
+   },
+   "available": true,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 524288,
+   "maxOutputTokens": 131072,
+   "tps": 250.7,
+   "ttftMs": 671,
+   "cacheReadRate": 0.3709,
+   "privacy": {
+    "classification": "zdr",
+    "retainsPrompts": false,
+    "training": false,
+    "note": "Inworld confirmed in writing that zero data retention is on for NanoGPT’s workspace: prompts and outputs are processed in memory and redacted from logs, are never used for training, and are served from Inworld’s own US deployment with no third-party fallback. NanoGPT uses Inworld only for models Inworld hosts itself. This is a written commitment, not an independent audit."
+   },
+   "region": {
+    "code": "US",
+    "label": "United States",
+    "note": "Inworld confirmed in writing (2026-11-12) a US deployment on its own routes, with no third-party fallback."
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "imageInput": true,
+    "promptCaching": true,
+    "reasoningEfforts": [
+     "none",
+     "high"
+    ]
+   },
+   "uptime": {
+    "uptimePct": 99.77,
+    "failures": {
+     "rateLimitedPct": 0,
+     "errorPct": 0.23
+    },
+    "windowHours": 72
+   }
+  },
+  {
+   "provider": "pareto",
+   "displayName": "Pareto Inference",
+   "pricing": {
+    "inputPer1kTokens": 0.00014,
+    "outputPer1kTokens": 0.00028,
+    "cacheReadInputPer1kTokens": 0.0000028,
+    "cacheWriteInputPer1kTokens": 0
+   },
+   "available": true,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 1048576,
+   "maxOutputTokens": 131072,
+   "privacy": {
+    "classification": "zdr",
+    "retainsPrompts": false,
+    "training": false
+   },
+   "region": {
+    "code": "UNK",
+    "label": "Infrastructure region not disclosed"
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "imageInput": false,
+    "promptCaching": true,
+    "reasoningEfforts": [
+     "none",
+     "high"
+    ]
+   },
+   "supportedReasoningEfforts": [
+    "none",
+    "high"
+   ]
+  },
+  {
+   "provider": "heabsy",
+   "displayName": "Heabsy",
+   "pricing": {
+    "inputPer1kTokens": 0.00050001,
+    "outputPer1kTokens": 0.00150003,
+    "cacheReadInputPer1kTokens": 0.00019950000000000002
+   },
+   "available": true,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 1048576,
+   "maxOutputTokens": 65536,
+   "quantization": "nvfp4",
+   "privacy": {
+    "classification": "zdr",
+    "retainsPrompts": false,
+    "training": false
+   },
+   "region": {
+    "code": "GLB",
+    "label": "United States and European Economic Area",
+    "note": "Deployment region depends on the model"
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "imageInput": true,
+    "promptCaching": true,
+    "reasoningEfforts": [
+     "none",
+     "high"
+    ]
+   },
+   "uptime": {
+    "uptimePct": 96.77,
+    "failures": {
+     "rateLimitedPct": 3.23,
+     "errorPct": 0
+    },
+    "windowHours": 72
+   }
+  },
+  {
+   "provider": "relace",
+   "displayName": "Relace",
+   "pricing": {
+    "inputPer1kTokens": 0.000126,
+    "outputPer1kTokens": 0.000294,
+    "cacheReadInputPer1kTokens": 0.000021000000000000002
+   },
+   "available": false,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 1048576,
+   "maxOutputTokens": 131072,
+   "quantization": "mxfp4",
+   "privacy": {
+    "classification": "zdr",
+    "retainsPrompts": false,
+    "training": false,
+    "note": "Zero data retention: Relace confirmed in writing (20 Nov 2026) that it never stores prompts or outputs anywhere and so cannot use them for training. Relace does keep a prompt cache in GPU memory until it is evicted (least recently used first), typically after about 30 minutes for popular models; that is typical, not a guaranteed maximum. This is a provider commitment, not an independent audit."
+   },
+   "region": {
+    "code": "UNK",
+    "label": "Infrastructure region not disclosed"
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "imageInput": true,
+    "promptCaching": true,
+    "reasoningEfforts": [
+     "none",
+     "high"
+    ]
+   },
+   "uptime": {
+    "uptimePct": 0,
+    "failures": {
+     "rateLimitedPct": 0,
+     "errorPct": 100
+    },
+    "windowHours": 72
+   }
+  },
+  {
+   "provider": "gmicloud",
+   "displayName": "GMICloud",
+   "pricing": {
+    "inputPer1kTokens": 0.000147,
+    "outputPer1kTokens": 0.000294,
+    "cacheReadInputPer1kTokens": 0.0000031500000000000003
+   },
+   "available": false,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 1050000,
+   "maxOutputTokens": 131072,
+   "quantization": "bf16",
+   "privacy": {
+    "classification": "no_training",
+    "retainsPrompts": true,
+    "training": false
+   },
+   "region": {
+    "code": "US",
+    "label": "United States"
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "imageInput": true,
+    "promptCaching": true,
+    "reasoningEfforts": [
+     "none",
+     "high"
+    ]
+   },
+   "uptime": {
+    "windowHours": 72
+   }
+  },
+  {
+   "provider": "ionet",
+   "displayName": "io.net",
+   "pricing": {
+    "inputPer1kTokens": 0.000147,
+    "outputPer1kTokens": 0.000294,
+    "cacheReadInputPer1kTokens": 0.00000294
+   },
+   "available": false,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 262144,
+   "maxOutputTokens": 131072,
+   "quantization": "fp8",
+   "privacy": {
+    "classification": "zdr",
+    "retainsPrompts": false,
+    "training": false
+   },
+   "region": {
+    "code": "US",
+    "label": "United States"
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "imageInput": true,
+    "promptCaching": true,
+    "reasoningEfforts": [
+     "none",
+     "high"
+    ]
+   }
+  },
+  {
+   "provider": "kitani",
+   "displayName": "Kitani",
+   "pricing": {
+    "inputPer1kTokens": 0.00013125000000000002,
+    "outputPer1kTokens": 0.00026250000000000004,
+    "cacheReadInputPer1kTokens": 0.00002625
+   },
+   "available": false,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 1048576,
+   "maxOutputTokens": 131072,
+   "privacy": {
+    "classification": "zdr",
+    "retainsPrompts": false,
+    "training": false
+   },
+   "region": {
+    "code": "GLB",
+    "label": "Distributed or global network"
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "imageInput": false,
+    "promptCaching": true,
+    "reasoningEfforts": [],
+    "reasoningAlwaysOn": true
+   },
+   "supportedReasoningEfforts": [
+    "none"
+   ]
+  }
+ ]
+}

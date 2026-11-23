@@ -1,0 +1,14 @@
+{
+ "canonicalId": "venice-uncensored",
+ "supportsProviderSelection": false,
+ "message": "This model does not support provider selection",
+ "defaultPrice": {
+  "inputPer1kTokens": 0.0004,
+  "outputPer1kTokens": 0.0018,
+  "cacheReadInputPer1kTokens": 0.0004
+ },
+ "autoTps": 159.8,
+ "autoTtftMs": 1515,
+ "autoCacheReadRate": 0.7345,
+ "providerDetails": []
+}

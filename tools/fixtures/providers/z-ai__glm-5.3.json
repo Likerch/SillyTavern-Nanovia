@@ -1,0 +1,848 @@
+{
+ "canonicalId": "z-ai/glm-5.3",
+ "displayName": "GLM 5.3",
+ "supportsProviderSelection": true,
+ "defaultPrice": {
+  "inputPer1kTokens": 0.0006,
+  "outputPer1kTokens": 0.0011,
+  "cacheReadInputPer1kTokens": 0.0002
+ },
+ "autoPricing": {
+  "zdr": {
+   "inputPer1kTokens": 0.0006,
+   "outputPer1kTokens": 0.0011,
+   "cacheReadInputPer1kTokens": 0.0002
+  },
+  "anonymized": {
+   "inputPer1kTokens": 0.0006,
+   "outputPer1kTokens": 0.0011,
+   "cacheReadInputPer1kTokens": 0.0002
+  }
+ },
+ "autoTps": 198.2,
+ "autoTtftMs": 1289,
+ "autoCacheReadRate": 0.763,
+ "providers": [
+  {
+   "provider": "zai",
+   "displayName": "Z.AI",
+   "pricing": {
+    "inputPer1kTokens": 0.00147,
+    "outputPer1kTokens": 0.004620000000000001,
+    "cacheReadInputPer1kTokens": 0.00027299999999999997
+   },
+   "available": true,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 1048576,
+   "maxOutputTokens": 131072,
+   "quantization": "fp8",
+   "tps": 86.4,
+   "ttftMs": 1324,
+   "cacheReadRate": 0.8279,
+   "privacy": {
+    "classification": "zdr",
+    "retainsPrompts": false,
+    "training": false
+   },
+   "region": {
+    "code": "SG",
+    "label": "Singapore"
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "promptCaching": true,
+    "reasoningEfforts": [
+     "low",
+     "high",
+     "max"
+    ]
+   },
+   "uptime": {
+    "uptimePct": 99.32,
+    "failures": {
+     "rateLimitedPct": 0.23,
+     "errorPct": 0.45
+    },
+    "windowHours": 72
+   }
+  },
+  {
+   "provider": "coreweave",
+   "displayName": "CoreWeave",
+   "pricing": {
+    "inputPer1kTokens": 0.0007875,
+    "outputPer1kTokens": 0.00315,
+    "cacheReadInputPer1kTokens": 0.00019950000000000002
+   },
+   "available": true,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 1048576,
+   "maxOutputTokens": 131072,
+   "quantization": "nvfp4",
+   "tps": 149.9,
+   "ttftMs": 1346,
+   "privacy": {
+    "classification": "no_training",
+    "retainsPrompts": true,
+    "training": false,
+    "note": "Zero-retention requests stay on CoreWeave's zero-retention endpoint. Other requests may run on W&B Inference, CoreWeave's own API, which publishes no zero retention."
+   },
+   "region": {
+    "code": "US",
+    "label": "United States"
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "promptCaching": true,
+    "reasoningEfforts": [
+     "low",
+     "high",
+     "max"
+    ],
+    "reasoningAlwaysOn": true
+   },
+   "uptime": {
+    "uptimePct": 99.29,
+    "failures": {
+     "rateLimitedPct": 0,
+     "errorPct": 0.71
+    },
+    "windowHours": 72
+   }
+  },
+  {
+   "provider": "relace",
+   "displayName": "Relace",
+   "pricing": {
+    "inputPer1kTokens": 0.00007381500000000001,
+    "outputPer1kTokens": 0.004603515,
+    "cacheReadInputPer1kTokens": 0.00007381500000000001
+   },
+   "available": true,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 1048576,
+   "maxOutputTokens": 131072,
+   "quantization": "fp4",
+   "tps": 152.6,
+   "ttftMs": 3684,
+   "cacheReadRate": 0.9928,
+   "privacy": {
+    "classification": "zdr",
+    "retainsPrompts": false,
+    "training": false,
+    "note": "Zero data retention: Relace confirmed in writing (20 Nov 2026) that it never stores prompts or outputs anywhere and so cannot use them for training. Relace does keep a prompt cache in GPU memory until it is evicted (least recently used first), typically after about 30 minutes for popular models; that is typical, not a guaranteed maximum. This is a provider commitment, not an independent audit."
+   },
+   "region": {
+    "code": "UNK",
+    "label": "Infrastructure region not disclosed"
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "promptCaching": true,
+    "reasoningEfforts": [
+     "low",
+     "high",
+     "max"
+    ]
+   },
+   "uptime": {
+    "uptimePct": 100,
+    "failures": {
+     "rateLimitedPct": 0,
+     "errorPct": 0
+    },
+    "windowHours": 72
+   }
+  },
+  {
+   "provider": "sailresearch-standard",
+   "displayName": "Sail Research (Standard)",
+   "pricing": {
+    "inputPer1kTokens": 0.0007875,
+    "outputPer1kTokens": 0.00315,
+    "cacheReadInputPer1kTokens": 0.000126
+   },
+   "available": true,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 1048576,
+   "maxOutputTokens": 131072,
+   "quantization": "fp8",
+   "tps": 62.6,
+   "ttftMs": 2094,
+   "cacheReadRate": 0.6725,
+   "privacy": {
+    "classification": "zdr",
+    "retainsPrompts": false,
+    "training": false
+   },
+   "region": {
+    "code": "GLB",
+    "label": "Distributed or global network"
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "promptCaching": true,
+    "reasoningEfforts": [
+     "low",
+     "high",
+     "max"
+    ]
+   },
+   "uptime": {
+    "uptimePct": 100,
+    "failures": {
+     "rateLimitedPct": 0,
+     "errorPct": 0
+    },
+    "windowHours": 72
+   }
+  },
+  {
+   "provider": "decart",
+   "displayName": "Decart",
+   "pricing": {
+    "inputPer1kTokens": 0.0005880000000000001,
+    "outputPer1kTokens": 0.0019005,
+    "cacheReadInputPer1kTokens": 0.00010499999999999999
+   },
+   "available": true,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 1048576,
+   "maxOutputTokens": 131072,
+   "quantization": "fp4",
+   "tps": 197.1,
+   "ttftMs": 809,
+   "cacheReadRate": 0.4758,
+   "privacy": {
+    "classification": "zdr",
+    "retainsPrompts": false,
+    "training": false
+   },
+   "region": {
+    "code": "US",
+    "label": "United States"
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "promptCaching": true,
+    "reasoningEfforts": [
+     "low",
+     "high",
+     "max"
+    ]
+   },
+   "uptime": {
+    "uptimePct": 100,
+    "failures": {
+     "rateLimitedPct": 0,
+     "errorPct": 0
+    },
+    "windowHours": 72
+   }
+  },
+  {
+   "provider": "wafer",
+   "displayName": "Wafer",
+   "pricing": {
+    "inputPer1kTokens": 0.00018795000000000001,
+    "outputPer1kTokens": 0.00147,
+    "cacheReadInputPer1kTokens": 0.00018690000000000002
+   },
+   "available": true,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 1048576,
+   "maxOutputTokens": 131072,
+   "quantization": "fp4",
+   "tps": 74,
+   "ttftMs": 1595,
+   "cacheReadRate": 0.8427,
+   "privacy": {
+    "classification": "zdr",
+    "retainsPrompts": false,
+    "training": false
+   },
+   "region": {
+    "code": "US",
+    "label": "United States"
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "promptCaching": true,
+    "reasoningEfforts": [
+     "low",
+     "high",
+     "max"
+    ]
+   },
+   "uptime": {
+    "uptimePct": 99.95,
+    "failures": {
+     "rateLimitedPct": 0,
+     "errorPct": 0.05
+    },
+    "windowHours": 72
+   }
+  },
+  {
+   "provider": "deepinfra",
+   "displayName": "DeepInfra",
+   "pricing": {
+    "inputPer1kTokens": 0.0005906250000000001,
+    "outputPer1kTokens": 0.002625,
+    "cacheReadInputPer1kTokens": 0.00013125000000000002
+   },
+   "available": true,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 1048576,
+   "maxOutputTokens": 131072,
+   "quantization": "fp4",
+   "tps": 87.9,
+   "ttftMs": 4646,
+   "cacheReadRate": 0.5055,
+   "privacy": {
+    "classification": "zdr",
+    "retainsPrompts": false,
+    "training": false
+   },
+   "region": {
+    "code": "US",
+    "label": "United States"
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "promptCaching": true,
+    "reasoningEfforts": [
+     "low",
+     "high",
+     "max"
+    ]
+   },
+   "uptime": {
+    "uptimePct": 100,
+    "failures": {
+     "rateLimitedPct": 0,
+     "errorPct": 0
+    },
+    "windowHours": 72
+   }
+  },
+  {
+   "provider": "cloudflare",
+   "displayName": "Cloudflare",
+   "pricing": {
+    "inputPer1kTokens": 0.000735,
+    "outputPer1kTokens": 0.0023100000000000004,
+    "cacheReadInputPer1kTokens": 0.00013649999999999998
+   },
+   "available": true,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 1048576,
+   "maxOutputTokens": 131072,
+   "quantization": "unknown",
+   "tps": 94.9,
+   "ttftMs": 4369,
+   "cacheReadRate": 0,
+   "privacy": {
+    "classification": "zdr",
+    "retainsPrompts": false,
+    "training": false
+   },
+   "region": {
+    "code": "US",
+    "label": "United States"
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "promptCaching": true,
+    "reasoningEfforts": [
+     "low",
+     "high",
+     "max"
+    ]
+   },
+   "uptime": {
+    "uptimePct": 98.7,
+    "failures": {
+     "rateLimitedPct": 1.3,
+     "errorPct": 0
+    },
+    "windowHours": 72
+   }
+  },
+  {
+   "provider": "baseten",
+   "displayName": "BaseTen",
+   "pricing": {
+    "inputPer1kTokens": 0.00147,
+    "outputPer1kTokens": 0.004620000000000001,
+    "cacheReadInputPer1kTokens": 0.00014700000000000002
+   },
+   "available": true,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 1048576,
+   "maxOutputTokens": 131072,
+   "quantization": "fp4",
+   "tps": 134.6,
+   "ttftMs": 3914,
+   "cacheReadRate": 0.8967,
+   "privacy": {
+    "classification": "zdr",
+    "retainsPrompts": false,
+    "training": false
+   },
+   "region": {
+    "code": "US",
+    "label": "United States"
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "promptCaching": true,
+    "reasoningEfforts": [
+     "low",
+     "high",
+     "max"
+    ]
+   },
+   "uptime": {
+    "uptimePct": 98.09,
+    "failures": {
+     "rateLimitedPct": 1.91,
+     "errorPct": 0
+    },
+    "windowHours": 72
+   }
+  },
+  {
+   "provider": "parasail",
+   "displayName": "Parasail",
+   "pricing": {
+    "inputPer1kTokens": 0.00147,
+    "outputPer1kTokens": 0.004620000000000001,
+    "cacheReadInputPer1kTokens": 0.00027299999999999997
+   },
+   "available": true,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 1048576,
+   "maxOutputTokens": 131072,
+   "quantization": "fp4",
+   "tps": 187,
+   "ttftMs": 1714,
+   "cacheReadRate": 0.4284,
+   "privacy": {
+    "classification": "zdr",
+    "retainsPrompts": false,
+    "training": false
+   },
+   "region": {
+    "code": "US",
+    "label": "United States"
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "promptCaching": true,
+    "reasoningEfforts": [
+     "low",
+     "high",
+     "max"
+    ]
+   },
+   "uptime": {
+    "uptimePct": 96.57,
+    "failures": {
+     "rateLimitedPct": 0.29,
+     "errorPct": 3.14
+    },
+    "windowHours": 72
+   }
+  },
+  {
+   "provider": "siliconflow",
+   "displayName": "SiliconFlow",
+   "pricing": {
+    "inputPer1kTokens": 0.000735,
+    "outputPer1kTokens": 0.0019950000000000002,
+    "cacheReadInputPer1kTokens": 0.00013649999999999998
+   },
+   "available": true,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 1048576,
+   "maxOutputTokens": 131072,
+   "quantization": "fp8",
+   "tps": 101.3,
+   "ttftMs": 2401,
+   "cacheReadRate": 0.3807,
+   "privacy": {
+    "classification": "retention_training_unknown"
+   },
+   "region": {
+    "code": "SG",
+    "label": "Singapore"
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "promptCaching": true,
+    "reasoningEfforts": [
+     "low",
+     "high",
+     "max"
+    ]
+   },
+   "uptime": {
+    "uptimePct": 100,
+    "failures": {
+     "rateLimitedPct": 0,
+     "errorPct": 0
+    },
+    "windowHours": 72
+   }
+  },
+  {
+   "provider": "uomi",
+   "displayName": "Uomi",
+   "pricing": {
+    "inputPer1kTokens": 0.0012954375000000001,
+    "outputPer1kTokens": 0.004447595249999999
+   },
+   "available": true,
+   "maxInputTokens": 1048576,
+   "maxOutputTokens": 131072,
+   "quantization": "bf16",
+   "tps": 181.2,
+   "ttftMs": 1037,
+   "privacy": {
+    "classification": "zdr",
+    "retainsPrompts": false,
+    "training": false
+   },
+   "region": {
+    "code": "GLB",
+    "label": "Distributed or global network"
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "promptCaching": false,
+    "reasoningEfforts": [
+     "low",
+     "high",
+     "max"
+    ]
+   },
+   "uptime": {
+    "uptimePct": 99.75,
+    "failures": {
+     "rateLimitedPct": 0,
+     "errorPct": 0.25
+    },
+    "windowHours": 72
+   }
+  },
+  {
+   "provider": "scx",
+   "displayName": "SCX (Global)",
+   "pricing": {
+    "inputPer1kTokens": 0.00075852,
+    "outputPer1kTokens": 0.0023839200000000003,
+    "cacheReadInputPer1kTokens": 0.00014091
+   },
+   "available": true,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 1048576,
+   "maxOutputTokens": 131072,
+   "quantization": "bf16",
+   "tps": 66.9,
+   "ttftMs": 4314,
+   "cacheReadRate": 0.8546,
+   "privacy": {
+    "classification": "zdr",
+    "retainsPrompts": false,
+    "training": false
+   },
+   "region": {
+    "code": "GLB",
+    "label": "Distributed or global network"
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "promptCaching": true,
+    "reasoningEfforts": [
+     "low",
+     "high",
+     "max"
+    ],
+    "reasoningAlwaysOn": true
+   },
+   "uptime": {
+    "uptimePct": 98.11,
+    "failures": {
+     "rateLimitedPct": 0,
+     "errorPct": 1.89
+    },
+    "windowHours": 72
+   }
+  },
+  {
+   "provider": "nube",
+   "displayName": "Nube",
+   "pricing": {
+    "inputPer1kTokens": 0.0006615000000000001,
+    "outputPer1kTokens": 0.002079,
+    "cacheReadInputPer1kTokens": 0.00012285
+   },
+   "available": true,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 1000000,
+   "maxOutputTokens": 131072,
+   "privacy": {
+    "classification": "retention_training_unknown"
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "promptCaching": true,
+    "reasoningEfforts": [
+     "low",
+     "high",
+     "max"
+    ],
+    "reasoningAlwaysOn": true
+   }
+  },
+  {
+   "provider": "heabsy",
+   "displayName": "Heabsy",
+   "pricing": {
+    "inputPer1kTokens": 0.0005477850000000001,
+    "outputPer1kTokens": 0.0010043250000000001,
+    "cacheReadInputPer1kTokens": 0.000182595
+   },
+   "available": false,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 1048576,
+   "maxOutputTokens": 131072,
+   "quantization": "nvfp4",
+   "privacy": {
+    "classification": "zdr",
+    "retainsPrompts": false,
+    "training": false
+   },
+   "region": {
+    "code": "EEA",
+    "label": "European Economic Area",
+    "note": "Provider reports an EEA deployment without naming an EU member state."
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "promptCaching": true,
+    "reasoningEfforts": [
+     "low",
+     "high",
+     "max"
+    ],
+    "reasoningAlwaysOn": true
+   }
+  },
+  {
+   "provider": "runinfra",
+   "displayName": "RunInfra",
+   "pricing": {
+    "inputPer1kTokens": 0.0001953,
+    "outputPer1kTokens": 0.003108,
+    "cacheReadInputPer1kTokens": 0.00018795
+   },
+   "available": true,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 1048576,
+   "maxOutputTokens": 32768,
+   "quantization": "nvfp4",
+   "privacy": {
+    "classification": "no_training",
+    "retainsPrompts": true,
+    "training": false
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": false,
+    "promptCaching": true,
+    "reasoningEfforts": [
+     "low",
+     "high",
+     "max"
+    ],
+    "reasoningAlwaysOn": true
+   },
+   "uptime": {
+    "uptimePct": 100,
+    "failures": {
+     "rateLimitedPct": 0,
+     "errorPct": 0
+    },
+    "windowHours": 72
+   }
+  },
+  {
+   "provider": "runware",
+   "displayName": "Runware",
+   "pricing": {
+    "inputPer1kTokens": 0.001134,
+    "outputPer1kTokens": 0.0037800000000000004,
+    "cacheReadInputPer1kTokens": 0.000189
+   },
+   "available": true,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 1048576,
+   "maxOutputTokens": 131072,
+   "privacy": {
+    "classification": "zdr",
+    "retainsPrompts": false,
+    "training": false
+   },
+   "region": {
+    "code": "UNK",
+    "label": "Infrastructure region not disclosed"
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "promptCaching": true,
+    "reasoningEfforts": [
+     "low",
+     "high",
+     "max"
+    ],
+    "reasoningAlwaysOn": true
+   },
+   "uptime": {
+    "uptimePct": 99.55,
+    "failures": {
+     "rateLimitedPct": 0,
+     "errorPct": 0.45
+    },
+    "windowHours": 72
+   }
+  },
+  {
+   "provider": "awsbedrock",
+   "displayName": "Amazon Bedrock",
+   "pricing": {
+    "inputPer1kTokens": 0.0017640000000000002,
+    "outputPer1kTokens": 0.005544,
+    "cacheReadInputPer1kTokens": 0.0003276,
+    "cacheWriteInputPer1kTokens": 0.002205
+   },
+   "available": false,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 1048576,
+   "maxOutputTokens": 131072,
+   "quantization": "unknown",
+   "privacy": {
+    "classification": "zdr",
+    "retainsPrompts": false,
+    "training": false
+   },
+   "region": {
+    "code": "US",
+    "label": "United States"
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "promptCaching": true,
+    "reasoningEfforts": [
+     "low",
+     "high",
+     "max"
+    ],
+    "reasoningAlwaysOn": true
+   }
+  },
+  {
+   "provider": "dekallm",
+   "displayName": "DekaLLM",
+   "pricing": {
+    "inputPer1kTokens": 0.000189,
+    "outputPer1kTokens": 0.0030975,
+    "cacheReadInputPer1kTokens": 0.00015749999999999998
+   },
+   "available": false,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 1048576,
+   "maxOutputTokens": 131072,
+   "privacy": {
+    "classification": "zdr",
+    "retainsPrompts": false,
+    "training": false
+   },
+   "region": {
+    "code": "ID",
+    "label": "Indonesia"
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "promptCaching": true,
+    "reasoningEfforts": [
+     "low",
+     "high",
+     "max"
+    ],
+    "reasoningAlwaysOn": true
+   }
+  },
+  {
+   "provider": "nebius",
+   "displayName": "Nebius",
+   "pricing": {
+    "inputPer1kTokens": 0.00147,
+    "outputPer1kTokens": 0.004620000000000001,
+    "cacheReadInputPer1kTokens": 0.00027299999999999997
+   },
+   "available": true,
+   "supportsPromptCaching": true,
+   "maxInputTokens": 1048576,
+   "maxOutputTokens": 131072,
+   "quantization": "fp4",
+   "privacy": {
+    "classification": "zdr",
+    "retainsPrompts": false,
+    "training": false
+   },
+   "region": {
+    "code": "GLB",
+    "label": "Multiple regions",
+    "note": "Netherlands-based provider with datacenters in several regions. Requests are not pinned to a Nebius region."
+   },
+   "features": {
+    "toolCalling": true,
+    "structuredOutput": true,
+    "promptCaching": true,
+    "reasoningEfforts": [
+     "low",
+     "high",
+     "max"
+    ]
+   },
+   "uptime": {
+    "uptimePct": 100,
+    "failures": {
+     "rateLimitedPct": 0,
+     "errorPct": 0
+    },
+    "windowHours": 72
+   }
+  }
+ ]
+}
