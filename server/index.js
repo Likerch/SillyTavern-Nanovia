@@ -8839,7 +8839,7 @@ var ROUTE_MODULES = [
 	mediaRoutes
 ];
 // src/server/version.ts
-var PLUGIN_VERSION = "0.6.0";
+var PLUGIN_VERSION = "0.7.0";
 // src/server/app.ts
 /**
 * Opens the stores, starts the proxy listener (a taken port is logged and leaves the proxy down; the admin routes

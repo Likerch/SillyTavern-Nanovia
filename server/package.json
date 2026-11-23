@@ -1,6 +1,6 @@
 {
   "name": "nanovia-server",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "private": true,
   "description": "Nanovia server plugin for SillyTavern: a local OpenAI-compatible proxy in front of NanoGPT",
   "type": "module",

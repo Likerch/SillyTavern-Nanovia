@@ -4,11 +4,11 @@
 
 NanoGPT as a first-class, OpenRouter-like provider in SillyTavern: per-connection routing, subscription vs pay-as-you-go awareness, a model catalog, usage and cost, and a bridge to Maestro and the other extensions. Targets ST 1.19.x.
 
-> Status: 0.6.0, stages 0.1–0.6 are done (plugin and proxy, connections, routing and billing, catalog, account and usage, Management API, diagnostics). Next: media (0.7) and an image provider for NAI Studio (0.8). Checked against the mock and live against the real NanoGPT (requests, streaming, balance, subscription).
+> Status: 0.7.0, stages 0.1–0.7 are done (plugin and proxy, connections, routing and billing, catalog, account and usage, Management API, diagnostics, media). Next: an image provider for NAI Studio (0.8). Checked against the mock and live against the real NanoGPT (requests, streaming, balance, subscription, images, speech, transcription).
 
 ## The panel
 
-Tabs: **Connections** (the connection form, model picker over the catalog), **Catalog** (prices, context, capabilities, "in subscription", hosts and routing hints), **Routing** (every `provider` field and which of them move a request off the subscription), **Keys** (several NanoGPT keys), **Management** (Management API: keys with limits, model presets), **Account** (balance, subscription quota, usage: real cost apart from the pay-as-you-go equivalent), **Diagnostics** (checks of the whole setup with one-click fixes), **General**.
+Tabs: **Connections** (the connection form, model picker over the catalog), **Catalog** (prices, context, capabilities, "in subscription", hosts and routing hints), **Routing** (every `provider` field and which of them move a request off the subscription), **Keys** (several NanoGPT keys), **Management** (Management API: keys with limits, model presets), **Media** (catalog and studios for images, speech, transcription and video), **Account** (balance, subscription quota, usage: real cost apart from the pay-as-you-go equivalent), **Diagnostics** (checks of the whole setup with one-click fixes), **General**.
 
 ## What it is
 
@@ -70,7 +70,7 @@ npm run deploy:local   # copy the build into a local ST (st-local-docker)
 | 4     | 0.4.0   | balance, subscription, usage and cost, cache, OpenRouter-style response shim                           | done    |
 | 5     | 0.5.0   | full `NANOVIA_API`, Maestro and neighbour integrations                                                 | done    |
 | 6     | 0.6.0   | Management API, web search, Context Memory, Doctor                                                     | done    |
-| 7     | 0.7.0   | media                                                                                                  | planned |
+| 7     | 0.7.0   | media                                                                                                  | done    |
 | 8     | 0.8.0   | NAI Studio image provider                                                                              | planned |
 
 Changelog: [`CHANGELOG.md`](CHANGELOG.md) (Russian).

@@ -1,6 +1,6 @@
 {
   "name": "sillytavern-nanovia",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "private": true,
   "description": "NanoGPT for SillyTavern: connections with OpenRouter-style routing, billing awareness, a catalog, usage and a local proxy plugin",
   "license": "AGPL-3.0-only",
