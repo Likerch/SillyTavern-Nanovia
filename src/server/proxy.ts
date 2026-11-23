@@ -16,14 +16,7 @@ import { REQUEST_STEPS, RESPONSE_STEPS } from './pipeline';
 import { SecretValue } from './secret-value';
 import { hashToken } from './tokens';
 import { callUpstream, UpstreamError, type UpstreamHandle } from './upstream';
-import type {
-    ProxyContext,
-    ProxyStatus,
-    RequestStep,
-    ResponseStep,
-    ServerDeps,
-    UpstreamInfo,
-} from './types';
+import type { ProxyContext, ProxyStatus, RequestStep, ResponseStep, ServerDeps, UpstreamInfo } from './types';
 
 export const MAX_BODY_BYTES = 32 * 1024 * 1024;
 
@@ -43,8 +36,7 @@ export interface PipelineSteps {
 }
 
 type BodyResult =
-    | { ok: true; value: Record<string, unknown> }
-    | { ok: false; status: number; code: string; message: string };
+    { ok: true; value: Record<string, unknown> } | { ok: false; status: number; code: string; message: string };
 
 export function createProxyServer(
     deps: ServerDeps,
@@ -81,7 +73,13 @@ export function createProxyServer(
         }
         const connection = deps.store.connections.get(auth.userRoot, connectionId);
         if (!connection) {
-            return sendError(res, 404, 'invalid_request_error', 'connection_not_found', 'This connection does not exist');
+            return sendError(
+                res,
+                404,
+                'invalid_request_error',
+                'connection_not_found',
+                'This connection does not exist',
+            );
         }
 
         if (endpoint === 'models') {
@@ -252,7 +250,8 @@ export function createProxyServer(
                 failure = error instanceof UpstreamError ? error : new UpstreamError('unreachable', null);
             }
             if (failure && failure.kind !== 'aborted' && !res.destroyed) {
-                const text = failure.kind === 'timeout' ? 'The upstream stopped sending data' : 'The upstream connection broke';
+                const text =
+                    failure.kind === 'timeout' ? 'The upstream stopped sending data' : 'The upstream connection broke';
                 const code = failure.kind === 'timeout' ? 'upstream_timeout' : 'upstream_unreachable';
                 res.write(`data: ${JSON.stringify(errorBody('upstream_error', code, text))}\n\n`);
             }
@@ -343,7 +342,9 @@ export function createProxyServer(
         }
         const timeout = failure.kind === 'timeout';
         const code = timeout ? 'upstream_timeout' : 'upstream_unreachable';
-        log.warn(`upstream ${failure.kind} for connection ${ctx.connection.id}${failure.code ? ` (${failure.code})` : ''}`);
+        log.warn(
+            `upstream ${failure.kind} for connection ${ctx.connection.id}${failure.code ? ` (${failure.code})` : ''}`,
+        );
         const message = timeout ? 'NanoGPT did not answer in time' : 'NanoGPT could not be reached';
         return finishWithError(ctx, res, userRoot, timeout ? 504 : 502, 'upstream_error', code, message);
     }
@@ -483,16 +484,15 @@ function blankUsage(connectionId: string, model: string, startedAt: number, now:
     };
 }
 
-function errorBody(type: string, code: string, message: string): { error: { message: string; type: string; code: string } } {
+function errorBody(
+    type: string,
+    code: string,
+    message: string,
+): { error: { message: string; type: string; code: string } } {
     return { error: { message, type, code } };
 }
 
-function sendJson(
-    res: http.ServerResponse,
-    status: number,
-    body: unknown,
-    headers: Record<string, string> = {},
-): void {
+function sendJson(res: http.ServerResponse, status: number, body: unknown, headers: Record<string, string> = {}): void {
     if (res.headersSent || res.destroyed) return;
     const payload = Buffer.from(JSON.stringify(body));
     res.writeHead(status, {

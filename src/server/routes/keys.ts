@@ -47,12 +47,11 @@ export const keyRoutes: RouteModule = (router, deps: ServerDeps) => {
             if (rawLabel !== undefined && typeof rawLabel !== 'string') {
                 throw new HttpError(400, 'invalid_request', '"label" must be a string');
             }
-            const label = (typeof rawLabel === 'string' ? rawLabel.trim() : '').slice(0, MAX_LABEL_LENGTH) || DEFAULT_LABEL;
+            const label =
+                (typeof rawLabel === 'string' ? rawLabel.trim() : '').slice(0, MAX_LABEL_LENGTH) || DEFAULT_LABEL;
             const id = st.writeSecret(user.handle, SECRET_KEY_NANOGPT, value, label);
             const written = st.listSecrets(user.handle, SECRET_KEY_NANOGPT).find((s) => s.id === id);
-            const key: KeyInfo = written
-                ? toInfo(written)
-                : { id, label, active: true, masked: maskSecret(value) };
+            const key: KeyInfo = written ? toInfo(written) : { id, label, active: true, masked: maskSecret(value) };
             sendJson(res, 200, { key });
         }),
     );
@@ -102,12 +101,18 @@ export async function checkBalance(deps: ServerDeps, key: SecretValue): Promise<
         let parsed: Record<string, unknown> = {};
         try {
             const json: unknown = JSON.parse(text);
-            if (typeof json === 'object' && json !== null && !Array.isArray(json)) parsed = json as Record<string, unknown>;
+            if (typeof json === 'object' && json !== null && !Array.isArray(json))
+                parsed = json as Record<string, unknown>;
         } catch {
             // not JSON
         }
         if (response.status < 200 || response.status >= 300) {
-            const detail = typeof parsed['error'] === 'string' ? parsed['error'] : typeof parsed['message'] === 'string' ? parsed['message'] : '';
+            const detail =
+                typeof parsed['error'] === 'string'
+                    ? parsed['error']
+                    : typeof parsed['message'] === 'string'
+                      ? parsed['message']
+                      : '';
             return failed(`HTTP ${response.status}${detail ? `: ${detail.slice(0, 200)}` : ''}`);
         }
         const usd = amount(parsed['usd_balance'] ?? parsed['usdBalance']);

@@ -1,12 +1,7 @@
 // Plugin configuration: defaults from shared/constants, overridden by `server/config.json` (next to the bundle) and
 // then by the NANOVIA_* environment variables. A broken file or value never stops the plugin: it falls back to the
 // default and reports a warning.
-import {
-    DEFAULT_PROXY_PORT,
-    NANOGPT_API_BASE,
-    NANOGPT_API_BASE_FALLBACK,
-    NANOGPT_SITE,
-} from '../shared/constants';
+import { DEFAULT_PROXY_PORT, NANOGPT_API_BASE, NANOGPT_API_BASE_FALLBACK, NANOGPT_SITE } from '../shared/constants';
 
 export const DEFAULT_TIMEOUT_MS = 300_000;
 const MIN_TIMEOUT_MS = 1_000;

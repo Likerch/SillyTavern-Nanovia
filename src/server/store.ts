@@ -209,7 +209,10 @@ export function createStore(options: StoreOptions): Store {
         userDir: (userRoot) => path.join(userRoot, USER_DIR_NAME),
         connections: {
             list: (userRoot) => connectionsFile(userRoot).read(),
-            get: (userRoot, id) => connectionsFile(userRoot).read().find((c) => c.id === id) ?? null,
+            get: (userRoot, id) =>
+                connectionsFile(userRoot)
+                    .read()
+                    .find((c) => c.id === id) ?? null,
             save: (userRoot, connections) => connectionsFile(userRoot).write(connections),
         },
         registry: {

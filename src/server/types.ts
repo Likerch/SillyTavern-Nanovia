@@ -1,12 +1,6 @@
 // Types of the server plugin: the router subset it needs, the SillyTavern services it injects, the proxy pipeline
 // (docs/ARCHITECTURE.md §4) and the dependencies handed to every route module. Contracts live in shared/.
-import type {
-    CatalogModel,
-    ConnectionConfig,
-    RequestHints,
-    UpstreamPlan,
-    UsageRecord,
-} from '../shared/contracts';
+import type { CatalogModel, ConnectionConfig, RequestHints, UpstreamPlan, UsageRecord } from '../shared/contracts';
 import type { ServerConfig } from './config';
 import type { SecretValue } from './secret-value';
 import type { Store } from './store';

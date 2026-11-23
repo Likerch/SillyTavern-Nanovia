@@ -7,15 +7,7 @@ import { ROUTE_MODULES } from './routes';
 import { createStore } from './store';
 import { createTokenService } from './tokens';
 import { createUsageLog } from './usage-log';
-import type {
-    FetchLike,
-    Logger,
-    ProxyStatus,
-    RouteModule,
-    RouterLike,
-    ServerDeps,
-    StServices,
-} from './types';
+import type { FetchLike, Logger, ProxyStatus, RouteModule, RouterLike, ServerDeps, StServices } from './types';
 import { PLUGIN_VERSION } from './version';
 
 export interface NanoviaOptions {
