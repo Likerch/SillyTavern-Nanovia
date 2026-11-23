@@ -1,0 +1,82 @@
+/* Model picker (ui/model-picker.ts): an input with a dropdown of catalog models under it. */
+
+.nanovia-picker {
+    position: relative;
+    min-width: 0;
+}
+
+.nanovia-picker > input {
+    width: 100%;
+    margin: 0;
+    box-sizing: border-box;
+}
+
+.nanovia-picker-list {
+    position: absolute;
+    z-index: 20;
+    top: 100%;
+    left: 0;
+    right: 0;
+    max-height: 18em;
+    margin-top: 2px;
+    overflow-y: auto;
+    border: 1px solid var(--nanovia-border);
+    border-radius: var(--nanovia-radius-sm);
+    background: var(--SmartThemeBlurTintColor, rgb(30, 30, 30));
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
+.nanovia-picker-option {
+    padding: 5px 8px;
+    cursor: pointer;
+}
+
+.nanovia-picker-option:hover,
+.nanovia-picker-active {
+    background: var(--nanovia-raised);
+}
+
+.nanovia-picker-main,
+.nanovia-picker-detail {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px var(--nanovia-gap-sm);
+}
+
+.nanovia-picker-detail {
+    justify-content: space-between;
+}
+
+.nanovia-picker-name {
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.nanovia-picker-id {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.nanovia-picker-price {
+    white-space: nowrap;
+}
+
+.nanovia-picker-sub {
+    padding: 0 6px;
+    font-size: 0.75em;
+    color: var(--nanovia-ok);
+    border: 1px solid color-mix(in srgb, var(--nanovia-ok) 50%, transparent);
+    border-radius: 999px;
+}
+
+.nanovia-picker-note {
+    padding: 6px 8px;
+}
+
+@media (max-width: 767px) {
+    .nanovia-picker-option {
+        min-height: var(--nanovia-tap);
+        box-sizing: border-box;
+    }
+}
