@@ -5,6 +5,7 @@ import type { AccountStore } from '../core/account';
 import { backgroundAdvice, canDisableReasoning, qvinkInstalled as detectQvink } from '../core/advice';
 import type { CatalogStore } from '../core/catalog';
 import type { ConnectionEntry, ConnectionsService } from '../core/connections';
+import type { DoctorService } from '../core/doctor';
 import type { Logger, SettingsService } from '../core/types';
 import type { UsageStore } from '../core/usage';
 import { parseProxyUrl } from '../host';
@@ -26,6 +27,8 @@ export interface ApiDeps {
     usage?: UsageStore;
     /** Installed: `api.account` and the feature 'account'. */
     account?: AccountStore;
+    /** Installed: `api.doctor` and the feature 'doctor'. */
+    doctor?: DoctorService;
     /** Installed: `api.openPanel` and the feature 'panel'. */
     panel?: { open(tab?: string): void };
     /** Replaced in tests; defaults to looking for Qvink's global interceptor. */
@@ -51,7 +54,7 @@ function capabilitiesOf(model: CatalogModel | null): ProfileDescription['capabil
 }
 
 export function createApiPublisher(deps: ApiDeps): ApiPublisher {
-    const { connections, profiles, settings, catalog, usage, account, panel, log } = deps;
+    const { connections, profiles, settings, catalog, usage, account, doctor, panel, log } = deps;
     const qvinkInstalled = deps.qvinkInstalled ?? detectQvink;
 
     /** The connection a Connection Manager profile belongs to: by the id we stored, then by a proxy URL it carries. */
@@ -113,6 +116,7 @@ export function createApiPublisher(deps: ApiDeps): ApiPublisher {
         if (usage) list.push('usage');
         if (account) list.push('account');
         list.push('advice');
+        if (doctor) list.push('doctor');
         if (panel) list.push('panel');
         return [...new Set(list)];
     }
@@ -136,6 +140,7 @@ export function createApiPublisher(deps: ApiDeps): ApiPublisher {
     if (account) {
         api.account = { snapshot: () => account.snapshot(), refresh: () => account.refresh() };
     }
+    if (doctor) api.doctor = () => doctor.brief();
     if (panel) {
         api.openPanel = (tab) => {
             try {

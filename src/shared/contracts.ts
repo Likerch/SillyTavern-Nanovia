@@ -348,10 +348,20 @@ export interface BackgroundAdvice {
     suggestedModels: string[];
 }
 
+/** How serious a finding of the Doctor is. */
+export type DoctorLevel = 'ok' | 'info' | 'warn' | 'error';
+
+/** What the Doctor says to other extensions: codes only (the consumer words them itself, or opens the panel). */
+export interface DoctorBrief {
+    errors: number;
+    warnings: number;
+    checks: { id: string; level: DoctorLevel; code: string }[];
+}
+
 /**
  * `globalThis.NANOVIA_API`. `version` stays 1; members are only ever added; consumers feature-detect through
- * `features` (strings: 'connections', 'describeProfile', 'describeUrl', 'usage', 'account', 'advice', 'panel', plus the
- * ids of the panel tabs that run) or the member itself.
+ * `features` (strings: 'connections', 'describeProfile', 'describeUrl', 'usage', 'account', 'advice', 'doctor', 'panel',
+ * plus the ids of the panel tabs that run) or the member itself.
  * Installed after the extension is ready; `NANOVIA_API_READY_EVENT` is dispatched on `window` once it is.
  */
 export interface NanoviaApi {
@@ -385,6 +395,11 @@ export interface NanoviaApi {
     advice?: {
         backgroundProfile(profileId: string): BackgroundAdvice | null;
     };
+    /**
+     * feature 'doctor': the checks of the Doctor tab evaluated now from what is known (no network; a part that was never
+     * loaded is skipped, not guessed). `errors` and `warnings` count the checks of that level.
+     */
+    doctor?(): DoctorBrief;
     /** feature 'panel': opens the Nanovia panel (optionally at a tab id such as 'connections', 'catalog', 'account'). */
     openPanel?(tab?: string): void;
 }

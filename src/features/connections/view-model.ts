@@ -2,7 +2,7 @@
 // Pure functions of their arguments, so they are tested directly; view.ts only draws what they return.
 import type { ConnectionEntry, OpIssue } from '../../core/connections';
 import type { I18nParams } from '../../core/types';
-import type { PluginError } from '../../host';
+import type { PluginError, QvinkState } from '../../host';
 import type {
     ApiStatus,
     BillingMode,
@@ -42,6 +42,10 @@ export interface FormState {
     reasoningEffort: ReasoningEffort | '';
     hideThoughts: boolean;
     webSearch: boolean;
+    /** NanoGPT Context Memory (:memory), billed separately. */
+    memoryEnabled: boolean;
+    /** Days to keep it, as typed; '' = NanoGPT's default. A whole number from MEMORY_DAYS_MIN to MEMORY_DAYS_MAX otherwise. */
+    memoryDays: string;
     note: string;
     /** The NanoGPT key of a direct connection, typed once. Lives in this object only until the form is saved or closed. */
     directKey: string;
@@ -59,6 +63,8 @@ export function emptyForm(): FormState {
         reasoningEffort: '',
         hideThoughts: false,
         webSearch: false,
+        memoryEnabled: false,
+        memoryDays: '',
         note: '',
         directKey: '',
     };
@@ -76,19 +82,37 @@ export function formFromConfig(config: ConnectionConfig): FormState {
         reasoningEffort: config.reasoning.effort ?? '',
         hideThoughts: config.reasoning.hideThoughts,
         webSearch: config.webSearch,
+        memoryEnabled: config.memory.enabled,
+        memoryDays: config.memory.expirationDays === null ? '' : String(config.memory.expirationDays),
         note: config.note,
         directKey: '',
     };
 }
 
-/** The part of a ConnectionConfig the form controls. Everything else (routing, memory …) is left to be. */
+/** Context Memory's retention: the domain keeps a whole number of days between these (domain/connection.ts). */
+export const MEMORY_DAYS_MIN = 1;
+export const MEMORY_DAYS_MAX = 365;
+
+/** What was typed into "keep for N days": empty means the default; anything but a whole number in range is no answer. */
+export function memoryDaysOf(text: string): { ok: true; days: number | null } | { ok: false } {
+    const trimmed = text.trim();
+    if (trimmed === '') return { ok: true, days: null };
+    if (!/^\d{1,4}$/.test(trimmed)) return { ok: false };
+    const days = Number(trimmed);
+    return days >= MEMORY_DAYS_MIN && days <= MEMORY_DAYS_MAX ? { ok: true, days } : { ok: false };
+}
+
+/** The part of a ConnectionConfig the form controls. Everything else (routing …) is left to be. */
 export function patchFromForm(form: FormState): Partial<ConnectionConfig> {
+    const days = memoryDaysOf(form.memoryDays);
     const patch: Partial<ConnectionConfig> = {
         name: form.name.trim(),
         modelId: form.modelId.trim(),
         mode: form.mode,
         billing: form.billing,
         webSearch: form.webSearch,
+        // Days that are not a number are dropped here; validateForm has already said so when memory is on.
+        memory: { enabled: form.memoryEnabled, expirationDays: days.ok ? days.days : null },
         note: form.note,
         reasoning: {
             policy: form.reasoningPolicy,
@@ -124,8 +148,8 @@ export function showsDirectKey(form: FormState, ctx: FormContext): boolean {
 }
 
 export interface FormIssue {
-    field: 'name' | 'modelId' | 'directKey';
-    code: 'required';
+    field: 'name' | 'modelId' | 'directKey' | 'memoryDays';
+    code: 'required' | 'invalid';
 }
 
 export function validateForm(form: FormState, ctx: FormContext): FormIssue[] {
@@ -133,7 +157,21 @@ export function validateForm(form: FormState, ctx: FormContext): FormIssue[] {
     if (!form.name.trim()) issues.push({ field: 'name', code: 'required' });
     if (!form.modelId.trim()) issues.push({ field: 'modelId', code: 'required' });
     if (needsDirectKey(form, ctx) && !form.directKey.trim()) issues.push({ field: 'directKey', code: 'required' });
+    // The days only count while memory is on.
+    if (form.memoryEnabled && !memoryDaysOf(form.memoryDays).ok) issues.push({ field: 'memoryDays', code: 'invalid' });
     return issues;
+}
+
+/** A form issue as the operation issue the tab words (`connections.issue.<code>`). */
+export function formIssue(issue: FormIssue): OpIssue {
+    if (issue.field === 'directKey') return { code: 'direct_key_required' };
+    if (issue.field === 'memoryDays') return { code: 'invalid_memory_days' };
+    return { code: 'invalid', params: { field: issue.field } };
+}
+
+/** Whether to warn that Qvink Memory also summarises the chat (only while it is loaded and on). */
+export function warnsQvinkOverlap(state: QvinkState): boolean {
+    return state === 'present';
 }
 
 export interface ChipSpec {

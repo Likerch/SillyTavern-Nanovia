@@ -2,6 +2,7 @@
 // inputs write into it, so a redraw (the mode changed, a key was added) shows the same values again.
 import type { ConnectionEntry } from '../../core/connections';
 import type { FeatureContext } from '../../core/context';
+import { qvinkState } from '../../host';
 import type { KeyInfo } from '../../shared/contracts';
 import { button, chip, el, field, select, textArea, textInput, toggle } from '../../ui';
 import type { SelectOption } from '../../ui';
@@ -14,6 +15,7 @@ import {
     keyLabel,
     needsDirectKey,
     showsDirectKey,
+    warnsQvinkOverlap,
 } from './view-model';
 import type { FormState } from './view-model';
 
@@ -183,6 +185,7 @@ export function renderConnectionForm(deps: FormDeps): HTMLElement {
             checked: form.webSearch,
             onChange: (checked) => void (form.webSearch = checked),
         }),
+        renderMemory(deps),
         field(
             t('connections.form.note'),
             textArea({
@@ -204,6 +207,41 @@ export function renderConnectionForm(deps: FormDeps): HTMLElement {
         ]),
     );
     return el('form', { class: 'nanovia-form', on: { submit: (event) => event.preventDefault() } }, children);
+}
+
+/**
+ * NanoGPT Context Memory: the switch, how long NanoGPT keeps the context, a hint that it is billed separately (and off by
+ * default) and, while Qvink Memory is on too, the warning that both summarise the same chat.
+ */
+function renderMemory(deps: FormDeps): HTMLElement {
+    const { ctx, form } = deps;
+    const t = ctx.t;
+    const days = textInput({
+        value: form.memoryDays,
+        label: t('connections.form.memoryDays'),
+        placeholder: t('connections.form.memoryDaysPlaceholder'),
+        maxLength: 3,
+        disabled: !form.memoryEnabled,
+        onInput: (value) => void (form.memoryDays = value),
+    });
+    const box = el('div', { class: 'nanovia-memory' }, [
+        toggle({
+            label: t('connections.form.memory'),
+            checked: form.memoryEnabled,
+            onChange: (checked) => {
+                form.memoryEnabled = checked;
+                days.disabled = !checked;
+            },
+        }),
+        hintLine(t('connections.form.memoryHint')),
+        field(t('connections.form.memoryDays'), days, t('connections.form.memoryDaysHint')),
+    ]);
+    if (warnsQvinkOverlap(qvinkState(ctx.host.ctx))) {
+        box.appendChild(
+            el('div', { class: 'nanovia-notice nanovia-notice-warn', text: t('connections.form.memoryQvink') }),
+        );
+    }
+    return box;
 }
 
 /** The key select (keys the plugin knows) and the small «add a key» form under it. */

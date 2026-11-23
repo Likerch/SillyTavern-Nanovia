@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { ConnectionEntry } from '../../src/core/connections';
 import { createI18n } from '../../src/core/i18n';
-import { createConnection } from '../../src/domain/connection';
+import { createConnection, mergeConnection } from '../../src/domain/connection';
 import { CONNECTIONS_STRINGS } from '../../src/features/connections/strings';
 import {
     BILLING_MODES,
     CONNECTION_MODES,
+    MEMORY_DAYS_MAX,
+    MEMORY_DAYS_MIN,
     REASONING_EFFORTS,
     REASONING_POLICIES,
     actionsFor,
@@ -13,12 +15,15 @@ import {
     chipsFor,
     emptyForm,
     formFromConfig,
+    formIssue,
     issueText,
     keyLabel,
+    memoryDaysOf,
     needsDirectKey,
     patchFromForm,
     showsDirectKey,
     validateForm,
+    warnsQvinkOverlap,
 } from '../../src/features/connections/view-model';
 import type { FormState } from '../../src/features/connections/view-model';
 import type { ApiStatus } from '../../src/shared/contracts';
@@ -90,7 +95,11 @@ describe('strings', () => {
                 'profile_needs_key',
                 'profile_failed',
                 'key_not_removed',
+                'invalid_memory_days',
             ].map((c) => `connections.issue.${c}`),
+            ...['memory', 'memoryHint', 'memoryDays', 'memoryDaysPlaceholder', 'memoryDaysHint', 'memoryQvink'].map(
+                (c) => `connections.form.${c}`,
+            ),
             ...['name', 'modelId'].map((f) => `connections.field.${f}`),
         ];
         const missing = keys.filter((key) => !(key in CONNECTIONS_STRINGS.en) || !(key in CONNECTIONS_STRINGS.ru));
@@ -143,9 +152,32 @@ describe('form state and the patch it makes', () => {
             reasoningEffort: 'high',
             hideThoughts: true,
             webSearch: true,
+            memoryEnabled: false,
+            memoryDays: '',
             note: 'n',
             directKey: '',
         });
+    });
+
+    it('carries Context Memory and its retention both ways', () => {
+        const config = createConnection(
+            { name: 'Main', modelId: 'm', memory: { enabled: true, expirationDays: 7 } },
+            'abc12345',
+            1,
+        );
+        const state = formFromConfig(config);
+        expect(state).toMatchObject({ memoryEnabled: true, memoryDays: '7' });
+        expect(patchFromForm(state).memory).toEqual({ enabled: true, expirationDays: 7 });
+        const noDays = formFromConfig(
+            createConnection(
+                { name: 'Main', modelId: 'm', memory: { enabled: true, expirationDays: null } },
+                'abc12345',
+                1,
+            ),
+        );
+        expect(noDays.memoryDays).toBe('');
+        expect(patchFromForm(noDays).memory).toEqual({ enabled: true, expirationDays: null });
+        expect(emptyForm()).toMatchObject({ memoryEnabled: false, memoryDays: '' });
     });
 
     it('makes a patch of just the fields the form controls', () => {
@@ -167,11 +199,29 @@ describe('form state and the patch it makes', () => {
             keyId: 'key-1',
             billing: 'paygo',
             webSearch: true,
+            memory: { enabled: false, expirationDays: null },
             note: 'n',
             reasoning: { policy: 'follow', effort: null, hideThoughts: false },
         });
         expect(Object.keys(patch)).not.toContain('routing');
-        expect(Object.keys(patch)).not.toContain('memory');
+    });
+
+    it('turns Context Memory off and on in the patch, with the days when they make sense', () => {
+        expect(patchFromForm(form({ memoryEnabled: true, memoryDays: '30' })).memory).toEqual({
+            enabled: true,
+            expirationDays: 30,
+        });
+        expect(patchFromForm(form({ memoryEnabled: true, memoryDays: ' 14 ' })).memory?.expirationDays).toBe(14);
+        expect(patchFromForm(form({ memoryEnabled: true, memoryDays: '' })).memory?.expirationDays).toBeNull();
+        // Off: the switch is sent so an earlier "on" is undone; days that are not a number are dropped.
+        expect(patchFromForm(form({ memoryEnabled: false, memoryDays: '7' })).memory).toEqual({
+            enabled: false,
+            expirationDays: 7,
+        });
+        expect(patchFromForm(form({ memoryEnabled: false, memoryDays: 'soon' })).memory).toEqual({
+            enabled: false,
+            expirationDays: null,
+        });
     });
 
     it('chooses the active key with an empty id, and leaves keyId alone in direct mode', () => {
@@ -222,6 +272,58 @@ describe('when the form asks for the NanoGPT key', () => {
         ]);
         expect(validateForm(form({ mode: 'direct' }), up)).toEqual([{ field: 'directKey', code: 'required' }]);
         expect(validateForm(form({ mode: 'direct', directKey: 'k' }), up)).toEqual([]);
+    });
+
+    it('validates the days of Context Memory only while it is on', () => {
+        const bad = ['0', '366', '-3', '1.5', 'soon', '12abc', '99999'];
+        for (const memoryDays of bad) {
+            expect(validateForm(form({ memoryEnabled: true, memoryDays }), up), memoryDays).toEqual([
+                { field: 'memoryDays', code: 'invalid' },
+            ]);
+            expect(validateForm(form({ memoryEnabled: false, memoryDays }), up), memoryDays).toEqual([]);
+        }
+        for (const memoryDays of ['', ' ', '1', '7', '365', ' 30 ']) {
+            expect(validateForm(form({ memoryEnabled: true, memoryDays }), up), memoryDays).toEqual([]);
+        }
+    });
+});
+
+describe('the days of Context Memory', () => {
+    it('reads a whole number in range, empty as the default, and rejects the rest', () => {
+        expect(memoryDaysOf('')).toEqual({ ok: true, days: null });
+        expect(memoryDaysOf('   ')).toEqual({ ok: true, days: null });
+        expect(memoryDaysOf('1')).toEqual({ ok: true, days: MEMORY_DAYS_MIN });
+        expect(memoryDaysOf(' 365 ')).toEqual({ ok: true, days: MEMORY_DAYS_MAX });
+        expect(memoryDaysOf('007')).toEqual({ ok: true, days: 7 });
+        for (const text of ['0', '366', '1e2', '-1', '2.5', 'ten', '1 2', '12345']) {
+            expect(memoryDaysOf(text), text).toEqual({ ok: false });
+        }
+    });
+
+    it('stays within what the domain keeps', () => {
+        const config = createConnection({ name: 'A', modelId: 'm' }, 'abc12345', 1);
+        const merged = (days: number) =>
+            mergeConnection(config, { memory: { enabled: true, expirationDays: days } }, 2).memory.expirationDays;
+        expect(merged(MEMORY_DAYS_MIN - 1)).toBe(MEMORY_DAYS_MIN);
+        expect(merged(MEMORY_DAYS_MAX + 1)).toBe(MEMORY_DAYS_MAX);
+        expect(merged(MEMORY_DAYS_MAX)).toBe(MEMORY_DAYS_MAX);
+    });
+});
+
+describe('form issues and the Qvink warning', () => {
+    it('turns each form issue into the issue the tab words', () => {
+        expect(formIssue({ field: 'directKey', code: 'required' })).toEqual({ code: 'direct_key_required' });
+        expect(formIssue({ field: 'memoryDays', code: 'invalid' })).toEqual({ code: 'invalid_memory_days' });
+        expect(formIssue({ field: 'name', code: 'required' })).toEqual({ code: 'invalid', params: { field: 'name' } });
+        expect(issueText(formIssue({ field: 'memoryDays', code: 'invalid' }), t)).toBe(
+            'Days of Context Memory must be a whole number from 1 to 365, or empty for the default.',
+        );
+    });
+
+    it('warns about the overlap only while Qvink is loaded and on', () => {
+        expect(warnsQvinkOverlap('present')).toBe(true);
+        for (const state of ['disabled', 'absent', 'unknown'] as const)
+            expect(warnsQvinkOverlap(state), state).toBe(false);
     });
 });
 

@@ -422,3 +422,123 @@ describe('lifecycle', () => {
         expect(root.innerHTML).toBe(before);
     });
 });
+
+describe('Context Memory', () => {
+    const holder = globalThis as unknown as Record<string, unknown>;
+
+    afterEach(() => {
+        delete holder['memory_intercept_messages'];
+    });
+
+    function memoryToggle(): HTMLInputElement {
+        const label = [...root.querySelectorAll('label')].find(
+            (node) => node.textContent?.trim() === 'NanoGPT Context Memory',
+        );
+        const found = label?.querySelector('input');
+        if (!found) throw new Error('no Context Memory switch');
+        return found;
+    }
+
+    function switchMemory(on: boolean): void {
+        const box = memoryToggle();
+        box.checked = on;
+        box.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    it('is off by default, with the days field waiting, a hint about the bill and no warning', async () => {
+        await open();
+        await click('New connection');
+        expect(memoryToggle().checked).toBe(false);
+        expect((input('Keep for N days') as HTMLInputElement).disabled).toBe(true);
+        expect((input('Keep for N days') as HTMLInputElement).placeholder).toBe('default');
+        expect(text()).toContain('Billed separately from the subscription; off by default.');
+        expect(root.querySelector('.nanovia-notice-warn')).toBeNull();
+    });
+
+    it('switching it on opens the days field, and Save sends both to the plugin', async () => {
+        await open();
+        await click('New connection');
+        type('Name', 'Mem');
+        type('Model id', 'm');
+        choose('How it connects', 'plugin');
+        switchMemory(true);
+        expect((input('Keep for N days') as HTMLInputElement).disabled).toBe(false);
+        type('Keep for N days', '30');
+        await click('Save');
+        const [created] = [...h.backend.plugin.connections.values()];
+        expect(created?.memory).toEqual({ enabled: true, expirationDays: 30 });
+    });
+
+    it('an empty days field means the default', async () => {
+        await open();
+        await click('New connection');
+        type('Name', 'Mem');
+        type('Model id', 'm');
+        choose('How it connects', 'plugin');
+        switchMemory(true);
+        await click('Save');
+        const [created] = [...h.backend.plugin.connections.values()];
+        expect(created?.memory).toEqual({ enabled: true, expirationDays: null });
+    });
+
+    it('is not saved with days that make no sense, and says why', async () => {
+        await open();
+        await click('New connection');
+        type('Name', 'Mem');
+        type('Model id', 'm');
+        choose('How it connects', 'plugin');
+        switchMemory(true);
+        type('Keep for N days', '400');
+        await click('Save');
+        expect(text()).toContain('Days of Context Memory must be a whole number from 1 to 365');
+        expect(h.backend.plugin.connections.size).toBe(0);
+        expect(root.querySelector('form')).not.toBeNull();
+        // Typed days are kept while the switch is off, and are not judged then.
+        switchMemory(false);
+        await click('Save');
+        expect([...h.backend.plugin.connections.values()][0]?.memory.enabled).toBe(false);
+    });
+
+    it('shows the memory of a connection that is edited, and switching it off is saved', async () => {
+        seedConnection(
+            h.backend,
+            { name: 'Remembering', modelId: 'm', mode: 'plugin', memory: { enabled: true, expirationDays: 7 } },
+            'seed000001',
+        );
+        await open();
+        await click('Edit');
+        expect(memoryToggle().checked).toBe(true);
+        expect((input('Keep for N days') as HTMLInputElement).value).toBe('7');
+        expect((input('Keep for N days') as HTMLInputElement).disabled).toBe(false);
+        switchMemory(false);
+        await click('Save');
+        expect(h.backend.plugin.connections.get('seed000001')?.memory.enabled).toBe(false);
+    });
+
+    it('warns while Qvink Memory is on too, in the language of the interface', async () => {
+        holder['memory_intercept_messages'] = () => {};
+        await open();
+        await click('New connection');
+        expect(root.querySelector('.nanovia-memory .nanovia-notice-warn')?.textContent).toContain(
+            'Qvink Memory is on and also keeps a summary of your chats.',
+        );
+        dispose();
+        root.replaceChildren();
+        tc.setLocale('ru');
+        dispose = renderConnectionsTab(root, tc.ctx);
+        await settle();
+        await click('Новое подключение');
+        expect(root.querySelector('.nanovia-memory .nanovia-notice-warn')?.textContent).toContain(
+            'Qvink Memory включена',
+        );
+        expect(text()).toContain('Контекстная память NanoGPT');
+    });
+
+    it('does not warn when Qvink is switched off in SillyTavern', async () => {
+        holder['memory_intercept_messages'] = () => {};
+        h.mock.extensionSettings['disabledExtensions'] = ['third-party/SillyTavern-MessageSummarize'];
+        await open();
+        await click('New connection');
+        expect(root.querySelector('.nanovia-memory .nanovia-notice-warn')).toBeNull();
+    });
+});

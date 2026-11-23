@@ -118,6 +118,15 @@ export const CONNECTIONS_STRINGS: I18nParts = {
         'connections.effort.max': 'Max',
         'connections.form.hideThoughts': 'Leave the reasoning text out of the reply',
         'connections.form.webSearch': 'Web search (adds :online, billed separately)',
+        'connections.form.memory': 'NanoGPT Context Memory',
+        'connections.form.memoryHint':
+            'Adds :memory to the model so NanoGPT keeps the context of the chat on its side. Billed separately from the subscription; off by default.',
+        'connections.form.memoryDays': 'Keep for N days',
+        'connections.form.memoryDaysPlaceholder': 'default',
+        'connections.form.memoryDaysHint':
+            'Leave empty for NanoGPT’s own default (:memory). A whole number from 1 to 365 adds :memory-N.',
+        'connections.form.memoryQvink':
+            'Qvink Memory is on and also keeps a summary of your chats. Both together mean paying for two summaries that can contradict each other; keep one of them.',
         'connections.form.note': 'Note',
         'connections.form.save': 'Save',
         'connections.form.cancel': 'Cancel',
@@ -142,6 +151,8 @@ export const CONNECTIONS_STRINGS: I18nParts = {
         'connections.issue.key_write_failed': 'SillyTavern did not accept the key ({message}).',
         'connections.issue.not_found': 'This connection no longer exists.',
         'connections.issue.invalid': 'The {field} is required.',
+        'connections.issue.invalid_memory_days':
+            'Days of Context Memory must be a whole number from 1 to 365, or empty for the default.',
         'connections.issue.not_on_plugin': 'The plugin does not have this connection.',
         'connections.issue.saved_locally': 'Saved here; it will be sent to the plugin when it answers.',
         'connections.issue.profile_unavailable':
@@ -271,6 +282,15 @@ export const CONNECTIONS_STRINGS: I18nParts = {
         'connections.effort.max': 'Максимальный',
         'connections.form.hideThoughts': 'Не включать текст рассуждений в ответ',
         'connections.form.webSearch': 'Веб-поиск (добавляет :online, оплачивается отдельно)',
+        'connections.form.memory': 'Контекстная память NanoGPT',
+        'connections.form.memoryHint':
+            'Добавляет :memory к модели: NanoGPT хранит контекст чата у себя. Оплачивается отдельно от подписки; по умолчанию выключена.',
+        'connections.form.memoryDays': 'Хранить N дней',
+        'connections.form.memoryDaysPlaceholder': 'по умолчанию',
+        'connections.form.memoryDaysHint':
+            'Пустое поле — срок NanoGPT по умолчанию (:memory). Целое число от 1 до 365 добавляет :memory-N.',
+        'connections.form.memoryQvink':
+            'Qvink Memory включена и тоже ведёт краткое изложение ваших чатов. Вместе это два пересказа, которые могут противоречить друг другу, и вы платите за оба; оставьте что-то одно.',
         'connections.form.note': 'Заметка',
         'connections.form.save': 'Сохранить',
         'connections.form.cancel': 'Отмена',
@@ -294,6 +314,8 @@ export const CONNECTIONS_STRINGS: I18nParts = {
         'connections.issue.key_write_failed': 'SillyTavern не принял ключ ({message}).',
         'connections.issue.not_found': 'Такого подключения уже нет.',
         'connections.issue.invalid': 'Поле «{field}» обязательно.',
+        'connections.issue.invalid_memory_days':
+            'Срок хранения контекстной памяти — целое число дней от 1 до 365; пустое поле означает значение по умолчанию.',
         'connections.issue.not_on_plugin': 'В плагине нет этого подключения.',
         'connections.issue.saved_locally': 'Сохранено здесь; уйдёт в плагин, когда он ответит.',
         'connections.issue.profile_unavailable':

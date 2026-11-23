@@ -3,7 +3,7 @@
 // or missing plugin. Values written through /keys and /api/secrets are kept only so tests can assert where they went.
 import { createConnection, mergeConnection } from '../../src/domain/connection';
 import { NANOGPT_API_BASE, SECRET_KEY_CUSTOM, SECRET_LABEL_PREFIX } from '../../src/shared/constants';
-import type { ConnectionConfig, ConnectionView, KeyInfo } from '../../src/shared/contracts';
+import type { ConnectionConfig, ConnectionView, KeyCheck, KeyInfo } from '../../src/shared/contracts';
 
 export interface SecretRow {
     id: string;
@@ -34,6 +34,8 @@ export interface FakeBackend {
         keys: KeyInfo[];
         /** Key values the plugin received (test assertions only). */
         keyValues: Map<string, string>;
+        /** What POST /keys/:id/check answers for a key id; a key without an entry passes with a balance of 1.50. */
+        keyChecks: Map<string, KeyCheck>;
         /** Makes the next call to a path (exact, e.g. 'POST /connections') fail with this status and error code. */
         failNext: Map<string, { status: number; code: string; message?: string }>;
         /** true: POST /connections always generates its own id, like a plugin that does not take one. */
@@ -72,6 +74,7 @@ export function createFakeBackend(): FakeBackend {
             tokens: new Map(),
             keys: [],
             keyValues: new Map(),
+            keyChecks: new Map(),
             failNext: new Map(),
             ignoreIds: false,
         },
@@ -206,7 +209,9 @@ export function createFakeBackend(): FakeBackend {
                 return json({ ok: true });
             }
             if (method === 'POST' && keyItem[2]) {
-                return json({ ok: true, usdBalance: '1.50', nanoBalance: null, error: null });
+                return json(
+                    plugin.keyChecks.get(id) ?? { ok: true, usdBalance: '1.50', nanoBalance: null, error: null },
+                );
             }
         }
         return errorBody(404, 'not_found', 'no such route');

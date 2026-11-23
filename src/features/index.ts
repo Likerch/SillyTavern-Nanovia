@@ -3,7 +3,15 @@ import type { Feature } from '../core/context';
 import { accountFeature } from './account';
 import { catalogFeature } from './catalog';
 import { connectionsFeature } from './connections';
+import { doctorFeature } from './doctor';
 import { keysFeature } from './keys';
 import { routingFeature } from './routing';
 
-export const FEATURES: Feature[] = [connectionsFeature, catalogFeature, routingFeature, keysFeature, accountFeature];
+export const FEATURES: Feature[] = [
+    connectionsFeature,
+    catalogFeature,
+    routingFeature,
+    keysFeature,
+    accountFeature,
+    doctorFeature,
+];
