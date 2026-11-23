@@ -71,6 +71,7 @@ describe('built server/index.js', () => {
                 'GET /mgmt/status',
                 'GET /spend',
                 'GET /status',
+                'GET /usage/recent',
                 'PATCH /mgmt/keys/:id',
                 'POST /connections',
                 'POST /connections/:id/rotate-token',
