@@ -28,8 +28,9 @@ export const ROUTING_STRINGS: I18nParts = {
         'routing.providers.placeholder': 'Type a provider id, press Enter',
         'routing.providers.remove': 'Remove {id}',
         'routing.field.noLimit': 'No limit',
-        'routing.disabled.subscriptionSafe':
-            'Locked: this connection is subscription-only, so Nanovia would strip this setting. Change the billing mode to use it.',
+        'routing.disabled.subscriptionSafe': 'Locked: subscription-only mode would strip this setting.',
+        'routing.lockedNote':
+            'This connection is subscription-only: the settings that leave the subscription are locked and Nanovia strips them from every request. Change the billing mode to use them.',
 
         'routing.field.order': 'Provider order',
         'routing.field.order.hint': 'Providers are tried in this order.',
@@ -176,8 +177,9 @@ export const ROUTING_STRINGS: I18nParts = {
         'routing.providers.placeholder': 'Введите id провайдера и нажмите Enter',
         'routing.providers.remove': 'Убрать {id}',
         'routing.field.noLimit': 'Без ограничения',
-        'routing.disabled.subscriptionSafe':
-            'Заблокировано: подключение работает только по подписке, и Nanovia убрала бы эту настройку. Чтобы ей пользоваться, смените режим оплаты.',
+        'routing.disabled.subscriptionSafe': 'Заблокировано: режим «только подписка» убрал бы эту настройку.',
+        'routing.lockedNote':
+            'Подключение работает только по подписке: настройки, уводящие из подписки, заблокированы, а Nanovia убирает их из каждого запроса. Чтобы ими пользоваться, смените режим оплаты.',
 
         'routing.field.order': 'Порядок провайдеров',
         'routing.field.order.hint': 'Провайдеры пробуются в этом порядке.',

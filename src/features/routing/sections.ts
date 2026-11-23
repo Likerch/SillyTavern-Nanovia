@@ -200,6 +200,11 @@ export function buildRoutingSection(env: SectionEnv): SectionView {
         text: t('routing.offNote'),
         attrs: { hidden: true },
     });
+    const lockedNote = el('div', {
+        class: 'nanovia-notice nanovia-notice-warn nanovia-locked-note',
+        text: t('routing.lockedNote'),
+        attrs: { hidden: true },
+    });
     const fixedNote = el('div', {
         class: 'nanovia-notice nanovia-notice-warn nanovia-fixed-note',
         text: t('routing.fixedRoute'),
@@ -250,6 +255,7 @@ export function buildRoutingSection(env: SectionEnv): SectionView {
     const node = section('routing', t('routing.section.routing'), [
         el('div', { class: 'nanovia-field-hint', text: t('routing.section.routing.hint') }),
         enabled,
+        lockedNote,
         offNote,
         fixedNote,
         idsRow('order'),
@@ -344,6 +350,7 @@ export function buildRoutingSection(env: SectionEnv): SectionView {
                     }
                 }
             }
+            lockedNote.hidden = draft.billing !== 'subscription';
             offNote.hidden = draft.routing.enabled;
             fixedNote.hidden = !routingIgnored(verdict);
             needsSort.hidden = !(

@@ -249,6 +249,7 @@ describe('subscription-only mode', () => {
         expect(row('zdr').querySelector<HTMLInputElement>('input')?.disabled).toBe(false);
         expect(field<HTMLSelectElement>('Billing mode').disabled).toBe(false);
 
+        expect(hidden('.nanovia-locked-note')).toBe(false);
         expect(badge()).toBe('Subscription');
         expect(verdict()).toContain('Nanovia removes these settings from every request: provider order, price cap.');
         expect(verdict()).toContain('Nothing leaves the subscription');
@@ -260,6 +261,7 @@ describe('subscription-only mode', () => {
         choose('Billing mode', 'subscription');
         expect(field<HTMLSelectElement>('Sort').disabled).toBe(true);
         choose('Billing mode', 'paygo');
+        expect(hidden('.nanovia-locked-note')).toBe(true);
         expect(field<HTMLSelectElement>('Sort').disabled).toBe(false);
         expect(row('sort').querySelector('.nanovia-lock')?.hasAttribute('hidden')).toBe(true);
         expect(verdict()).toContain('This connection is set to pay as you go');
