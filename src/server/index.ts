@@ -55,7 +55,14 @@ export async function init(router: RouterLike): Promise<void> {
     for (const warning of warnings) log.warn(warning);
     const st = await createStServices(log);
     const fetch = await loadFetch();
-    running = await startNanovia(router, { config, st, fetch, log, catalog: { autoFetch: true } });
+    running = await startNanovia(router, {
+        config,
+        st,
+        fetch,
+        log,
+        catalog: { autoFetch: true },
+        media: { catalog: { autoFetch: true } },
+    });
     const proxy = running.status;
     log.info(
         `v${PLUGIN_VERSION} ready (secrets: ${st.available ? 'ST' : 'unavailable'}, proxy: ${

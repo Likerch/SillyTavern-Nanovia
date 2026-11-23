@@ -362,6 +362,11 @@ describe('video submit and status', () => {
         ]) {
             expect(parseVideoStatus(body).url, JSON.stringify(body)).toBe('https://a.test/v.mp4');
         }
+        // A path on the media host is fine (the plugin resolves it); a scheme-relative URL or any other scheme is not.
+        expect(parseVideoStatus({ status: 'completed', videoUrl: '/api/generate-video/content?runId=x' }).url).toBe(
+            '/api/generate-video/content?runId=x',
+        );
+        expect(parseVideoStatus({ status: 'completed', videoUrl: '//evil.test/v.mp4' }).url).toBeNull();
         expect(parseVideoStatus({ status: 'completed', videoUrl: 'file:///etc/passwd' }).url).toBeNull();
         expect(parseVideoStatus({ status: 'completed', videoUrl: 'javascript:alert(1)' }).url).toBeNull();
     });

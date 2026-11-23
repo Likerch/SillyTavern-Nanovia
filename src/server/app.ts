@@ -3,6 +3,7 @@
 import type { CatalogModel } from '../shared/contracts';
 import { createCatalogService, type CatalogTuning } from './catalog';
 import type { ServerConfig } from './config';
+import { createMediaDeps, type MediaTuning } from './media';
 import { createProxyServer, type PipelineSteps, type ProxyServer } from './proxy';
 import { ROUTE_MODULES } from './routes';
 import { createStore } from './store';
@@ -27,6 +28,8 @@ export interface NanoviaOptions {
      * fetch NanoGPT at start and whenever the proxy finds the data missing or old; index.ts turns it on.
      */
     catalog?: CatalogTuning;
+    /** Stage 0.7: media catalog (`catalog.autoFetch`), timeouts, billing-lookup delays and timers. */
+    media?: MediaTuning;
     /** Defaults to ROUTE_MODULES. */
     routes?: RouteModule[];
     /** Defaults to REQUEST_STEPS / RESPONSE_STEPS. */
@@ -60,22 +63,35 @@ export async function startNanovia(router: RouterLike, options: NanoviaOptions):
         now,
         log,
     });
+    const usage = createUsageLog(log);
+    const media = createMediaDeps({
+        config,
+        dataRoot: () => st.dataRoot(),
+        fetch: options.fetch,
+        version,
+        now,
+        log,
+        usage,
+        ...(options.media ? { tuning: options.media } : {}),
+    });
     const deps: ServerDeps = {
         version,
         config,
         st,
         store,
         tokens: createTokenService({ st, store }),
-        usage: createUsageLog(log),
+        usage,
         fetch: options.fetch,
         proxy: () => proxy?.status() ?? { up: false, host: '127.0.0.1', port: config.port, error: null },
         catalog,
         lookupModel: options.lookupModel ?? ((modelId) => catalog.lookupModel(modelId)),
         providerSelection: options.providerSelection ?? ((modelId) => catalog.providerSelection(modelId)),
+        media,
         now,
         log,
     };
     catalog.start(); // before the listener: the first request already finds the stored catalog
+    media.catalog.start();
     proxy = options.steps ? createProxyServer(deps, options.steps) : createProxyServer(deps);
     const status = await proxy.listen();
     for (const register of options.routes ?? ROUTE_MODULES) register(router, deps);
@@ -86,6 +102,7 @@ export async function startNanovia(router: RouterLike, options: NanoviaOptions):
         status,
         close: async () => {
             catalog.close();
+            media.close();
             await running.close();
         },
     };

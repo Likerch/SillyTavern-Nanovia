@@ -4,6 +4,7 @@ import type { ResolvedUsage } from '../domain/shim';
 import type { CatalogModel, ConnectionConfig, RequestHints, UpstreamPlan, UsageRecord } from '../shared/contracts';
 import type { CatalogService } from './catalog';
 import type { ServerConfig } from './config';
+import type { MediaDeps } from './media';
 import type { SecretValue } from './secret-value';
 import type { Store } from './store';
 import type { TokenService } from './tokens';
@@ -17,6 +18,8 @@ export interface RouteRequest {
     params: Record<string, string>;
     /** The parsed query string (Express fills it; a hand-made request may lack it). */
     query?: Record<string, unknown>;
+    /** Lower-case header names (Express fills it; the saved-video route reads `Range`). */
+    headers?: Record<string, string | string[] | undefined>;
     /** ST's auth middleware: the logged-in user. */
     user?: { profile?: { handle?: string }; directories?: { root?: string } };
 }
@@ -25,6 +28,16 @@ export interface RouteResponse {
     status(code: number): RouteResponse;
     json(body: unknown): unknown;
     set(name: string, value: string): unknown;
+    /**
+     * A raw reply, for the one route that is not JSON (the saved video, GET /media/files/:id). An Express response has all
+     * of these; a hand-made test double that only serves JSON routes need not.
+     */
+    write?(chunk: Uint8Array): boolean;
+    end?(chunk?: Uint8Array): unknown;
+    once?(event: string, listener: () => void): unknown;
+    off?(event: string, listener: () => void): unknown;
+    readonly writableEnded?: boolean;
+    readonly destroyed?: boolean;
 }
 
 export type RouteHandler = (req: RouteRequest, res: RouteResponse) => void | Promise<void>;
@@ -43,7 +56,8 @@ export type FetchLike = (input: string, init: FetchInit) => Promise<FetchRespons
 export interface FetchInit {
     method: string;
     headers: Record<string, string>;
-    body?: string;
+    /** Text, or bytes (a multipart upload, stage 0.7). */
+    body?: string | Uint8Array;
     signal?: AbortSignal;
 }
 
@@ -192,6 +206,8 @@ export interface ServerDeps {
      * a missing entry is fetched in the background. Same meaning as `UpstreamInput.providerSelection`.
      */
     providerSelection?: (modelId: string) => boolean | null;
+    /** Stage 0.7: the media catalog, video jobs, billing reconciler and timing knobs. */
+    media: MediaDeps;
     now: () => number;
     log: Logger;
 }

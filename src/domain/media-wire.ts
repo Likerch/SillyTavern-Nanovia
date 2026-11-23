@@ -334,7 +334,8 @@ function videoUrlOf(...sources: Record<string, unknown>[]): string | null {
         const output = isRecord(source['output']) ? source['output'] : {};
         const video = isRecord(output['video']) ? output['video'] : isRecord(source['video']) ? source['video'] : {};
         const url = str(video['url']) ?? str(output['url']) ?? str(source['videoUrl']) ?? str(source['video_url']);
-        if (url && /^https?:\/\//i.test(url)) return url;
+        // An absolute http(s) URL, or a path on the media host itself (`/api/generate-video/content?...`).
+        if (url && (/^https?:\/\//i.test(url) || /^\/(?!\/)/.test(url))) return url;
     }
     return null;
 }
