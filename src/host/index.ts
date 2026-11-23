@@ -13,6 +13,15 @@ export { createPluginClient, isPluginDown, parseConnectionView, parseStatus } fr
 export type { PluginClient, PluginError, PluginErrorCode, PluginResult } from './plugin-client';
 export { createPluginAccount } from './plugin-account';
 export type { PluginAccount, SpendRange } from './plugin-account';
+export {
+    createPluginMgmt,
+    isMgmtPluginDown,
+    mgmtErrorOf,
+    parseManagedKey,
+    parseMgmtStatus,
+    parseModelPreset,
+} from './plugin-mgmt';
+export type { MgmtError, MgmtErrorKind, MgmtResult, PluginMgmt } from './plugin-mgmt';
 export { createProfilesHost, profileDrift, profileName } from './profiles';
 export type { ProfileResult, ProfileSpec, ProfilesHost } from './profiles';
 export { createSecretsHost } from './secrets';
