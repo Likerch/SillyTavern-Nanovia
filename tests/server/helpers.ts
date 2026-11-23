@@ -7,7 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import type { AddressInfo } from 'node:net';
 import express from 'express';
-import type { ConnectionView } from '../../src/shared/contracts';
+import type { CatalogModel, ConnectionView } from '../../src/shared/contracts';
 import { SECRET_KEY_CUSTOM, SECRET_KEY_NANOGPT } from '../../src/shared/constants';
 import { startNanovia, type Nanovia } from '../../src/server/app';
 import { defaultConfig, type ServerConfig } from '../../src/server/config';
@@ -208,6 +208,9 @@ export interface BootOptions {
     fetch?: FetchLike;
     /** Fixed clock for the plugin. */
     now?: () => number;
+    /** The catalog seam; absent = the catalog knows nothing. */
+    lookupModel?: (modelId: string) => CatalogModel | null;
+    providerSelection?: (modelId: string) => boolean | null;
 }
 
 export interface Harness {
@@ -257,6 +260,8 @@ export async function boot(options: BootOptions = {}): Promise<Harness> {
         log,
         steps: options.steps,
         now: options.now,
+        lookupModel: options.lookupModel,
+        providerSelection: options.providerSelection,
         version: '9.9.9-test',
     });
 

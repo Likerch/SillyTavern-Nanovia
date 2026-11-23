@@ -31,6 +31,8 @@ export interface ContextInit {
     connection: ConnectionConfig;
     key: SecretValue;
     model: CatalogModel | null;
+    /** Defaults to null (unknown). */
+    providerSelection?: boolean | null;
     hints: RequestHints;
     body: Record<string, unknown>;
     signal: AbortSignal;
@@ -53,6 +55,7 @@ export function createProxyContext(init: ContextInit): ProxyContext {
         connection,
         key: init.key,
         model: init.model,
+        providerSelection: init.providerSelection ?? null,
         hints: init.hints,
         body,
         stream: body['stream'] === true,
@@ -78,5 +81,6 @@ export function createProxyContext(init: ContextInit): ProxyContext {
             consumer: init.hints.consumer,
             error: null,
         },
+        resolved: null,
     };
 }

@@ -126,7 +126,8 @@ describe('proxy: chat completions, non-streamed', () => {
         expect(response.headers.get('x-nanovia-request-id')).toBe('up-123');
         const json: any = await response.json();
         expect(json.choices[0].message.content).toBe('ok');
-        expect(json.echo).toEqual(body);
+        // What the upstream saw is the plan: the body plus the usage flag and the effort the hook reported.
+        expect(json.echo).toEqual({ ...body, usage: { include: true }, reasoning: { effort: 'high' } });
 
         expect(upstream.requests).toHaveLength(1);
         const seen = upstream.requests[0]!;
@@ -178,7 +179,13 @@ describe('proxy: chat completions, non-streamed', () => {
             frequency_penalty: 0,
         });
         const sent = JSON.parse(upstream.requests[0]!.body);
-        expect(sent).toEqual({ model: 'glm-5', messages: MESSAGES, top_p: 0.9, frequency_penalty: 0 });
+        expect(sent).toEqual({
+            model: 'glm-5',
+            messages: MESSAGES,
+            top_p: 0.9,
+            frequency_penalty: 0,
+            usage: { include: true },
+        });
     });
 
     it('keeps the neutral samplers when the connection turns stripping off', async () => {
@@ -467,7 +474,7 @@ describe('proxy: streaming', () => {
             const r = h.usage();
             return r.length > 0 && r;
         });
-        expect(record).toMatchObject({ status: 499, error: 'client_closed', stream: true });
+        expect(record).toMatchObject({ status: 499, error: 'client_aborted', stream: true });
     });
 
     it('aborts the upstream request when the client leaves before the answer of a non-streamed call', async () => {

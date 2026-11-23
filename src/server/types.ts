@@ -1,5 +1,6 @@
 // Types of the server plugin: the router subset it needs, the SillyTavern services it injects, the proxy pipeline
 // (docs/ARCHITECTURE.md §4) and the dependencies handed to every route module. Contracts live in shared/.
+import type { ResolvedUsage } from '../domain/shim';
 import type { CatalogModel, ConnectionConfig, RequestHints, UpstreamPlan, UsageRecord } from '../shared/contracts';
 import type { CatalogService } from './catalog';
 import type { ServerConfig } from './config';
@@ -124,8 +125,10 @@ export interface ProxyContext {
     readonly connection: ConnectionConfig;
     /** The NanoGPT key. Opaque: it never serialises; only the upstream call reveals it. */
     readonly key: SecretValue;
-    /** The catalog entry of the model in use; null when the catalog does not know it (always null before stage 3). */
+    /** The catalog entry of the model in use; null when the catalog does not know it (or is not wired yet). */
     readonly model: CatalogModel | null;
+    /** `supportsProviderSelection` of that model; null when unknown (planUpstream treats that as true). */
+    readonly providerSelection: boolean | null;
     readonly hints: RequestHints;
     /** The request body as it came in. Do not mutate: write to `plan.body`. */
     readonly body: Readonly<Record<string, unknown>>;
@@ -141,6 +144,11 @@ export interface ProxyContext {
     responseHeaders: Record<string, string>;
     /** Filled by the proxy and by steps; appended to the usage log at the very end. */
     usage: UsageRecord;
+    /**
+     * What the response said about usage, cost and billing (domain/shim.ts), once known: set by the usage step for a
+     * whole body and by the stream shim for SSE. null: the response carried no usable usage.
+     */
+    resolved: ResolvedUsage | null;
 }
 
 /**
