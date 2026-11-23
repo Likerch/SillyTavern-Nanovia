@@ -1,103 +1,91 @@
 {
- "canonicalId": "TEE/glm-5.3",
- "displayName": "GLM 5.3 TEE",
- "supportsProviderSelection": true,
- "executionEnvironment": "tee",
- "defaultPrice": {
-  "inputPer1kTokens": 0.0014,
-  "outputPer1kTokens": 0.0044,
-  "cacheReadInputPer1kTokens": 0.00026
- },
- "autoTps": 40.7,
- "autoTtftMs": 4035,
- "autoCacheReadRate": 0.943,
- "providers": [
-  {
-   "provider": "redpill",
-   "displayName": "Redpill",
-   "pricing": {
-    "inputPer1kTokens": 0.00147,
-    "outputPer1kTokens": 0.004620000000000001,
-    "cacheReadInputPer1kTokens": 0.000273
-   },
-   "available": true,
-   "supportsPromptCaching": true,
-   "maxInputTokens": 1048576,
-   "maxOutputTokens": 131072,
-   "features": {
-    "toolCalling": false,
-    "structuredOutput": true,
-    "promptCaching": true,
-    "reasoningEfforts": [
-     "low",
-     "high",
-     "max"
-    ],
-    "reasoningAlwaysOn": true
-   },
-   "cacheReadRate": 0.9153,
-   "tps": 41.5,
-   "ttftMs": 4411,
-   "uptime": {
-    "uptimePct": 100,
-    "windowHours": 72
-   }
+  "canonicalId": "TEE/glm-5.3",
+  "displayName": "GLM 5.3 TEE",
+  "supportsProviderSelection": true,
+  "executionEnvironment": "tee",
+  "defaultPrice": {
+    "inputPer1kTokens": 0.0014,
+    "outputPer1kTokens": 0.0044,
+    "cacheReadInputPer1kTokens": 0.00026
   },
-  {
-   "provider": "aptos",
-   "displayName": "Aptos",
-   "pricing": {
-    "inputPer1kTokens": 0.00147,
-    "outputPer1kTokens": 0.004620000000000001,
-    "cacheReadInputPer1kTokens": 0.000273
-   },
-   "available": true,
-   "supportsPromptCaching": false,
-   "maxInputTokens": 1048576,
-   "maxOutputTokens": 131072,
-   "features": {
-    "toolCalling": true,
-    "structuredOutput": true,
-    "promptCaching": false,
-    "reasoningEfforts": [
-     "low",
-     "high",
-     "max"
-    ],
-    "reasoningAlwaysOn": true
-   },
-   "uptime": {
-    "windowHours": 72
-   }
-  },
-  {
-   "provider": "tinfoil",
-   "displayName": "Tinfoil",
-   "pricing": {
-    "inputPer1kTokens": 0.00189,
-    "outputPer1kTokens": 0.0060375,
-    "cacheReadInputPer1kTokens": 0.0004725
-   },
-   "available": true,
-   "supportsPromptCaching": true,
-   "maxInputTokens": 1048576,
-   "maxOutputTokens": 131072,
-   "features": {
-    "toolCalling": true,
-    "structuredOutput": true,
-    "promptCaching": true,
-    "reasoningEfforts": [
-     "low",
-     "high",
-     "max"
-    ],
-    "reasoningAlwaysOn": true
-   },
-   "cacheReadRate": 0.4937,
-   "uptime": {
-    "uptimePct": 99.41,
-    "windowHours": 72
-   }
-  }
- ]
+  "autoTps": 40.7,
+  "autoTtftMs": 4035,
+  "autoCacheReadRate": 0.943,
+  "providers": [
+    {
+      "provider": "redpill",
+      "displayName": "Redpill",
+      "pricing": {
+        "inputPer1kTokens": 0.00147,
+        "outputPer1kTokens": 0.004620000000000001,
+        "cacheReadInputPer1kTokens": 0.000273
+      },
+      "available": true,
+      "supportsPromptCaching": true,
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 131072,
+      "features": {
+        "toolCalling": false,
+        "structuredOutput": true,
+        "promptCaching": true,
+        "reasoningEfforts": ["low", "high", "max"],
+        "reasoningAlwaysOn": true
+      },
+      "cacheReadRate": 0.9153,
+      "tps": 41.5,
+      "ttftMs": 4411,
+      "uptime": {
+        "uptimePct": 100,
+        "windowHours": 72
+      }
+    },
+    {
+      "provider": "aptos",
+      "displayName": "Aptos",
+      "pricing": {
+        "inputPer1kTokens": 0.00147,
+        "outputPer1kTokens": 0.004620000000000001,
+        "cacheReadInputPer1kTokens": 0.000273
+      },
+      "available": true,
+      "supportsPromptCaching": false,
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 131072,
+      "features": {
+        "toolCalling": true,
+        "structuredOutput": true,
+        "promptCaching": false,
+        "reasoningEfforts": ["low", "high", "max"],
+        "reasoningAlwaysOn": true
+      },
+      "uptime": {
+        "windowHours": 72
+      }
+    },
+    {
+      "provider": "tinfoil",
+      "displayName": "Tinfoil",
+      "pricing": {
+        "inputPer1kTokens": 0.00189,
+        "outputPer1kTokens": 0.0060375,
+        "cacheReadInputPer1kTokens": 0.0004725
+      },
+      "available": true,
+      "supportsPromptCaching": true,
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 131072,
+      "features": {
+        "toolCalling": true,
+        "structuredOutput": true,
+        "promptCaching": true,
+        "reasoningEfforts": ["low", "high", "max"],
+        "reasoningAlwaysOn": true
+      },
+      "cacheReadRate": 0.4937,
+      "uptime": {
+        "uptimePct": 99.41,
+        "windowHours": 72
+      }
+    }
+  ]
 }

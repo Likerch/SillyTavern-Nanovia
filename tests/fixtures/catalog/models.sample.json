@@ -22,11 +22,7 @@
         "batch_api": true
       },
       "open_weights": true,
-      "reasoning_efforts": [
-        "low",
-        "high",
-        "max"
-      ],
+      "reasoning_efforts": ["low", "high", "max"],
       "pricing": {
         "prompt": 0.6,
         "completion": 1.1,
@@ -44,7 +40,38 @@
         "coreweave",
         "nebius",
         "relace",
-        "alibaba"
+        "alibaba",
+        "crusoe",
+        "sailresearch-standard",
+        "inceptron",
+        "decart",
+        "wafer",
+        "wafer-us",
+        "venice",
+        "fireworks",
+        "deepinfra",
+        "friendli",
+        "cloudflare",
+        "baseten",
+        "akash",
+        "modal",
+        "parasail",
+        "together",
+        "morph",
+        "siliconflow",
+        "baidu",
+        "sambanova",
+        "uomi",
+        "tensorix",
+        "neuralwatt",
+        "scx",
+        "scx-fast",
+        "kitani",
+        "ollama",
+        "pearl",
+        "runanywhere-fast",
+        "engy",
+        "mixlayer"
       ],
       "subscription": {
         "included": true,
@@ -73,11 +100,7 @@
         "batch_api": true
       },
       "open_weights": true,
-      "reasoning_efforts": [
-        "low",
-        "high",
-        "max"
-      ],
+      "reasoning_efforts": ["low", "high", "max"],
       "pricing": {
         "prompt": 1.25,
         "completion": 2.25,
@@ -87,11 +110,7 @@
       },
       "cost_estimate": 0.00225,
       "category": "Uncensored",
-      "providers": [
-        "arnict",
-        "heabsy",
-        "entrim"
-      ],
+      "providers": ["arnict", "heabsy", "entrim"],
       "subscription": {
         "included": false,
         "inputTokenMultiplier": 1,
@@ -145,10 +164,7 @@
         "discount_percentage": 0,
         "source": "provider_catalog"
       },
-      "providers": [
-        "cloudflare",
-        "greenference"
-      ],
+      "providers": ["cloudflare", "greenference"],
       "subscription": {
         "included": true,
         "inputTokenMultiplier": 1,
@@ -212,11 +228,7 @@
         "batch_api": false
       },
       "open_weights": true,
-      "reasoning_efforts": [
-        "low",
-        "high",
-        "max"
-      ],
+      "reasoning_efforts": ["low", "high", "max"],
       "pricing": {
         "prompt": 1.4,
         "completion": 4.4,
@@ -226,11 +238,7 @@
       },
       "cost_estimate": 0.0029,
       "category": "Private/TEE",
-      "providers": [
-        "redpill",
-        "aptos",
-        "tinfoil"
-      ],
+      "providers": ["redpill", "aptos", "tinfoil"],
       "subscription": {
         "included": false,
         "inputTokenMultiplier": 1,
@@ -298,12 +306,7 @@
         "batch_api": true
       },
       "open_weights": true,
-      "reasoning_efforts": [
-        "none",
-        "low",
-        "high",
-        "max"
-      ],
+      "reasoning_efforts": ["none", "low", "high", "max"],
       "pricing": {
         "prompt": 0.1,
         "completion": 0.6,
@@ -337,7 +340,41 @@
         "ambient",
         "pearl-research",
         "fiftyx",
-        "heabsy"
+        "heabsy",
+        "deepinfra",
+        "runinfra",
+        "tensorix",
+        "alibaba",
+        "parasail",
+        "wafer",
+        "cloudflare",
+        "deepseek",
+        "baseten",
+        "relace",
+        "primeintellect",
+        "crusoe",
+        "together",
+        "siliconflow",
+        "reka",
+        "baidu",
+        "modal",
+        "nebius",
+        "streamlake",
+        "venice",
+        "morph",
+        "sailresearch-standard",
+        "runware",
+        "uomi",
+        "scx",
+        "kitani",
+        "entrim",
+        "pearl",
+        "coralbricks",
+        "coralbricks-standard",
+        "munito",
+        "runanywhere",
+        "discretestack",
+        "openscale"
       ],
       "subscription": {
         "included": true,
@@ -366,12 +403,7 @@
         "batch_api": true
       },
       "open_weights": true,
-      "reasoning_efforts": [
-        "none",
-        "low",
-        "high",
-        "max"
-      ],
+      "reasoning_efforts": ["none", "low", "high", "max"],
       "pricing": {
         "prompt": 0.1,
         "completion": 0.6,
@@ -397,16 +429,7 @@
         "discount_percentage": 0,
         "source": "registry"
       },
-      "providers": [
-        "neuralwatt",
-        "inceptron",
-        "river",
-        "coreweave",
-        "ambient",
-        "pearl-research",
-        "fiftyx",
-        "heabsy"
-      ],
+      "providers": ["neuralwatt", "inceptron", "river", "coreweave", "ambient", "pearl-research", "fiftyx", "heabsy"],
       "subscription": {
         "included": true,
         "inputTokenMultiplier": 1,
@@ -434,12 +457,7 @@
         "batch_api": true
       },
       "open_weights": true,
-      "reasoning_efforts": [
-        "none",
-        "low",
-        "high",
-        "max"
-      ],
+      "reasoning_efforts": ["none", "low", "high", "max"],
       "pricing": {
         "prompt": 0.66,
         "completion": 2.5,
@@ -448,16 +466,7 @@
         "unit": "per_million_tokens"
       },
       "cost_estimate": 0.0053,
-      "providers": [
-        "deepseek",
-        "coreweave",
-        "deepinfra",
-        "siliconflow",
-        "baidu",
-        "baseten",
-        "together",
-        "parasail"
-      ],
+      "providers": ["deepseek", "coreweave", "deepinfra", "siliconflow", "baidu", "baseten", "together", "parasail"],
       "subscription": {
         "included": true,
         "inputTokenMultiplier": 2,
@@ -485,15 +494,7 @@
         "batch_api": true
       },
       "open_weights": true,
-      "reasoning_efforts": [
-        "none",
-        "minimal",
-        "low",
-        "medium",
-        "high",
-        "xhigh",
-        "max"
-      ],
+      "reasoning_efforts": ["none", "minimal", "low", "medium", "high", "xhigh", "max"],
       "pricing": {
         "prompt": 0.198,
         "completion": 0.792,
@@ -504,9 +505,7 @@
       },
       "cost_estimate": 0.000792,
       "category": "Uncensored",
-      "providers": [
-        "sable"
-      ],
+      "providers": ["sable"],
       "subscription": {
         "included": true,
         "inputTokenMultiplier": 1,
@@ -533,12 +532,7 @@
         "pdf_upload": false,
         "batch_api": false
       },
-      "reasoning_efforts": [
-        "none",
-        "low",
-        "high",
-        "max"
-      ],
+      "reasoning_efforts": ["none", "low", "high", "max"],
       "pricing": {
         "prompt": 3,
         "completion": 15,
@@ -548,9 +542,7 @@
       },
       "cost_estimate": 0.009,
       "category": "More",
-      "providers": [
-        "fireworks"
-      ],
+      "providers": ["fireworks"],
       "subscription": {
         "included": false,
         "inputTokenMultiplier": 1,
@@ -563,9 +555,7 @@
       "created": 1774828800,
       "owned_by": "qwen",
       "name": "Qwen3.5 Omni Flash",
-      "aliases": [
-        "qwen3.5-omni-flash"
-      ],
+      "aliases": ["qwen3.5-omni-flash"],
       "description": "Qwen3.5 Omni Flash is Qwen's fast multimodal model. We verified live support for text prompts, images, audio files, and direct video URLs on Alibaba's chat-completions-compatible API. Alibaba describes Flash as a fully evolved version of Qwen3 Omni with aud...",
       "context_length": 49152,
       "max_output_tokens": 16384,
@@ -681,15 +671,7 @@
         "batch_api": false
       },
       "open_weights": false,
-      "reasoning_efforts": [
-        "none",
-        "minimal",
-        "low",
-        "medium",
-        "high",
-        "xhigh",
-        "max"
-      ],
+      "reasoning_efforts": ["none", "minimal", "low", "medium", "high", "xhigh", "max"],
       "pricing": {
         "prompt": 0.25,
         "completion": 1,
@@ -726,10 +708,7 @@
         "batch_api": true
       },
       "open_weights": true,
-      "reasoning_efforts": [
-        "none",
-        "high"
-      ],
+      "reasoning_efforts": ["none", "high"],
       "pricing": {
         "prompt": 0.4,
         "completion": 1.5,
@@ -739,9 +718,7 @@
       },
       "cost_estimate": 0.0015,
       "category": "Uncensored",
-      "providers": [
-        "arliai"
-      ],
+      "providers": ["arliai"],
       "subscription": {
         "included": true,
         "inputTokenMultiplier": 1,
@@ -769,11 +746,7 @@
         "batch_api": true
       },
       "open_weights": true,
-      "reasoning_efforts": [
-        "none",
-        "low",
-        "high"
-      ],
+      "reasoning_efforts": ["none", "low", "high"],
       "pricing": {
         "prompt": 0.06,
         "completion": 0.15,
@@ -800,11 +773,7 @@
         "discount_percentage": 0,
         "source": "provider_catalog"
       },
-      "providers": [
-        "coreweave",
-        "deepinfra",
-        "kitani"
-      ],
+      "providers": ["coreweave", "deepinfra", "kitani"],
       "subscription": {
         "included": true,
         "inputTokenMultiplier": 1,
@@ -831,11 +800,7 @@
         "pdf_upload": false,
         "batch_api": false
       },
-      "reasoning_efforts": [
-        "high",
-        "xhigh",
-        "max"
-      ],
+      "reasoning_efforts": ["high", "xhigh", "max"],
       "pricing": {
         "prompt": 5,
         "completion": 30,
@@ -890,9 +855,7 @@
       },
       "cost_estimate": 0.000105,
       "category": "More",
-      "providers": [
-        "darkbloom"
-      ],
+      "providers": ["darkbloom"],
       "subscription": {
         "included": false,
         "inputTokenMultiplier": 1,
@@ -920,11 +883,7 @@
         "batch_api": true
       },
       "open_weights": true,
-      "reasoning_efforts": [
-        "low",
-        "high",
-        "max"
-      ],
+      "reasoning_efforts": ["low", "high", "max"],
       "pricing": {
         "prompt": 0.15,
         "completion": 0.5,
@@ -934,9 +893,7 @@
       },
       "cost_estimate": 0.0005,
       "category": "Uncensored",
-      "providers": [
-        "aoru"
-      ],
+      "providers": ["aoru"],
       "subscription": {
         "included": true,
         "inputTokenMultiplier": 1,
