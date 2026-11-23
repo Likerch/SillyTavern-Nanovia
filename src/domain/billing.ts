@@ -100,7 +100,10 @@ export function analyzeBilling(
 
     if (explicit) {
         const fields = routingFields(routing).join(', ');
-        reasons.push({ code: selectionIgnored ? 'routing.unsupportedByModel' : 'routing.explicit', params: { fields } });
+        reasons.push({
+            code: selectionIgnored ? 'routing.unsupportedByModel' : 'routing.explicit',
+            params: { fields },
+        });
     } else if (routing.enabled && routing.zdr && !selectionIgnored && !forced) {
         reasons.push({ code: 'routing.zdrOnly' });
     }
