@@ -31,7 +31,13 @@ export async function startMockStack(options: MockStackOptions = {}): Promise<Mo
     const h = await boot({
         ...options,
         lookupModel: options.lookupModel ?? (withCatalog ? (id) => models.get(id) ?? null : undefined),
-        config: { upstreamBase: `${origin}/api/v1`, upstreamFallbackBase: null, siteBase: origin, ...options.config },
+        config: {
+            upstreamBase: `${origin}/api/v1`,
+            upstreamFallbackBase: null,
+            siteBase: origin,
+            mgmtBase: `${origin}/api/management/v1`,
+            ...options.config,
+        },
     });
     h.st.addNanoKey('default-user', NANO_KEY, 'main');
     return {
