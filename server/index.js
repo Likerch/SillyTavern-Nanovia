@@ -1153,7 +1153,7 @@ function route(log, handler) {
 			await handler(req, res);
 		} catch (error) {
 			if (error instanceof HttpError) return sendError(res, error.status, error.code, error.message);
-			log.error(`admin route failed (${error instanceof Error ? error.name : "unknown error"})`);
+			log.error(`admin route failed (${error instanceof Error ? `${error.name}: ${error.message}` : "unknown error"})`);
 			sendError(res, 500, "internal_error", "Internal error");
 		}
 	};
