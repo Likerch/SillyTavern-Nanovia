@@ -1,5 +1,6 @@
 // What a feature receives (docs/ARCHITECTURE.md §5). Features never import app/; the App hands them this object.
 import type { Host, PluginClient, ProfilesHost, RequestHooks, SecretsHost } from '../host';
+import type { CatalogStore } from './catalog';
 import type { ConnectionsService } from './connections';
 import type { Bus, I18n, I18nParams, Logger, PanelApi, SettingsService } from './types';
 
@@ -13,6 +14,8 @@ export interface FeatureContext {
     plugin: PluginClient;
     /** The live list of connections and everything that changes it. */
     connections: ConnectionsService;
+    /** The model catalog as the browser knows it (an empty store until it is loaded). */
+    catalog: CatalogStore;
     /** Connection Manager profile host. */
     profiles: ProfilesHost;
     /** Write-only access to ST's secret store, for direct mode. */

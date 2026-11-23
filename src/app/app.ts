@@ -4,6 +4,7 @@ import { version as packageVersion } from '../../package.json';
 import { createBus } from '../core/bus';
 import { createConnectionsService } from '../core/connections';
 import type { ConnectionsService } from '../core/connections';
+import { createEmptyCatalogStore } from '../core/catalog';
 import type { Feature, FeatureContext } from '../core/context';
 import { createI18n, hostLocale } from '../core/i18n';
 import { ConsoleLogger, createLogger } from '../core/logger';
@@ -86,6 +87,8 @@ export async function startNanovia(options: StartOptions = {}): Promise<Runtime>
         log: log.scope('connections'),
     });
 
+    const catalog = createEmptyCatalogStore();
+
     // The panel hands the context to its tabs lazily and the context carries the panel: fill it in after both exist.
     const ctx = {} as FeatureContext;
     const panel = new SettingsPanel<FeatureContext>({
@@ -101,6 +104,7 @@ export async function startNanovia(options: StartOptions = {}): Promise<Runtime>
         settings,
         plugin,
         connections,
+        catalog,
         profiles,
         secrets,
         registerRequestHook: (hook) => requests.register(hook),

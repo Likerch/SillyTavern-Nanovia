@@ -1806,6 +1806,25 @@ function createConnectionsService(deps) {
 		}
 	};
 }
+// src/core/catalog.ts
+/** A store that knows nothing: the default until a real one is wired in. */
+function createEmptyCatalogStore() {
+	return {
+		models: () => [],
+		model: () => null,
+		providers: () => null,
+		ensureProviders: async () => null,
+		hints: () => [],
+		status: () => ({
+			loaded: false,
+			fetchedAt: null,
+			source: null,
+			error: null
+		}),
+		refresh: async () => {},
+		onChange: () => () => {}
+	};
+}
 // src/core/i18n.ts
 /**
 * Both dictionaries are bundled: every feature registers its parts on init, so the manifest needs no locale files and
@@ -3526,6 +3545,7 @@ async function startNanovia(options = {}) {
 		bus,
 		log: log.scope("connections")
 	});
+	const catalog = createEmptyCatalogStore();
 	const ctx = {};
 	const panel = new SettingsPanel({
 		i18n,
@@ -3540,6 +3560,7 @@ async function startNanovia(options = {}) {
 		settings,
 		plugin,
 		connections,
+		catalog,
 		profiles,
 		secrets,
 		registerRequestHook: (hook) => requests.register(hook),

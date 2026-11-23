@@ -1,6 +1,6 @@
 // Small types shared by the browser services (core), the UI and the features. Types only.
 import type { Logger, Unsubscribe } from '../host/types';
-import type { ApiStatus, ConnectionConfig } from '../shared/contracts';
+import type { ApiStatus, ConnectionConfig, UsageRecord } from '../shared/contracts';
 
 export type { Logger, Unsubscribe };
 
@@ -28,6 +28,10 @@ export interface NanoviaEvents {
     'connections:changed': { count: number };
     /** The plugin answered (or stopped answering) the last time we asked. */
     'plugin:status': { up: boolean; status: ApiStatus | null };
+    /** A request was seen (by the browser hook in direct mode, or read from the plugin). The usage store listens. */
+    'usage:record': { record: UsageRecord };
+    /** The catalog snapshot or a hosts entry changed. */
+    'catalog:changed': { count: number };
     /** A setting changed; `key` is the top-level key or '*'. */
     'settings:changed': { key: string };
 }

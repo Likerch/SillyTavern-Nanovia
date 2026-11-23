@@ -1,4 +1,5 @@
 // A real FeatureContext over the test harness (fake ST, fake plugin), for tests of tabs and features.
+import { createEmptyCatalogStore } from '../../src/core/catalog';
 import type { FeatureContext } from '../../src/core/context';
 import { createI18n } from '../../src/core/i18n';
 import type { Locale } from '../../src/core/types';
@@ -24,6 +25,7 @@ export function createContext(h: Harness, initial: Locale = 'en'): TestContext {
         settings: h.settings,
         plugin: h.plugin,
         connections: h.connections,
+        catalog: createEmptyCatalogStore(),
         profiles: h.profiles,
         secrets: h.secrets,
         registerRequestHook: () => () => {},
