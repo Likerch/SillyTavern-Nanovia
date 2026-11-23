@@ -78,6 +78,7 @@ export function createCatalogStore(deps: CatalogStoreDeps): CatalogStore {
     let failedAt: number | null = null;
     let triedStorage = false;
     let inflight: Promise<void> | null = null;
+    let inflightForced = false;
     const entries = new Map<string, ProvidersEntry>();
     const flights = new Map<string, Promise<ModelProvidersResponse | null>>();
     const listeners = new Set<() => void>();
@@ -230,7 +231,13 @@ export function createCatalogStore(deps: CatalogStoreDeps): CatalogStore {
     }
 
     function refresh(force = false): Promise<void> {
-        if (inflight) return inflight;
+        if (inflight) {
+            if (!force || inflightForced) return inflight;
+            // A forced refresh must not be swallowed by a flight that may do nothing (a fresh copy needs no fetch): it
+            // runs once that flight is over. Callers that arrive meanwhile join it in turn.
+            return inflight.then(() => refresh(true));
+        }
+        inflightForced = force;
         const running: Promise<void> = load(force)
             .catch((failure: unknown) => {
                 // load() reports its own failures; this is for a bug, which must not reach the UI as a rejection.
@@ -270,13 +277,15 @@ export function createCatalogStore(deps: CatalogStoreDeps): CatalogStore {
         return held?.value ?? null;
     }
 
-    async function ensureProviders(id: string): Promise<ModelProviders | null> {
+    async function ensureProviders(id: string, options?: { force?: boolean }): Promise<ModelProviders | null> {
         try {
             const key = providersKey(id);
             if (!key) return null;
             const held = touch(key);
-            if (held?.value && now() - held.fetchedAt < providersFreshMs) return held.value;
-            if (held?.failedAt != null && now() - held.failedAt < backoffMs) return held.value;
+            if (!options?.force) {
+                if (held?.value && now() - held.fetchedAt < providersFreshMs) return held.value;
+                if (held?.failedAt != null && now() - held.failedAt < backoffMs) return held.value;
+            }
             const running = flights.get(key);
             if (running) return await running;
             const flight: Promise<ModelProvidersResponse | null> = fetchProviders(key, held).finally(() => {

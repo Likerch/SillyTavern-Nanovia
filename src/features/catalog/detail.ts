@@ -270,7 +270,7 @@ export function renderDetail(host: HTMLElement, deps: DetailDeps): DetailHandle 
             if (hostsState === 'failed') {
                 hostsHost.append(
                     el('div', { class: 'nanovia-error-text', text: t('catalog.hosts.unavailable') }),
-                    button({ label: t('catalog.retry'), icon: 'rotate', onClick: () => loadHosts() }),
+                    button({ label: t('catalog.retry'), icon: 'rotate', onClick: () => loadHosts(true) }),
                 );
             } else {
                 hostsHost.appendChild(el('div', { class: 'nanovia-muted', text: t('catalog.hosts.loading') }));
@@ -307,10 +307,10 @@ export function renderDetail(host: HTMLElement, deps: DetailDeps): DetailHandle 
         drawTable(table);
     }
 
-    async function loadHosts(): Promise<void> {
+    async function loadHosts(force = false): Promise<void> {
         hostsState = 'loading';
         drawHosts();
-        const result = await ctx.catalog.ensureProviders(modelId);
+        const result = await ctx.catalog.ensureProviders(modelId, { force });
         if (disposed) return;
         hostsState = result ? 'ready' : 'failed';
         lastProviders = ctx.catalog.providers(modelId);

@@ -23,8 +23,11 @@ export interface CatalogStore {
     model(id: string): CatalogModel | null;
     /** Cached hosts of a model; null when not fetched yet (call `ensureProviders`). */
     providers(id: string): ModelProviders | null;
-    /** Fetches (or reuses) the hosts of a model; null when they cannot be had. Never throws. */
-    ensureProviders(id: string): Promise<ModelProviders | null>;
+    /**
+     * Fetches (or reuses) the hosts of a model; null when they cannot be had. Never throws. `force` skips the freshness
+     * window and the pause after a failure (for a retry button).
+     */
+    ensureProviders(id: string, options?: { force?: boolean }): Promise<ModelProviders | null>;
     /** Routing hints for a model with whatever host data is cached. */
     hints(id: string): RoutingHint[];
     status(): CatalogStatus;

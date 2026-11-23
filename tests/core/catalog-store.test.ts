@@ -82,7 +82,7 @@ describe('loading from the plugin', () => {
         const rig = createCatalogRig();
         let open!: () => void;
         rig.plugin.gate = new Promise<void>((resolve) => void (open = resolve));
-        const calls = [rig.store.refresh(), rig.store.refresh(), rig.store.refresh(true)];
+        const calls = [rig.store.refresh(), rig.store.refresh(), rig.store.refresh()];
         open();
         await Promise.all(calls);
         expect(rig.plugin.calls).toHaveLength(1);
@@ -91,6 +91,25 @@ describe('loading from the plugin', () => {
         rig.plugin.gate = null;
         await rig.store.refresh(true);
         expect(rig.plugin.calls).toHaveLength(2);
+    });
+
+    it('forced callers share a forced flight; a forced call during a plain one runs after it, not swallowed by it', async () => {
+        const rig = createCatalogRig();
+        let open!: () => void;
+        rig.plugin.gate = new Promise<void>((resolve) => void (open = resolve));
+        const plain = rig.store.refresh();
+        const forced = [rig.store.refresh(true), rig.store.refresh(true), rig.store.refresh()];
+        open();
+        await Promise.all([plain, ...forced]);
+        expect(rig.plugin.calls).toEqual(['GET /catalog', 'GET /catalog?refresh=1']);
+    });
+
+    it('a forced refresh right after a no-op refresh still fetches', async () => {
+        const rig = createCatalogRig();
+        await rig.store.refresh();
+        void rig.store.refresh();
+        await rig.store.refresh(true);
+        expect(rig.plugin.calls).toEqual(['GET /catalog', 'GET /catalog?refresh=1']);
     });
 
     it('keeps one snapshot object between changes so a render can compare by reference', async () => {
@@ -317,6 +336,19 @@ describe('host lists', () => {
         rig.clock.advance(31_000);
         await rig.store.ensureProviders('nobody/nothing');
         expect(rig.nano.providerHits('nobody/nothing')).toBe(2);
+    });
+
+    it('force skips the freshness window and the pause after a failure (the retry button)', async () => {
+        const rig = createCatalogRig();
+        await rig.store.ensureProviders(GLM);
+        await rig.store.ensureProviders(GLM, { force: true });
+        expect(providerCalls(rig.plugin.calls)).toHaveLength(2);
+        rig.plugin.up = false;
+        rig.nano.mode = 'down';
+        expect(await rig.store.ensureProviders(EMBER)).toBeNull();
+        rig.nano.mode = 'ok';
+        expect(await rig.store.ensureProviders(EMBER)).toBeNull();
+        expect((await rig.store.ensureProviders(EMBER, { force: true }))?.modelId).toBe(EMBER);
     });
 
     it('serves the old list when a refetch fails, and null when there never was one', async () => {
