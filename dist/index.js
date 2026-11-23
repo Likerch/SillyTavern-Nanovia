@@ -147,7 +147,7 @@ function createConnection(input, id, now) {
 }
 /** Applies a patch (already typed or raw) over a connection; unknown or invalid fields are ignored. */
 function mergeConnection(base, patch, now) {
-	const p = isRecord$5(patch) ? patch : {};
+	const p = isRecord$9(patch) ? patch : {};
 	const next = {
 		...base,
 		routing: {
@@ -158,19 +158,19 @@ function mergeConnection(base, patch, now) {
 		reasoning: { ...base.reasoning },
 		memory: { ...base.memory }
 	};
-	if (typeof p["name"] === "string" && p["name"].trim()) next.name = clip(p["name"].trim(), 80);
-	if (typeof p["modelId"] === "string" && p["modelId"].trim()) next.modelId = clip(p["modelId"].trim(), 200);
+	if (typeof p["name"] === "string" && p["name"].trim()) next.name = clip$1(p["name"].trim(), 80);
+	if (typeof p["modelId"] === "string" && p["modelId"].trim()) next.modelId = clip$1(p["modelId"].trim(), 200);
 	if (typeof p["modelLock"] === "boolean") next.modelLock = p["modelLock"];
 	if (isOneOf(MODES, p["mode"])) next.mode = p["mode"];
 	if (p["keyId"] === null) next.keyId = null;
-	else if (typeof p["keyId"] === "string" && p["keyId"].trim()) next.keyId = clip(p["keyId"].trim(), 100);
+	else if (typeof p["keyId"] === "string" && p["keyId"].trim()) next.keyId = clip$1(p["keyId"].trim(), 100);
 	if (isOneOf(BILLING, p["billing"])) next.billing = p["billing"];
 	if (typeof p["webSearch"] === "boolean") next.webSearch = p["webSearch"];
 	if (typeof p["stripNeutralSamplers"] === "boolean") next.stripNeutralSamplers = p["stripNeutralSamplers"];
-	if (typeof p["note"] === "string") next.note = clip(p["note"], 1e3);
-	if (isRecord$5(p["routing"])) next.routing = mergeRouting(next.routing, p["routing"]);
-	if (isRecord$5(p["reasoning"])) next.reasoning = mergeReasoning(next.reasoning, p["reasoning"]);
-	if (isRecord$5(p["memory"])) {
+	if (typeof p["note"] === "string") next.note = clip$1(p["note"], 1e3);
+	if (isRecord$9(p["routing"])) next.routing = mergeRouting(next.routing, p["routing"]);
+	if (isRecord$9(p["reasoning"])) next.reasoning = mergeReasoning(next.reasoning, p["reasoning"]);
+	if (isRecord$9(p["memory"])) {
 		const m = p["memory"];
 		if (typeof m["enabled"] === "boolean") next.memory.enabled = m["enabled"];
 		if (m["expirationDays"] === null) next.memory.expirationDays = null;
@@ -185,7 +185,7 @@ function mergeConnection(base, patch, now) {
 * model). Everything else falls back to defaults, so a hand-edited file never crashes the plugin.
 */
 function normalizeConnection(raw, now) {
-	if (!isRecord$5(raw)) return null;
+	if (!isRecord$9(raw)) return null;
 	const id = raw["id"];
 	const name = raw["name"];
 	const modelId = raw["modelId"];
@@ -210,18 +210,18 @@ function mergeRouting(base, p) {
 	if (Array.isArray(p["quantizations"])) next.quantizations = [...new Set(p["quantizations"].filter((q) => isOneOf(QUANTIZATIONS, q)))];
 	if (p["minQuantization"] === null) next.minQuantization = null;
 	else if (isOneOf(QUANTIZATIONS, p["minQuantization"])) next.minQuantization = p["minQuantization"];
-	if (isRecord$5(p["maxPrice"])) {
+	if (isRecord$9(p["maxPrice"])) {
 		const mp = p["maxPrice"];
-		if (mp["prompt"] === null || isPrice(mp["prompt"])) next.maxPrice.prompt = mp["prompt"];
-		if (mp["completion"] === null || isPrice(mp["completion"])) next.maxPrice.completion = mp["completion"];
+		if (mp["prompt"] === null || isPrice$1(mp["prompt"])) next.maxPrice.prompt = mp["prompt"];
+		if (mp["completion"] === null || isPrice$1(mp["completion"])) next.maxPrice.completion = mp["completion"];
 	}
 	if (typeof p["allowFallbacks"] === "boolean") next.allowFallbacks = p["allowFallbacks"];
 	if (typeof p["requireParameters"] === "boolean") next.requireParameters = p["requireParameters"];
 	if (typeof p["zdr"] === "boolean") next.zdr = p["zdr"];
-	if (p["preferredMaxLatency"] === null || isPrice(p["preferredMaxLatency"])) {
+	if (p["preferredMaxLatency"] === null || isPrice$1(p["preferredMaxLatency"])) {
 		if ("preferredMaxLatency" in p) next.preferredMaxLatency = p["preferredMaxLatency"];
 	}
-	if (p["preferredMinThroughput"] === null || isPrice(p["preferredMinThroughput"])) {
+	if (p["preferredMinThroughput"] === null || isPrice$1(p["preferredMinThroughput"])) {
 		if ("preferredMinThroughput" in p) next.preferredMinThroughput = p["preferredMinThroughput"];
 	}
 	if (typeof p["cachingRoute"] === "boolean") next.cachingRoute = p["cachingRoute"];
@@ -244,20 +244,20 @@ function ids(list) {
 	}
 	return out;
 }
-function isRecord$5(value) {
+function isRecord$9(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function isNumber(value) {
 	return typeof value === "number" && Number.isFinite(value);
 }
 /** A non-negative finite number (a price, a latency or a throughput). */
-function isPrice(value) {
+function isPrice$1(value) {
 	return isNumber(value) && value >= 0;
 }
 function isOneOf(list, value) {
 	return typeof value === "string" && list.includes(value);
 }
-function clip(value, max) {
+function clip$1(value, max) {
 	return value.length > max ? value.slice(0, max) : value;
 }
 function clamp(value, min, max) {
@@ -406,7 +406,7 @@ function isPluginDown(error) {
 var DEFAULT_TTL_MS = 5e3;
 var DEFAULT_TIMEOUT_MS = 1e4;
 var CHECK_TIMEOUT_MS = 3e4;
-function isRecord$4(value) {
+function isRecord$8(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function str(value) {
@@ -425,7 +425,7 @@ function invalid(what) {
 /** A connection of the wire as the browser uses it; null when it is not one. */
 function parseConnectionView(raw, now = Date.now()) {
 	const config = normalizeConnection(raw, now);
-	if (!config || !isRecord$4(raw)) return null;
+	if (!config || !isRecord$8(raw)) return null;
 	const proxyUrl = str(raw["proxyUrl"]);
 	const directUrl = str(raw["directUrl"]);
 	if (proxyUrl === null || directUrl === null) return null;
@@ -438,7 +438,7 @@ function parseConnectionView(raw, now = Date.now()) {
 	};
 }
 function parseStatus(raw) {
-	if (!isRecord$4(raw) || !isRecord$4(raw["proxy"])) return null;
+	if (!isRecord$8(raw) || !isRecord$8(raw["proxy"])) return null;
 	const proxy = raw["proxy"];
 	const version = str(raw["version"]);
 	const host = str(proxy["host"]);
@@ -457,7 +457,7 @@ function parseStatus(raw) {
 	};
 }
 function parseKey(raw) {
-	if (!isRecord$4(raw)) return null;
+	if (!isRecord$8(raw)) return null;
 	const id = str(raw["id"]);
 	if (!id) return null;
 	return {
@@ -468,7 +468,7 @@ function parseKey(raw) {
 	};
 }
 function parseKeyCheck(raw) {
-	if (!isRecord$4(raw) || typeof raw["ok"] !== "boolean") return null;
+	if (!isRecord$8(raw) || typeof raw["ok"] !== "boolean") return null;
 	return {
 		ok: raw["ok"],
 		usdBalance: str(raw["usdBalance"]),
@@ -537,7 +537,7 @@ function createPluginClient(deps) {
 				parsedOk = false;
 			}
 			if (!response.ok) {
-				const wire = isRecord$4(json) && isRecord$4(json["error"]) ? json["error"] : null;
+				const wire = isRecord$8(json) && isRecord$8(json["error"]) ? json["error"] : null;
 				const code = wire ? str(wire["code"]) : null;
 				const message = (wire ? str(wire["message"]) : null) ?? `HTTP ${response.status}`;
 				let resolved = code ?? `http_${response.status}`;
@@ -584,7 +584,7 @@ function createPluginClient(deps) {
 		};
 	}
 	function viewOf(data) {
-		return isRecord$4(data) ? parseConnectionView(data["connection"], now()) : null;
+		return isRecord$8(data) ? parseConnectionView(data["connection"], now()) : null;
 	}
 	const client = {
 		async status() {
@@ -609,7 +609,7 @@ function createPluginClient(deps) {
 		},
 		async listConnections() {
 			return map(await call("GET", "/connections"), (data) => {
-				if (!isRecord$4(data) || !Array.isArray(data["connections"])) return null;
+				if (!isRecord$8(data) || !Array.isArray(data["connections"])) return null;
 				const views = [];
 				for (const item of data["connections"]) {
 					const view = parseConnectionView(item, now());
@@ -637,7 +637,7 @@ function createPluginClient(deps) {
 		},
 		async listKeys() {
 			return map(await call("GET", "/keys"), (data) => {
-				if (!isRecord$4(data) || !Array.isArray(data["keys"])) return null;
+				if (!isRecord$8(data) || !Array.isArray(data["keys"])) return null;
 				return data["keys"].map(parseKey).filter((key) => key !== null);
 			}, "key list");
 		},
@@ -645,7 +645,7 @@ function createPluginClient(deps) {
 			return map(await call("POST", "/keys", {
 				label,
 				value
-			}), (data) => isRecord$4(data) ? parseKey(data["key"]) : null, "key");
+			}), (data) => isRecord$8(data) ? parseKey(data["key"]) : null, "key");
 		},
 		async deleteKey(id) {
 			const result = await call("DELETE", `/keys/${encodeURIComponent(id)}`);
@@ -682,13 +682,13 @@ function parseProxyUrl(value) {
 		port
 	};
 }
-function trimSlash(value) {
+function trimSlash$1(value) {
 	return value.replace(/\/+$/, "");
 }
 /** true when the URL is NanoGPT's API base (either host) or a path under it. */
 function isNanoGptUrl(value) {
 	if (typeof value !== "string" || !value) return false;
-	const url = trimSlash(value.trim()).toLowerCase();
+	const url = trimSlash$1(value.trim()).toLowerCase();
 	return [NANOGPT_API_BASE, NANOGPT_API_BASE_FALLBACK].some((base) => {
 		const lower = base.toLowerCase();
 		return url === lower || url.startsWith(`${lower}/`);
@@ -701,7 +701,7 @@ function profileName(name) {
 }
 var PROFILE_API = "custom";
 var CM_EXTENSION = "connection-manager";
-function isRecord$3(value) {
+function isRecord$7(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function escapeRegExp(text) {
@@ -738,7 +738,7 @@ function createProfilesHost(deps) {
 		if (!available()) return null;
 		const store = ctx().extensionSettings;
 		const value = store["connectionManager"];
-		if (isRecord$3(value) && Array.isArray(value["profiles"])) return value;
+		if (isRecord$7(value) && Array.isArray(value["profiles"])) return value;
 		if (!create) return null;
 		const fresh = {
 			profiles: [],
@@ -748,7 +748,7 @@ function createProfilesHost(deps) {
 		return fresh;
 	}
 	function valid(profile) {
-		return isRecord$3(profile) && typeof profile["id"] === "string";
+		return isRecord$7(profile) && typeof profile["id"] === "string";
 	}
 	/** CM renders its profile list once; rebuild it the way CM does so a new profile is selectable without a reload. */
 	function syncDropdown(settings) {
@@ -875,7 +875,7 @@ function createProfilesHost(deps) {
 	return host;
 }
 // src/host/secrets.ts
-function isRecord$2(value) {
+function isRecord$6(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function createSecretsHost(deps) {
@@ -895,12 +895,12 @@ function createSecretsHost(deps) {
 			const response = await post("/api/secrets/read");
 			if (!response.ok) return null;
 			const json = await response.json();
-			const list = isRecord$2(json) ? json[SECRET_KEY_CUSTOM] : null;
+			const list = isRecord$6(json) ? json[SECRET_KEY_CUSTOM] : null;
 			if (list === null || list === void 0) return [];
 			if (!Array.isArray(list)) return null;
 			const states = [];
 			for (const item of list) {
-				if (!isRecord$2(item) || typeof item["id"] !== "string") continue;
+				if (!isRecord$6(item) || typeof item["id"] !== "string") continue;
 				states.push({
 					id: item["id"],
 					label: typeof item["label"] === "string" ? item["label"] : "",
@@ -939,7 +939,7 @@ function createSecretsHost(deps) {
 					error: `HTTP ${response.status}`
 				};
 				const json = await response.json();
-				const written = isRecord$2(json) ? json["id"] : null;
+				const written = isRecord$6(json) ? json["id"] : null;
 				if (typeof written !== "string" || !written) return {
 					ok: false,
 					error: "no id in the answer"
@@ -990,7 +990,7 @@ function createSecretsHost(deps) {
 var KEY_LINE = /^(?:"((?:[^"\\]|\\.)*)"|'((?:[^']|'')*)'|([^\s#'"\-?:[\]{}&*!|>%@`,][^:#]*?|-[^\s:#][^:#]*?))[ \t]*:(?:[ \t]|$)/;
 var PLAIN_KEY = /^[A-Za-z_][A-Za-z0-9_.-]*$/;
 var RESERVED_KEY = /^(?:true|false|null|yes|no|on|off|y|n)$/i;
-function isRecord$1(value) {
+function isRecord$5(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function formatKey(key) {
@@ -1088,7 +1088,7 @@ function mergeJson(text, entries, fold) {
 			reason: "a flow collection that is not plain JSON"
 		};
 	}
-	if (isRecord$1(parsed)) {
+	if (isRecord$5(parsed)) {
 		const present = new Set(Object.keys(parsed).map(fold));
 		const { add, kept } = split(entries, (key) => present.has(fold(key)));
 		if (add.length === 0) return {
@@ -1106,7 +1106,7 @@ function mergeJson(text, entries, fold) {
 			kept
 		};
 	}
-	if (Array.isArray(parsed) && parsed.every(isRecord$1)) {
+	if (Array.isArray(parsed) && parsed.every(isRecord$5)) {
 		const present = new Set(parsed.flatMap((item) => Object.keys(item).map(fold)));
 		const { add, kept } = split(entries, (key) => present.has(fold(key)));
 		if (add.length === 0) return {
@@ -1132,7 +1132,7 @@ function mergeJson(text, entries, fold) {
 // src/host/fetch-hook.ts
 var GENERATE_PATH = "/api/backends/chat-completions/generate";
 var STATE_KEY = Symbol.for("nanovia.fetchHook");
-function isRecord(value) {
+function isRecord$4(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** Where a generate body goes and who sends it. Pure. */
@@ -1169,13 +1169,21 @@ function mergeInto(request, field, entries, ignoreCase) {
 	const result = mergeYamlEntries(typeof current === "string" ? current : "", entries, { ignoreCase });
 	if (!result.ok) {
 		request.log.debug(`${field} left alone: ${result.reason}`);
-		return;
+		return result;
 	}
 	if (result.added.length > 0) request.body[field] = result.text;
+	return result;
 }
-/** Adds headers through `custom_include_headers`; entries the user already set (any case) stay as they are. */
+/**
+* Adds headers through `custom_include_headers`; entries the user already set (any case) stay as they are. The result
+* says which entries were `added`, which `kept` (the user's own), or why nothing could be done.
+*/
 function addIncludeHeaders(request, headers) {
-	mergeInto(request, "custom_include_headers", headers, true);
+	return mergeInto(request, "custom_include_headers", headers, true);
+}
+/** Adds body fields through `custom_include_body`; fields the user already set stay as they are. Result as above. */
+function addIncludeBody(request, fields) {
+	return mergeInto(request, "custom_include_body", fields, false);
 }
 /** Proxy mode: tells the proxy what ST knew (effort, main/background, show-thoughts) through hint headers. */
 var proxyHintsHook = (request) => {
@@ -1185,11 +1193,6 @@ var proxyHintsHook = (request) => {
 	if (hints.effort) headers[HINT_HEADERS.effort] = hints.effort;
 	if (hints.thoughts) headers[HINT_HEADERS.thoughts] = "1";
 	addIncludeHeaders(request, headers);
-};
-/** Direct mode: stage 0.2 fills this with the plan of `planUpstream()` (body and headers through the include fields). */
-var directModeHook = (request) => {
-	if (request.target?.kind !== "direct") return;
-	request.log.debug("direct-mode request seen; planning arrives with stage 0.2");
 };
 function urlOf(input) {
 	if (typeof input === "string") return input;
@@ -1209,16 +1212,20 @@ function isGenerateUrl(raw, scope) {
 		return false;
 	}
 }
+var UNTOUCHED = {
+	init: void 0,
+	request: null
+};
 async function patchInit(state, scope, input, init) {
-	if (state.hooks.size === 0 || typeof init?.body !== "string") return void 0;
-	if (methodOf(input, init) !== "POST" || !isGenerateUrl(urlOf(input), scope)) return void 0;
+	if (state.hooks.size === 0 || typeof init?.body !== "string") return UNTOUCHED;
+	if (methodOf(input, init) !== "POST" || !isGenerateUrl(urlOf(input), scope)) return UNTOUCHED;
 	let body;
 	try {
 		body = JSON.parse(init.body);
 	} catch {
-		return;
+		return UNTOUCHED;
 	}
-	if (!isRecord(body)) return void 0;
+	if (!isRecord$4(body)) return UNTOUCHED;
 	const before = JSON.stringify(body);
 	const request = {
 		body,
@@ -1234,10 +1241,29 @@ async function patchInit(state, scope, input, init) {
 		}
 	}
 	const after = JSON.stringify(request.body);
-	return after === before ? void 0 : {
-		...init,
-		body: after
+	return {
+		init: after === before ? void 0 : {
+			...init,
+			body: after
+		},
+		request
 	};
+}
+/** Tells the observers about a response. Nothing an observer does (or throws) reaches the caller of fetch. */
+function notifyObservers(state, request, response, startedAt) {
+	for (const observer of [...state.observers]) {
+		if (!state.observers.has(observer)) continue;
+		try {
+			const result = observer({
+				request,
+				response,
+				startedAt
+			});
+			if (result instanceof Promise) result.catch((error) => state.log.debug("a response observer failed", error));
+		} catch (error) {
+			state.log.debug("a response observer failed", error);
+		}
+	}
 }
 /**
 * Wraps `scope.fetch` once. Calling it again while our wrapper is still in place returns a handle to the same wrapper
@@ -1256,18 +1282,25 @@ function installFetchHook(log, scope = globalThis) {
 		const created = {
 			original: holder.fetch,
 			hooks: /* @__PURE__ */ new Set(),
+			observers: /* @__PURE__ */ new Set(),
 			active: true,
 			log,
 			wrapper: void 0
 		};
 		created.wrapper = async (input, init) => {
 			let effective = init;
+			let hooked = null;
 			if (created.active) try {
-				effective = await patchInit(created, holder, input, init) ?? init;
+				const patched = await patchInit(created, holder, input, init);
+				effective = patched.init ?? init;
+				hooked = patched.request;
 			} catch (error) {
 				created.log.warn("request hooks failed; the request goes on as it was", error);
 			}
-			return created.original.call(scope, input, effective);
+			const startedAt = Date.now();
+			const response = await created.original.call(scope, input, effective);
+			if (hooked && created.active && created.observers.size > 0) notifyObservers(created, hooked, response, startedAt);
+			return response;
 		};
 		holder.fetch = created.wrapper;
 		holder[STATE_KEY] = created;
@@ -1280,13 +1313,1141 @@ function installFetchHook(log, scope = globalThis) {
 				state.hooks.delete(hook);
 			};
 		},
+		observe(observer) {
+			state.observers.add(observer);
+			return () => {
+				state.observers.delete(observer);
+			};
+		},
 		hookCount: () => state.hooks.size,
 		uninstall() {
 			state.hooks.clear();
+			state.observers.clear();
 			state.active = false;
 			if (holder.fetch === state.wrapper) holder.fetch = state.original;
 			if (holder[STATE_KEY] === state) delete holder[STATE_KEY];
 		}
+	};
+}
+// src/domain/routing.ts
+/**
+* Names (RoutingConfig keys) of the settings that select a provider or a route, in a fixed order. These are the
+* settings NanoGPT bills as an explicit provider selection (pay-as-you-go plus markup). `zdr` is not among them: it only
+* narrows the platform's own routing. Looks at the fields only; whether routing is enabled is the caller's question
+* (see hasExplicitRouting).
+*/
+function routingFields(r) {
+	const fields = [];
+	if (r.order.length > 0) fields.push("order");
+	if (r.only.length > 0) fields.push("only");
+	if (r.ignore.length > 0) fields.push("ignore");
+	if (r.sort !== "default") fields.push("sort");
+	if (r.quantizations.length > 0) fields.push("quantizations");
+	if (r.minQuantization !== null) fields.push("minQuantization");
+	if (isSet(r.maxPrice.prompt) || isSet(r.maxPrice.completion)) fields.push("maxPrice");
+	if (r.allowFallbacks === false) fields.push("allowFallbacks");
+	if (r.requireParameters) fields.push("requireParameters");
+	if (isSet(r.preferredMaxLatency)) fields.push("preferredMaxLatency");
+	if (isSet(r.preferredMinThroughput)) fields.push("preferredMinThroughput");
+	if (r.cachingRoute) fields.push("cachingRoute");
+	return fields;
+}
+/** True when routing is enabled and at least one setting of routingFields is in use. `zdr` alone is not explicit. */
+function hasExplicitRouting(r) {
+	return r.enabled && routingFields(r).length > 0;
+}
+/**
+* Maps the config to NanoGPT's `provider` object. null when routing is disabled or there is nothing to send. Provider
+* ids are lower-cased. `data_collection` is never emitted (NanoGPT refuses `deny`). `zdrOnly` keeps just `zdr`: the
+* only field that does not bypass the subscription.
+* `cachingRoute` is not part of `provider`: it is the top-level `caching: true` and is set by planUpstream.
+*/
+function buildProviderObject(r, opts) {
+	if (!r.enabled) return null;
+	const out = {};
+	if (!opts.zdrOnly) {
+		const order = normalizeIds(r.order);
+		const only = normalizeIds(r.only);
+		const ignore = normalizeIds(r.ignore);
+		if (order.length > 0) out["order"] = order;
+		if (only.length > 0) out["only"] = only;
+		if (ignore.length > 0) out["ignore"] = ignore;
+		if (r.sort !== "default") out["sort"] = r.sort;
+		if (r.quantizations.length > 0) out["quantizations"] = [...r.quantizations];
+		if (r.minQuantization !== null) out["min_quantization"] = r.minQuantization;
+		const maxPrice = {};
+		if (isSet(r.maxPrice.prompt)) maxPrice["prompt"] = r.maxPrice.prompt;
+		if (isSet(r.maxPrice.completion)) maxPrice["completion"] = r.maxPrice.completion;
+		if (Object.keys(maxPrice).length > 0) out["max_price"] = maxPrice;
+		if (r.allowFallbacks === false) out["allow_fallbacks"] = false;
+		if (r.requireParameters) out["require_parameters"] = true;
+	}
+	if (r.zdr) out["zdr"] = true;
+	if (!opts.zdrOnly) {
+		if (isSet(r.preferredMaxLatency)) out["preferred_max_latency"] = r.preferredMaxLatency;
+		if (isSet(r.preferredMinThroughput)) out["preferred_min_throughput"] = r.preferredMinThroughput;
+	}
+	return Object.keys(out).length > 0 ? out : null;
+}
+/**
+* Settings that look meaningful but do nothing, or conflict. Empty when routing is disabled (nothing is sent).
+* - `routing.preferenceNeedsSort`: preferred latency/throughput without a sort.
+* - `routing.onlyAndOrder`: `only` and `order` together (`only` already limits the candidates, `order` is redundant).
+*/
+function routingWarnings(r) {
+	if (!r.enabled) return [];
+	const warnings = [];
+	if ((isSet(r.preferredMaxLatency) || isSet(r.preferredMinThroughput)) && r.sort === "default") warnings.push({ code: "routing.preferenceNeedsSort" });
+	if (r.only.length > 0 && r.order.length > 0) warnings.push({ code: "routing.onlyAndOrder" });
+	return warnings;
+}
+function normalizeIds(list) {
+	const out = [];
+	for (const item of list) {
+		const id = item.trim().toLowerCase();
+		if (id && !out.includes(id)) out.push(id);
+	}
+	return out;
+}
+function isSet(value) {
+	return typeof value === "number" && Number.isFinite(value);
+}
+// src/domain/billing.ts
+/**
+* The routing a 'subscription' ("safe") connection really uses: every bypassing setting is reset to its neutral value,
+* `zdr` stays. `stripped` names what was removed (RoutingConfig keys). Nothing is stripped while routing is disabled
+* (it sends nothing). Does not look at `connection.billing`: callers apply it in safe mode, and a panel can call it to
+* offer "make this subscription-safe". `_model` is reserved for model-specific rules.
+*/
+function subscriptionSafeOverrides(connection, _model) {
+	const r = connection.routing;
+	const stripped = r.enabled ? routingFields(r) : [];
+	if (stripped.length === 0) return {
+		routing: cloneRouting$1(r),
+		stripped
+	};
+	return {
+		routing: {
+			...r,
+			order: [],
+			only: [],
+			ignore: [],
+			sort: "default",
+			quantizations: [],
+			minQuantization: null,
+			maxPrice: {
+				prompt: null,
+				completion: null
+			},
+			allowFallbacks: true,
+			requireParameters: false,
+			preferredMaxLatency: null,
+			preferredMinThroughput: null,
+			cachingRoute: false
+		},
+		stripped
+	};
+}
+/**
+* What this connection does to the billing of a request to `model` (null = not in the catalog).
+* `providerSelection` is ModelProviders.supportsProviderSelection: false means NanoGPT ignores routing for the model,
+* null means unknown (treated as true). `subscriptionSafe` speaks about settings only (nothing bypasses the
+* subscription and billing is not forced to pay-as-you-go); whether the model itself is covered is `outcome`.
+*/
+function analyzeBilling(connection, model, providerSelection) {
+	const forced = connection.billing === "paygo";
+	const safe = connection.billing === "subscription";
+	const { routing, stripped } = safe ? subscriptionSafeOverrides(connection, model) : {
+		routing: connection.routing,
+		stripped: []
+	};
+	const explicit = hasExplicitRouting(routing);
+	const selectionIgnored = providerSelection === false;
+	const bypass = explicit && !selectionIgnored;
+	const reasons = [];
+	if (forced) reasons.push({ code: "billing.forced" });
+	else if (model !== null && !model.subscription.included) {
+		reasons.push({
+			code: "model.notIncluded",
+			params: { model: model.id }
+		});
+		if (safe) reasons.push({
+			code: "billing.modelNotCoverable",
+			params: { model: model.id }
+		});
+	}
+	if (explicit) {
+		const fields = routingFields(routing).join(", ");
+		reasons.push({
+			code: selectionIgnored ? "routing.unsupportedByModel" : "routing.explicit",
+			params: { fields }
+		});
+	} else if (routing.enabled && routing.zdr && !selectionIgnored && !forced) reasons.push({ code: "routing.zdrOnly" });
+	if (connection.webSearch) reasons.push({ code: "search.billedSeparately" });
+	if (connection.memory.enabled) reasons.push({ code: "memory.billedSeparately" });
+	let outcome;
+	if (forced || bypass) outcome = "paygo";
+	else if (model === null) outcome = "unknown";
+	else outcome = model.subscription.included ? "subscription" : "paygo";
+	if (model !== null && outcome === "subscription" && model.subscription.inputTokenMultiplier > 1) reasons.push({
+		code: "subscription.multiplier",
+		params: { value: model.subscription.inputTokenMultiplier }
+	});
+	return {
+		outcome,
+		markupPercent: bypass ? 5 : 0,
+		subscriptionSafe: !forced && !bypass,
+		reasons,
+		stripped
+	};
+}
+function cloneRouting$1(r) {
+	return {
+		...r,
+		order: [...r.order],
+		only: [...r.only],
+		ignore: [...r.ignore],
+		quantizations: [...r.quantizations],
+		maxPrice: { ...r.maxPrice }
+	};
+}
+// src/domain/reasoning.ts
+/** The effort ladder, lowest first. The distance between two levels is the distance of their indices. */
+var EFFORT_ORDER = [
+	"none",
+	"minimal",
+	"low",
+	"medium",
+	"high",
+	"xhigh",
+	"max"
+];
+/** ST's effort vocabulary (and a few spellings seen in the wild) mapped to the ladder. */
+var HINT_VOCABULARY = /* @__PURE__ */ new Map([
+	["min", "none"],
+	["off", "none"],
+	["none", "none"],
+	["minimal", "minimal"],
+	["low", "low"],
+	["medium", "medium"],
+	["high", "high"],
+	["xhigh", "xhigh"],
+	["x-high", "xhigh"],
+	["extra-high", "xhigh"],
+	["max", "max"],
+	["auto", "auto"]
+]);
+/**
+* Normalises the effort a request carried (X-Nanovia-Effort or ST's `reasoning_effort`).
+* 'min'/'off'/'none' mean "no reasoning" and give 'none'; 'auto' stays 'auto' (the caller expressed no preference);
+* an empty or unknown value gives null.
+*/
+function normalizeEffortHint(hint) {
+	if (typeof hint !== "string") return null;
+	return HINT_VOCABULARY.get(hint.trim().toLowerCase()) ?? null;
+}
+/**
+* The supported level closest to `wanted` on the ladder none < minimal < low < medium < high < xhigh < max.
+* A tie goes to the lower level. Entries of `supported` that are not on the ladder are ignored; null when nothing
+* usable is left. `supported` may lack 'none'.
+*/
+function nearestEffort(wanted, supported) {
+	const target = EFFORT_ORDER.indexOf(wanted);
+	if (target < 0) return null;
+	let best = -1;
+	for (const level of supported) {
+		const index = ladderIndex(level);
+		if (index < 0) continue;
+		if (best < 0) {
+			best = index;
+			continue;
+		}
+		const distance = Math.abs(index - target);
+		const bestDistance = Math.abs(best - target);
+		if (distance < bestDistance || distance === bestDistance && index < best) best = index;
+	}
+	return best < 0 ? null : EFFORT_ORDER[best] ?? null;
+}
+/**
+* Decides what to put into the request's `reasoning` object.
+*
+* - policy 'default', or a model that is known not to reason: nothing (null, no warning).
+* - 'off': the model lists 'none' -> `{ effort: 'none' }`; it only lists other efforts (it always reasons) -> its lowest
+*   effort with the text excluded and the warning `reasoning.cannotDisable`; it has no efforts -> `{ enabled: false }`.
+* - 'fixed': `config.effort` mapped to a supported level (warning `reasoning.effortAdjusted` when it had to change);
+*   without an effort it behaves like 'default'.
+* - 'follow': the request's hint, normalised and mapped the same way; no (or 'auto') hint -> nothing, except for a
+*   'background' consumer, which then behaves as 'off'.
+* - A model that reasons but lists no efforts has no dial: 'none' becomes `{ enabled: false }`, anything else
+*   `{ enabled: true }`.
+* - An unknown model (null) gets the normalised effort as it is, with the warning `reasoning.modelUnknown`.
+* - `hideThoughts` adds `exclude: true` to every non-null result (so it has no effect while nothing is sent).
+*/
+function planReasoning(model, config, hints) {
+	const nothing = {
+		reasoning: null,
+		warnings: []
+	};
+	if (config.policy === "default") return nothing;
+	if (model !== null && !model.capabilities.reasoning) return nothing;
+	const warnings = [];
+	let params;
+	if (config.policy === "off") params = planOff(model, warnings);
+	else if (config.policy === "fixed") params = config.effort === null ? null : planWanted(model, config.effort, warnings);
+	else {
+		const hint = normalizeEffortHint(hints.effort);
+		if (hint !== null && hint !== "auto") params = planWanted(model, hint, warnings);
+		else params = hints.consumer === "background" ? planOff(model, warnings) : null;
+	}
+	if (params === null) return nothing;
+	if (config.hideThoughts) params.exclude = true;
+	return {
+		reasoning: params,
+		warnings
+	};
+}
+function planOff(model, warnings) {
+	if (model === null) {
+		warnings.push({ code: "reasoning.modelUnknown" });
+		return { effort: "none" };
+	}
+	const lowest = lowestEffort(model.reasoningEfforts);
+	if (lowest === null) return { enabled: false };
+	if (lowest === "none") return { effort: "none" };
+	warnings.push({
+		code: "reasoning.cannotDisable",
+		params: {
+			model: model.id,
+			efforts: model.reasoningEfforts.join(", ")
+		}
+	});
+	return {
+		effort: lowest,
+		exclude: true
+	};
+}
+function planWanted(model, wanted, warnings) {
+	if (model === null) {
+		warnings.push({ code: "reasoning.modelUnknown" });
+		return { effort: wanted };
+	}
+	const applied = nearestEffort(wanted, model.reasoningEfforts);
+	if (applied === null) return { enabled: wanted !== "none" };
+	if (applied !== wanted) warnings.push({
+		code: "reasoning.effortAdjusted",
+		params: {
+			requested: wanted,
+			applied
+		}
+	});
+	return { effort: applied };
+}
+function lowestEffort(supported) {
+	let best = -1;
+	for (const level of supported) {
+		const index = ladderIndex(level);
+		if (index >= 0 && (best < 0 || index < best)) best = index;
+	}
+	return best < 0 ? null : EFFORT_ORDER[best] ?? null;
+}
+function ladderIndex(level) {
+	return EFFORT_ORDER.indexOf(level.trim().toLowerCase());
+}
+// src/domain/upstream.ts
+/** Fields ST sends with a neutral value that some NanoGPT routes reject. */
+var NEUTRAL_SAMPLERS = [
+	["top_k", 0],
+	["top_a", 0],
+	["min_p", 0],
+	["repetition_penalty", 1]
+];
+function planUpstream(input) {
+	const { connection, hints } = input;
+	const body = structuredClone(input.body);
+	const safe = connection.billing === "subscription";
+	const model = withSuffixes(chooseModel(connection.modelLock, connection.modelId, body["model"]), connection);
+	body["model"] = model;
+	if (connection.stripNeutralSamplers) stripNeutralSamplers(body);
+	body["usage"] = {
+		...isRecord$3(body["usage"]) ? body["usage"] : {},
+		include: true
+	};
+	if (body["stream"] === true) body["stream_options"] = {
+		...isRecord$3(body["stream_options"]) ? body["stream_options"] : {},
+		include_usage: true
+	};
+	const reasoning = planReasoning(input.model, connection.reasoning, hints);
+	if (reasoning.reasoning !== null) {
+		body["reasoning"] = {
+			...isRecord$3(body["reasoning"]) ? body["reasoning"] : {},
+			...reasoning.reasoning
+		};
+		delete body["reasoning_effort"];
+	}
+	const routing = safe ? subscriptionSafeOverrides(connection, input.model).routing : connection.routing;
+	if (safe) {
+		delete body["caching"];
+		if (isRecord$3(body["provider"])) {
+			const zdr = body["provider"]["zdr"];
+			if (zdr === void 0) delete body["provider"];
+			else body["provider"] = { zdr };
+		}
+	}
+	const fixedRoute = input.providerSelection === false;
+	const provider = buildProviderObject(routing, { zdrOnly: fixedRoute });
+	if (provider !== null) body["provider"] = {
+		...isRecord$3(body["provider"]) ? body["provider"] : {},
+		...provider
+	};
+	if (!fixedRoute && routing.enabled && routing.cachingRoute) body["caching"] = true;
+	const headers = {};
+	if (connection.billing === "paygo") {
+		headers["X-Billing-Mode"] = "paygo";
+		body["billing_mode"] = "paygo";
+	}
+	const warnings = [...reasoning.warnings, ...routingWarnings(routing)];
+	return {
+		model,
+		body,
+		headers,
+		billing: analyzeBilling(connection, input.model, input.providerSelection),
+		warnings
+	};
+}
+/** The locked connection model, else the model of the request when it names one, else the connection's model. */
+function chooseModel(locked, connectionModel, requested) {
+	if (locked) return connectionModel;
+	if (typeof requested === "string" && requested.trim()) return requested.trim();
+	return connectionModel;
+}
+/** Appends `:online` and `:memory[-days]` unless the id already carries them. */
+function withSuffixes(modelId, connection) {
+	const segments = modelId.split(":").slice(1);
+	let id = modelId;
+	if (connection.webSearch && !segments.some((s) => s === "online" || s.startsWith("online/"))) id += ":online";
+	if (connection.memory.enabled && !segments.some((s) => /^memory(-\d+)?$/.test(s))) {
+		const days = connection.memory.expirationDays;
+		id += days !== null && Number.isFinite(days) && days >= 1 ? `:memory-${Math.trunc(days)}` : ":memory";
+	}
+	return id;
+}
+function stripNeutralSamplers(body) {
+	for (const [key, neutral] of NEUTRAL_SAMPLERS) if (body[key] === neutral) delete body[key];
+	const bias = body["logit_bias"];
+	if (isRecord$3(bias) && Object.keys(bias).length === 0) delete body["logit_bias"];
+}
+function isRecord$3(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+// src/domain/usage.ts
+function emptyUsage() {
+	return {
+		present: false,
+		promptTokens: null,
+		completionTokens: null,
+		totalTokens: null,
+		cachedTokens: null,
+		cacheWriteTokens: null,
+		reasoningTokens: null,
+		costUsd: null,
+		currency: null,
+		paidOtherCurrency: false,
+		estimated: false,
+		estimateUsd: null,
+		requestId: null
+	};
+}
+/**
+* Normalises usage. `raw` is a response body or SSE chunk (then `usage` and the top-level `x_nanogpt_pricing` are read)
+* or a bare usage object. Anything else gives an empty result.
+*
+* Cost rules: `usage.cost` (then `total_cost`) as a number or decimal string wins; negative, NaN or garbage counts as
+* absent. A currency other than USD makes the cost unusable as dollars (null) except an exact 0, which is 0 in any
+* currency; a missing currency means USD (the OpenRouter convention). Without a usable cost, `x_nanogpt_pricing.cost`
+* is the real cost only when the block says `isEstimate: false`; otherwise it is kept as `estimateUsd`.
+*/
+function normalizeUsage(raw) {
+	if (!isRecord$2(raw)) return emptyUsage();
+	const nested = raw["usage"];
+	if (nested !== void 0 && !isRecord$2(nested)) return emptyUsage();
+	const usage = isRecord$2(nested) ? nested : raw;
+	const pricingRaw = raw["x_nanogpt_pricing"] ?? usage["x_nanogpt_pricing"];
+	const pricing = isRecord$2(pricingRaw) ? pricingRaw : null;
+	const promptDetails = isRecord$2(usage["prompt_tokens_details"]) ? usage["prompt_tokens_details"] : {};
+	const completionDetails = isRecord$2(usage["completion_tokens_details"]) ? usage["completion_tokens_details"] : {};
+	const promptTokens = firstCount(usage["prompt_tokens"], usage["input_tokens"], pricing?.["inputTokens"]);
+	const completionTokens = firstCount(usage["completion_tokens"], usage["output_tokens"], pricing?.["outputTokens"]);
+	const totalTokens = firstCount(usage["total_tokens"]);
+	const cachedTokens = preferPositive(promptDetails["cached_tokens"], usage["cache_read_input_tokens"], usage["prompt_cache_hit_tokens"], pricing?.["cacheReadInputTokens"]);
+	const cacheWriteTokens = preferPositive(usage["cache_creation_input_tokens"], promptDetails["cache_write_tokens"], pricing?.["cacheCreationInputTokens"]);
+	const reasoningTokens = firstCount(completionDetails["reasoning_tokens"], usage["reasoning_tokens"]);
+	const currency = typeof usage["currency"] === "string" && usage["currency"].trim() ? usage["currency"].trim().toUpperCase() : null;
+	const dollars = currency === null || currency === "USD";
+	const reported = firstCost(usage["cost"], usage["total_cost"]);
+	let costUsd = null;
+	let paidOtherCurrency = false;
+	if (reported !== null) {
+		if (dollars || reported === 0) costUsd = reported;
+		else paidOtherCurrency = true;
+	}
+	const pricingCost = pricing ? firstCost(pricing["cost"]) : null;
+	let estimateUsd = null;
+	if (pricingCost !== null) {
+		if (reported === null && dollars && pricing?.["isEstimate"] === false) costUsd = pricingCost;
+		else estimateUsd = pricingCost;
+	}
+	const estimated = costUsd === null && !paidOtherCurrency && estimateUsd !== null;
+	const requestId = typeof pricing?.["requestId"] === "string" && pricing["requestId"].trim() ? pricing["requestId"].trim() : null;
+	const present = [
+		promptTokens,
+		completionTokens,
+		totalTokens,
+		cachedTokens,
+		cacheWriteTokens,
+		reasoningTokens,
+		reported,
+		pricingCost
+	].some((v) => v !== null);
+	if (!present) return emptyUsage();
+	return {
+		present,
+		promptTokens,
+		completionTokens,
+		totalTokens,
+		cachedTokens,
+		cacheWriteTokens,
+		reasoningTokens,
+		costUsd,
+		currency,
+		paidOtherCurrency,
+		estimated,
+		estimateUsd,
+		requestId
+	};
+}
+/** Rounds a USD amount to 1e-9 so sums of floats print cleanly (`0.1 + 0.2`). */
+function roundUsd(value) {
+	return Math.round(value * 1e9) / 1e9;
+}
+function isRecord$2(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+var DECIMAL = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/;
+/** A USD amount from a number or a decimal string; null for negatives, NaN, infinities and anything else. */
+function parseCost(value) {
+	let n;
+	if (typeof value === "number") n = value;
+	else if (typeof value === "string" && DECIMAL.test(value.trim())) n = Number(value.trim());
+	else return null;
+	if (!Number.isFinite(n) || n < 0) return null;
+	return n === 0 ? 0 : n;
+}
+/** A token count: a finite number that is not negative. */
+function parseCount(value) {
+	return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value === 0 ? 0 : value : null;
+}
+function firstCount(...values) {
+	for (const value of values) {
+		const n = parseCount(value);
+		if (n !== null) return n;
+	}
+	return null;
+}
+function firstCost(...values) {
+	for (const value of values) {
+		const n = parseCost(value);
+		if (n !== null) return n;
+	}
+	return null;
+}
+/** The first positive count, else the first valid count (a real 0), else null: one source saying 0 must not hide another. */
+function preferPositive(...values) {
+	let zero = null;
+	for (const value of values) {
+		const n = parseCount(value);
+		if (n === null) continue;
+		if (n > 0) return n;
+		zero = 0;
+	}
+	return zero;
+}
+// src/domain/cost.ts
+/**
+* What the request would cost at pay-as-you-go prices (USD): uncached prompt tokens at the prompt price, cached ones at
+* the cache-read price (the prompt price when the model has none), completion tokens at the completion price. Cache
+* writes are part of the prompt tokens and have no separate catalog price. With the model unknown the answer is NanoGPT's
+* own estimate (`x_nanogpt_pricing.cost`) when there is one, otherwise null; null too when no token count is known.
+*/
+function equivalentCostUsd(model, u) {
+	if (model) {
+		const priced = priceTokens(model, u);
+		if (priced !== null) return priced;
+	}
+	return u.estimateUsd;
+}
+function priceTokens(model, u) {
+	if (u.promptTokens === null && u.completionTokens === null) return null;
+	const { prompt, completion, cacheRead } = model.pricing;
+	if (!isPrice(prompt) || !isPrice(completion)) return null;
+	const promptTokens = u.promptTokens ?? 0;
+	const cached = Math.min(u.cachedTokens ?? 0, promptTokens);
+	const cachePrice = cacheRead !== null && isPrice(cacheRead) ? cacheRead : prompt;
+	return roundUsd(((promptTokens - cached) * prompt + cached * cachePrice + (u.completionTokens ?? 0) * completion) / 1e6);
+}
+function isPrice(value) {
+	return Number.isFinite(value) && value >= 0;
+}
+/**
+* Where the money for a request came from.
+* paygo: a cost above zero, a payment in another currency, or pay-as-you-go forced or implied by explicit routing.
+* subscription: the cost is exactly 0, the model is in the subscription and nothing forced pay-as-you-go.
+* unknown: everything else (no cost reported, an estimate only, a free or unknown model).
+*/
+function classifyBilling(args) {
+	const cost = args.estimated ? null : args.costUsd;
+	if (args.billingModeForced || args.explicitRouting) return "paygo";
+	if (cost !== null && cost > 0) return "paygo";
+	if (!args.estimated && args.paidOtherCurrency === true) return "paygo";
+	if (cost === 0 && args.model?.subscription.included === true) return "subscription";
+	return "unknown";
+}
+/**
+* Billing, real cost and equivalent of one request from its usage (null = the response had none). The equivalent falls
+* back to the real cost for a pay-as-you-go request whose model has no catalog price.
+*/
+function resolveCost(usage, ctx) {
+	if (!usage || !usage.present) return {
+		billing: classifyBilling({
+			model: ctx.model,
+			costUsd: null,
+			billingModeForced: ctx.billingModeForced,
+			explicitRouting: ctx.explicitRouting,
+			estimated: false
+		}),
+		costUsd: null,
+		equivalentUsd: null
+	};
+	const billing = classifyBilling({
+		model: ctx.model,
+		costUsd: usage.costUsd,
+		billingModeForced: ctx.billingModeForced,
+		explicitRouting: ctx.explicitRouting,
+		estimated: usage.estimated,
+		paidOtherCurrency: usage.paidOtherCurrency
+	});
+	const costUsd = billing === "subscription" ? 0 : usage.costUsd;
+	let equivalentUsd = equivalentCostUsd(ctx.model, usage);
+	if (equivalentUsd === null && billing === "paygo") equivalentUsd = costUsd;
+	return {
+		billing,
+		costUsd,
+		equivalentUsd
+	};
+}
+/**
+* The record written to `usage-YYYY-MM-DD.jsonl`. A failed request without usage is `unknown` with no cost (nothing
+* proves it was billed); token counts are null when the response did not report them.
+*/
+function buildUsageRecord(args) {
+	const failed = args.error !== null || args.status >= 400;
+	const hasUsage = args.usage !== null && args.usage.present;
+	const resolved = resolveCost(args.usage, args);
+	const usage = hasUsage ? args.usage : null;
+	return {
+		at: args.at,
+		connectionId: args.connectionId,
+		requestId: args.requestId ?? usage?.requestId ?? null,
+		model: args.modelId,
+		billing: failed && !hasUsage ? "unknown" : resolved.billing,
+		costUsd: resolved.costUsd,
+		equivalentUsd: resolved.equivalentUsd,
+		promptTokens: usage?.promptTokens ?? null,
+		completionTokens: usage?.completionTokens ?? null,
+		cachedTokens: usage?.cachedTokens ?? null,
+		reasoningTokens: usage?.reasoningTokens ?? null,
+		latencyMs: args.latencyMs,
+		status: args.status,
+		stream: args.stream,
+		consumer: args.consumer,
+		error: args.error
+	};
+}
+// src/domain/shim.ts
+/** Works out billing, cost and request id of a body or chunk; null when it carries no usable usage. */
+function resolveUsage(json, ctx) {
+	if (!isRecord$2(json) || !isRecord$2(json["usage"])) return null;
+	const usage = normalizeUsage(json);
+	if (!usage.present) return null;
+	return {
+		...resolveCost(usage, ctx),
+		usage,
+		requestId: ctx.requestId ?? usage.requestId
+	};
+}
+/**
+* Rewrites the `usage` of a response body. prompt_tokens, completion_tokens, total_tokens, prompt_tokens_details.cached_tokens
+* (and cache_write_tokens when known) and completion_tokens_details.reasoning_tokens are always numbers (0 when the upstream
+* did not report them, as OpenRouter does); `cost` is real USD, 0 for a subscription request, and is left out when the real
+* cost is unknown (never a guess); `currency` and `total_cost` are dropped so no foreign-currency figure can be mistaken for
+* dollars. `usage.nanovia` = { billing, equivalent_usd, request_id }. A body without a usable `usage` is returned as a copy
+* with nothing invented.
+*/
+function shimResponse(json, ctx) {
+	const resolved = resolveUsage(json, ctx);
+	const original = json["usage"];
+	if (!resolved || !isRecord$2(original)) return {
+		body: { ...json },
+		resolved: null
+	};
+	const { usage } = resolved;
+	const out = { ...original };
+	const prompt = usage.promptTokens ?? 0;
+	const completion = usage.completionTokens ?? 0;
+	out["prompt_tokens"] = prompt;
+	out["completion_tokens"] = completion;
+	out["total_tokens"] = usage.totalTokens ?? prompt + completion;
+	const promptDetails = {
+		...isRecord$2(original["prompt_tokens_details"]) ? original["prompt_tokens_details"] : {},
+		cached_tokens: usage.cachedTokens ?? 0
+	};
+	if (usage.cacheWriteTokens !== null) promptDetails["cache_write_tokens"] = usage.cacheWriteTokens;
+	out["prompt_tokens_details"] = promptDetails;
+	out["completion_tokens_details"] = {
+		...isRecord$2(original["completion_tokens_details"]) ? original["completion_tokens_details"] : {},
+		reasoning_tokens: usage.reasoningTokens ?? 0
+	};
+	delete out["total_cost"];
+	delete out["currency"];
+	if (resolved.costUsd !== null) out["cost"] = resolved.costUsd;
+	else delete out["cost"];
+	out["nanovia"] = {
+		billing: resolved.billing,
+		equivalent_usd: resolved.equivalentUsd,
+		request_id: resolved.requestId
+	};
+	return {
+		body: {
+			...json,
+			usage: out
+		},
+		resolved
+	};
+}
+/**
+* Rewrites the payload of one SSE `data:` field the same way. `[DONE]`, anything that is not a JSON object and every
+* chunk without a usable `usage` (including the `"usage": null` of ordinary chunks) come back as the same string.
+*/
+function shimSsePayload(data, ctx) {
+	const unchanged = {
+		data,
+		resolved: null
+	};
+	if (!data.includes("usage")) return unchanged;
+	let parsed;
+	try {
+		parsed = JSON.parse(data);
+	} catch {
+		return unchanged;
+	}
+	if (!isRecord$2(parsed)) return unchanged;
+	const { body, resolved } = shimResponse(parsed, ctx);
+	return resolved ? {
+		data: JSON.stringify(body),
+		resolved
+	} : unchanged;
+}
+// src/domain/sse.ts
+/**
+* Cuts a byte or text stream into SSE events. Every returned string is one event exactly as received, with its blank-line
+* terminator, so the concatenation of all returned strings plus nothing else is the input. Line ends may be LF, CRLF or CR
+* (a CR at the end of a chunk waits for the next one). Multi-byte UTF-8 split across chunks is decoded correctly (invalid
+* bytes become U+FFFD, a BOM stays as a character). Blank lines before the first field of an event travel with it.
+*/
+var SseSplitter = class {
+	decoder = new TextDecoder("utf-8", {
+		fatal: false,
+		ignoreBOM: true
+	});
+	/** Text of the event being collected (and any complete events not yet returned). */
+	buf = "";
+	/** Scan position inside `buf`; always the start of a line. */
+	pos = 0;
+	/** The event being collected already has a non-blank line. */
+	content = false;
+	/** Adds a chunk and returns the events that are now complete (in order, possibly none). */
+	feed(chunk) {
+		this.buf += typeof chunk === "string" ? chunk : this.decoder.decode(chunk, { stream: true });
+		return this.drain(false);
+	}
+	/** End of stream: returns what is left (an event the server never terminated) as one string, or nothing. */
+	flush() {
+		this.buf += this.decoder.decode();
+		const out = this.drain(true);
+		if (this.buf.length > 0) out.push(this.buf);
+		this.buf = "";
+		this.pos = 0;
+		this.content = false;
+		return out;
+	}
+	drain(final) {
+		const out = [];
+		const buf = this.buf;
+		let from = 0;
+		let pos = this.pos;
+		for (;;) {
+			const line = scanLine(buf, pos, final);
+			if (line === null) break;
+			const next = pos + line.length + line.terminator;
+			if (line.length > 0) this.content = true;
+			else if (this.content) {
+				out.push(buf.slice(from, next));
+				from = next;
+				this.content = false;
+			}
+			pos = next;
+		}
+		if (from > 0) this.buf = buf.slice(from);
+		this.pos = pos - from;
+		return out;
+	}
+};
+/** The line starting at `pos`: its length without the terminator and the terminator's length; null while it is incomplete. */
+function scanLine(buf, pos, final) {
+	for (let i = pos; i < buf.length; i++) {
+		const c = buf.charCodeAt(i);
+		if (c === 10) return {
+			length: i - pos,
+			terminator: 1
+		};
+		if (c === 13) {
+			if (i + 1 < buf.length) return {
+				length: i - pos,
+				terminator: buf.charCodeAt(i + 1) === 10 ? 2 : 1
+			};
+			return final ? {
+				length: i - pos,
+				terminator: 1
+			} : null;
+		}
+	}
+	return null;
+}
+var DATA_LINE = new RegExp(`^(${String.fromCharCode(65279)}?data:)( ?)([\\s\\S]*)$`);
+/**
+* Rewrites one raw event (as the splitter returns it) when its `data` field is a JSON chunk with usage. Comments, `event:`,
+* `id:` and `retry:` lines, line endings and the blank-line terminator are kept; a multi-line `data` field (joined with
+* newlines, as the SSE rules say) becomes one line. Events without usage, `[DONE]` and non-JSON data are returned untouched.
+*/
+function rewriteSseEvent(rawEvent, ctx) {
+	const unchanged = {
+		text: rawEvent,
+		resolved: null
+	};
+	if (!rawEvent.includes("usage")) return unchanged;
+	const lines = splitLines(rawEvent);
+	const dataLines = [];
+	lines.forEach((line, index) => {
+		const match = DATA_LINE.exec(line.text);
+		if (match) dataLines.push({
+			index,
+			match
+		});
+	});
+	const first = dataLines[0];
+	if (!first) return unchanged;
+	const { data, resolved } = shimSsePayload(dataLines.map((d) => d.match[3] ?? "").join("\n"), ctx);
+	if (!resolved) return unchanged;
+	const drop = new Set(dataLines.slice(1).map((d) => d.index));
+	let text = "";
+	lines.forEach((line, index) => {
+		if (drop.has(index)) return;
+		text += (index === first.index ? `${first.match[1]}${first.match[2]}${data}` : line.text) + line.end;
+	});
+	return {
+		text,
+		resolved
+	};
+}
+function splitLines(raw) {
+	const lines = [];
+	let start = 0;
+	while (start < raw.length) {
+		let i = start;
+		while (i < raw.length && raw.charCodeAt(i) !== 10 && raw.charCodeAt(i) !== 13) i++;
+		let end = "";
+		if (i < raw.length) end = raw.charCodeAt(i) === 13 && raw.charCodeAt(i + 1) === 10 ? "\r\n" : raw.charAt(i);
+		lines.push({
+			text: raw.slice(start, i),
+			end
+		});
+		start = i + end.length;
+	}
+	return lines;
+}
+// src/host/usage-tap.ts
+/** The longest error text kept in a record. */
+var MAX_ERROR_LENGTH = 300;
+function isRecord$1(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function clip(text) {
+	const flat = text.replace(/\s+/g, " ").trim();
+	return flat.length > MAX_ERROR_LENGTH ? `${flat.slice(0, MAX_ERROR_LENGTH)}…` : flat;
+}
+/** The message of an OpenAI-style error body (`{ error: { message } }` or `{ error: "…" }`); null when it is none. */
+function errorOf(json) {
+	if (!isRecord$1(json)) return null;
+	const error = json["error"];
+	if (typeof error === "string" && error) return clip(error);
+	if (isRecord$1(error)) {
+		for (const key of [
+			"message",
+			"code",
+			"type"
+		]) {
+			const value = error[key];
+			if (typeof value === "string" && value) return clip(value);
+		}
+		return "error";
+	}
+	return null;
+}
+function parseJson(text) {
+	try {
+		return JSON.parse(text);
+	} catch {
+		return;
+	}
+}
+/** The `data:` lines of one raw SSE event are handled by rewriteSseEvent; this only asks whether it can carry usage. */
+function mayCarryUsage(event) {
+	return event.includes("usage") || event.includes("x_nanogpt_pricing");
+}
+function headerOf(response, name) {
+	try {
+		const value = response.headers.get(name);
+		return value && value.trim() ? value.trim() : null;
+	} catch {
+		return null;
+	}
+}
+async function readJson(clone, ctx) {
+	const json = parseJson(await clone.text());
+	return {
+		usage: resolveUsage(json, ctx)?.usage ?? null,
+		error: errorOf(json)
+	};
+}
+async function readStream(clone, ctx) {
+	const reader = clone.body?.getReader();
+	if (!reader) return {
+		usage: null,
+		error: null
+	};
+	const splitter = new SseSplitter();
+	let latest = null;
+	let error = null;
+	const take = (events) => {
+		for (const event of events) {
+			if (!mayCarryUsage(event)) continue;
+			const resolved = rewriteSseEvent(event, ctx).resolved;
+			if (resolved) latest = resolved.usage;
+		}
+	};
+	try {
+		for (;;) {
+			const { done, value } = await reader.read();
+			if (done) break;
+			take(splitter.feed(value));
+		}
+		take(splitter.flush());
+	} catch (cause) {
+		take(splitter.flush());
+		error = cause instanceof Error && cause.name === "AbortError" ? "client_aborted" : "stream_error";
+	}
+	return {
+		usage: latest,
+		error
+	};
+}
+/** The Response of a stream: server-sent events. */
+function isEventStream(contentType) {
+	return contentType.toLowerCase().includes("text/event-stream");
+}
+/**
+* Observes one response and emits its UsageRecord. Resolves when the whole body has been read (a stream: when it ended);
+* never rejects. The `clone()` happens before the first `await`, so it is taken before ST can start reading.
+*/
+async function tapUsage(args) {
+	try {
+		const { response, info } = args;
+		const clone = response.clone();
+		const status = response.status;
+		const requestId = headerOf(response, "x-request-id");
+		const contentType = headerOf(response, "content-type") ?? "";
+		const shim = {
+			model: args.model,
+			billingModeForced: info.billingModeForced,
+			explicitRouting: info.explicitRouting,
+			requestId
+		};
+		let outcome;
+		let stream = args.stream;
+		if (!response.ok) {
+			const text = await clone.text();
+			outcome = {
+				usage: null,
+				error: errorOf(parseJson(text)) ?? (clip(text) || `http_${status}`)
+			};
+		} else if (isEventStream(contentType) || args.stream && !contentType.toLowerCase().includes("json")) {
+			stream = true;
+			outcome = await readStream(clone, shim);
+		} else {
+			stream = false;
+			outcome = await readJson(clone, shim);
+		}
+		const record = buildUsageRecord({
+			at: args.startedAt,
+			connectionId: info.connectionId,
+			modelId: info.modelId,
+			model: args.model,
+			billingModeForced: info.billingModeForced,
+			explicitRouting: info.explicitRouting,
+			usage: outcome.usage,
+			requestId,
+			latencyMs: Math.max(0, args.now() - args.startedAt),
+			status,
+			stream,
+			consumer: args.consumer,
+			error: outcome.error
+		});
+		args.emit(record);
+	} catch (error) {
+		args.log.debug("the usage tap failed; no record was written", error);
+	}
+}
+// src/host/direct-mode.ts
+function isRecord(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function trimSlash(value) {
+	return value.replace(/\/+$/, "").toLowerCase();
+}
+var NANOGPT_BASES = [NANOGPT_API_BASE, NANOGPT_API_BASE_FALLBACK].map(trimSlash);
+/**
+* The connection a request to NanoGPT belongs to, or null (the request is somebody else's and stays as it is).
+* 1. The `secret_id` of the request is the direct key of exactly one connection.
+* 2. No secret id came along, `custom_url` is the NanoGPT base itself, and exactly one connection that runs direct has the
+*    requested model as its model. A secret id that is not ours always means "not ours": a user's own NanoGPT profile.
+*/
+function matchDirectConnection(request, connections, directSecrets) {
+	if (request.secretId) {
+		for (const [connectionId, secretId] of Object.entries(directSecrets)) {
+			if (secretId !== request.secretId) continue;
+			const found = connections.find((ref) => ref.config.id === connectionId);
+			if (found) return found.config;
+		}
+		return null;
+	}
+	const url = request.body["custom_url"];
+	if (typeof url !== "string" || !NANOGPT_BASES.includes(trimSlash(url.trim()))) return null;
+	const model = request.body["model"];
+	if (typeof model !== "string" || !model.trim()) return null;
+	const matches = connections.filter((ref) => ref.effectiveMode === "direct" && ref.config.modelId === model.trim());
+	return matches.length === 1 ? matches[0]?.config ?? null : null;
+}
+/** Same JSON value (key order does not matter). */
+function sameValue(a, b) {
+	if (a === b) return true;
+	if (Array.isArray(a)) return Array.isArray(b) && a.length === b.length && a.every((item, index) => sameValue(item, b[index]));
+	if (isRecord(a) && isRecord(b)) {
+		const keys = Object.keys(a);
+		return keys.length === Object.keys(b).length && keys.every((key) => key in b && sameValue(a[key], b[key]));
+	}
+	return false;
+}
+/** What separates the planned body from the body ST built. Pure. */
+function planDifference(original, planned) {
+	const set = {};
+	for (const [key, value] of Object.entries(planned)) if (!(key in original) || !sameValue(original[key], value)) set[key] = value;
+	return {
+		set,
+		remove: Object.keys(original).filter((key) => !(key in planned))
+	};
+}
+/** Runs planUpstream for a request of a connection, with what the catalog knows. */
+function planDirectRequest(deps, connection, request) {
+	const hints = hintsOf(request);
+	const sent = planUpstream({
+		connection,
+		model: null,
+		body: { model: request.body["model"] },
+		hints,
+		providerSelection: null
+	}).model;
+	const model = deps.model(sent);
+	const selection = deps.providers(model?.id ?? sent)?.supportsProviderSelection ?? null;
+	return {
+		plan: planUpstream({
+			connection,
+			model,
+			body: request.body,
+			hints,
+			providerSelection: selection
+		}),
+		hints,
+		model
+	};
+}
+/** Writes a plan into the request: the difference through the include fields, the dropped fields removed. */
+function applyPlan(request, plan) {
+	const { set, remove } = planDifference(request.body, plan.body);
+	for (const key of remove) delete request.body[key];
+	if (Object.keys(set).length > 0) {
+		const result = addIncludeBody(request, set);
+		if (result.ok && result.kept.length > 0) request.log.debug(`custom_include_body already sets ${result.kept.join(", ")}; the user's value stays`);
+	}
+	if (Object.keys(plan.headers).length > 0) addIncludeHeaders(request, plan.headers);
+}
+/** The two halves of direct mode: the request hook (plan) and the response observer (usage tap). */
+function createDirectMode(deps) {
+	const now = deps.now ?? Date.now;
+	const hook = (request) => {
+		if (request.target?.kind !== "direct") return;
+		const connection = matchDirectConnection(request, deps.connections(), deps.directSecrets());
+		if (!connection) {
+			request.log.debug("a request to NanoGPT that is not a Nanovia direct connection; left alone");
+			return;
+		}
+		const { plan, model } = planDirectRequest(deps, connection, request);
+		applyPlan(request, plan);
+		request.direct = {
+			connectionId: connection.id,
+			modelId: plan.model,
+			billingModeForced: connection.billing === "paygo",
+			explicitRouting: plan.billing.reasons.some((reason) => reason.code === "routing.explicit")
+		};
+		const warnings = plan.warnings.map((warning) => warning.code);
+		request.log.debug(`direct plan for ${connection.id}: ${plan.model}, ${plan.billing.outcome}` + (model ? "" : ", model not in the catalog") + (warnings.length > 0 ? `, warnings: ${warnings.join(", ")}` : ""));
+	};
+	const observer = ({ request, response, startedAt }) => {
+		const info = request.direct;
+		if (!info) return;
+		tapUsage({
+			response,
+			info,
+			consumer: request.consumer,
+			stream: request.body["stream"] === true,
+			startedAt,
+			now,
+			model: deps.model(info.modelId),
+			emit: deps.emit,
+			log: deps.log
+		});
+	};
+	return {
+		hook,
+		observer
 	};
 }
 // src/host/index.ts
@@ -1365,7 +2526,7 @@ function configOf(view) {
 	return config;
 }
 /** A config as a patch for the plugin: everything it lets the browser set. */
-function patchOf(config) {
+function patchOf$1(config) {
 	const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...patch } = config;
 	return patch;
 }
@@ -1527,7 +2688,7 @@ function createConnectionsService(deps) {
 				continue;
 			}
 			if (views.get(id)) {
-				const result = await plugin.updateConnection(id, patchOf(local));
+				const result = await plugin.updateConnection(id, patchOf$1(local));
 				if (result.ok) {
 					views.set(id, result.data);
 					setPending(id, false);
@@ -1640,7 +2801,7 @@ function createConnectionsService(deps) {
 		const onPlugin = existing?.view != null;
 		const mayBeOnPlugin = modeAfter !== "direct" || existing !== null && existing.config.mode !== "direct";
 		if (pluginUp && (modeAfter !== "direct" || onPlugin)) {
-			const result = onPlugin ? await plugin.updateConnection(draft.id, patchOf(draft)) : await plugin.createConnection({ ...draft });
+			const result = onPlugin ? await plugin.updateConnection(draft.id, patchOf$1(draft)) : await plugin.createConnection({ ...draft });
 			if (!result.ok) {
 				await undoKey();
 				return pluginFailure(result.error);
@@ -2758,12 +3919,12 @@ var CONNECTION_MODES = [
 	"plugin",
 	"direct"
 ];
-var BILLING_MODES = [
+var BILLING_MODES$1 = [
 	"auto",
 	"subscription",
 	"paygo"
 ];
-var REASONING_POLICIES = [
+var REASONING_POLICIES$1 = [
 	"follow",
 	"fixed",
 	"off",
@@ -3023,7 +4184,7 @@ function renderConnectionForm(deps) {
 		}
 	}));
 	modeRow.appendChild(modeHint);
-	const billingOptions = BILLING_MODES.map((value) => ({
+	const billingOptions = BILLING_MODES$1.map((value) => ({
 		value,
 		label: t(`connections.billing.${value}`)
 	}));
@@ -3038,7 +4199,7 @@ function renderConnectionForm(deps) {
 		}
 	}));
 	billingRow.appendChild(billingHint);
-	const policyOptions = REASONING_POLICIES.map((value) => ({
+	const policyOptions = REASONING_POLICIES$1.map((value) => ({
 		value,
 		label: t(`connections.reasoning.${value}`)
 	}));
@@ -3441,8 +4602,8 @@ function renderConnectionsTab(root, ctx) {
 // src/features/connections/index.ts
 var CONNECTIONS_FEATURE_ID = "connections";
 var CONNECTIONS_TAB_ID = "connections";
-// src/features/index.ts
-var FEATURES = [{
+/** Tab «Connections»: the plugin status, the connections and their Connection Manager profiles. */
+var connectionsFeature = {
 	id: CONNECTIONS_FEATURE_ID,
 	init(ctx) {
 		ctx.i18n.register(CONNECTIONS_STRINGS);
@@ -3453,7 +4614,1809 @@ var FEATURES = [{
 			render: (root, tabCtx) => renderConnectionsTab(root, tabCtx)
 		});
 	}
-}];
+};
+// src/features/keys/strings.ts
+var KEYS_STRINGS = {
+	en: {
+		"keys.tab": "Keys",
+		"keys.title": "NanoGPT keys",
+		"keys.refresh": "Refresh",
+		"keys.notice.refreshed": "Refreshed.",
+		"keys.loading": "Loading the keys…",
+		"keys.none": "There is no NanoGPT key yet. Without one the plugin cannot reach NanoGPT: add your key below.",
+		"keys.active": "Active",
+		"keys.active.hint": "Connections that name no key use this one.",
+		"keys.usedBy": "Used by: {names}",
+		"keys.usedBy.byDefault": "{name} (by default)",
+		"keys.unused": "No connection uses this key.",
+		"keys.action.check": "Check balance",
+		"keys.action.check.hint": "Asks NanoGPT what is left on this key.",
+		"keys.action.delete": "Delete",
+		"keys.check.running": "Checking…",
+		"keys.check.ok": "Balance: {balance}",
+		"keys.check.okNoBalance": "The key works; NanoGPT did not report a balance.",
+		"keys.check.failed": "The check failed: {reason}",
+		"keys.check.unknown": "no reason given",
+		"keys.confirm.title": "Delete key",
+		"keys.confirm.delete": "Delete the key \"{name}\" from SillyTavern’s secret store? This cannot be undone.",
+		"keys.confirm.deleteUsed": "{count} connection(s) use it and will need another key.",
+		"keys.delete.done": "Key deleted.",
+		"keys.delete.failed": "The key was not deleted: {message}",
+		"keys.add.title": "Add a key",
+		"keys.add.name": "Key name",
+		"keys.add.value": "Paste the key here",
+		"keys.add.save": "Save key",
+		"keys.add.hint": "The key goes to the plugin once and is never shown again, only its last characters.",
+		"keys.add.defaultLabel": "NanoGPT key",
+		"keys.add.empty": "Paste a key first.",
+		"keys.add.added": "Key added.",
+		"keys.add.failed": "The key was not added: {message}",
+		"keys.down.title": "Plugin is not answering",
+		"keys.down.hint": "Keys live in the Nanovia plugin. In direct mode a connection keeps its own key (set it in the Connections tab); the keys here are for connections that go through the plugin.",
+		"keys.down.not_installed": "SillyTavern does not know the Nanovia plugin: it is not installed or not enabled.",
+		"keys.down.unreachable": "There was no answer from the SillyTavern server.",
+		"keys.down.timeout": "The plugin did not answer in time.",
+		"keys.down.forbidden": "SillyTavern refused the request (session or CSRF check). Reload the page.",
+		"keys.down.other": "The keys could not be loaded: {message}"
+	},
+	ru: {
+		"keys.tab": "Ключи",
+		"keys.title": "Ключи NanoGPT",
+		"keys.refresh": "Обновить",
+		"keys.notice.refreshed": "Обновлено.",
+		"keys.loading": "Загружаю ключи…",
+		"keys.none": "Ключа NanoGPT пока нет. Без него плагин не достучится до NanoGPT: добавьте свой ключ ниже.",
+		"keys.active": "Активный",
+		"keys.active.hint": "Подключения, у которых ключ не указан, используют этот.",
+		"keys.usedBy": "Используют: {names}",
+		"keys.usedBy.byDefault": "{name} (по умолчанию)",
+		"keys.unused": "Ни одно подключение этот ключ не использует.",
+		"keys.action.check": "Проверить баланс",
+		"keys.action.check.hint": "Спрашивает у NanoGPT, сколько осталось на этом ключе.",
+		"keys.action.delete": "Удалить",
+		"keys.check.running": "Проверяю…",
+		"keys.check.ok": "Баланс: {balance}",
+		"keys.check.okNoBalance": "Ключ работает; NanoGPT не сообщил баланс.",
+		"keys.check.failed": "Проверка не удалась: {reason}",
+		"keys.check.unknown": "причина не указана",
+		"keys.confirm.title": "Удаление ключа",
+		"keys.confirm.delete": "Удалить ключ «{name}» из хранилища секретов SillyTavern? Это нельзя отменить.",
+		"keys.confirm.deleteUsed": "Его используют подключений: {count}; им понадобится другой ключ.",
+		"keys.delete.done": "Ключ удалён.",
+		"keys.delete.failed": "Ключ не удалён: {message}",
+		"keys.add.title": "Добавить ключ",
+		"keys.add.name": "Название ключа",
+		"keys.add.value": "Вставьте ключ сюда",
+		"keys.add.save": "Сохранить ключ",
+		"keys.add.hint": "Ключ уходит в плагин один раз и больше не показывается, только его последние символы.",
+		"keys.add.defaultLabel": "Ключ NanoGPT",
+		"keys.add.empty": "Сначала вставьте ключ.",
+		"keys.add.added": "Ключ добавлен.",
+		"keys.add.failed": "Ключ не добавлен: {message}",
+		"keys.down.title": "Плагин не отвечает",
+		"keys.down.hint": "Ключи хранятся в плагине Nanovia. В прямом режиме подключение держит собственный ключ (его задают на вкладке «Подключения»); ключи здесь нужны подключениям, которые идут через плагин.",
+		"keys.down.not_installed": "SillyTavern не знает плагин Nanovia: он не установлен или не включён.",
+		"keys.down.unreachable": "Сервер SillyTavern не ответил.",
+		"keys.down.timeout": "Плагин не ответил вовремя.",
+		"keys.down.forbidden": "SillyTavern отклонил запрос (проверка сессии или CSRF). Перезагрузите страницу.",
+		"keys.down.other": "Не удалось загрузить ключи: {message}"
+	}
+};
+// src/features/keys/view-model.ts
+/**
+* The keys with the connections that use them, the active key first. A direct-mode connection keeps its own key in
+* SillyTavern's secret store and never uses the plugin's keys.
+*/
+function keyRows(keys, connections) {
+	return keys.map((key) => {
+		const users = [];
+		for (const connection of connections) {
+			if (connection.mode === "direct") continue;
+			if (connection.keyId === key.id) users.push({
+				name: connection.name,
+				viaActive: false
+			});
+			else if (connection.keyId === null && key.active) users.push({
+				name: connection.name,
+				viaActive: true
+			});
+		}
+		return {
+			key,
+			users
+		};
+	}).sort((a, b) => Number(b.key.active) - Number(a.key.active) || a.key.label.localeCompare(b.key.label, void 0, { numeric: true }));
+}
+/** What a key is called in a sentence: its label, or the masked value when it has none. */
+function keyName(key) {
+	return key.label.trim() || key.masked;
+}
+/** "Used by: Main, Backup (by default)"; null when nothing uses the key. */
+function usersText(users, t) {
+	if (users.length === 0) return null;
+	return t("keys.usedBy", { names: users.map((user) => user.viaActive ? t("keys.usedBy.byDefault", { name: user.name }) : user.name).join(", ") });
+}
+function confirmDeleteText(row, t) {
+	const base = t("keys.confirm.delete", { name: keyName(row.key) });
+	return row.users.length > 0 ? `${base}\n${t("keys.confirm.deleteUsed", { count: row.users.length })}` : base;
+}
+/** The result of "check balance" in words. */
+function checkLine(check, t) {
+	if (!check.ok) return {
+		kind: "error",
+		text: t("keys.check.failed", { reason: check.error ?? t("keys.check.unknown") })
+	};
+	const parts = [];
+	if (check.usdBalance !== null) parts.push(`$${check.usdBalance}`);
+	if (check.nanoBalance !== null) parts.push(`${check.nanoBalance} XNO`);
+	if (parts.length === 0) return {
+		kind: "ok",
+		text: t("keys.check.okNoBalance")
+	};
+	return {
+		kind: "ok",
+		text: t("keys.check.ok", { balance: parts.join(" · ") })
+	};
+}
+/** Why the list of keys could not be loaded. */
+function loadFailure(error, t) {
+	const down = isPluginDown(error) || error.code === "forbidden";
+	if ([
+		"not_installed",
+		"unreachable",
+		"timeout",
+		"forbidden"
+	].includes(error.code)) return {
+		down,
+		text: t(`keys.down.${error.code}`)
+	};
+	return {
+		down,
+		text: t("keys.down.other", { message: error.message })
+	};
+}
+// src/features/keys/view.ts
+function renderKeysTab(root, ctx) {
+	const t = ctx.t;
+	let keys = null;
+	let failure = null;
+	let loading = true;
+	let disposed = false;
+	/** Balance checks by key id; 'pending' while one runs. Lives as long as the tab. */
+	const checks = /* @__PURE__ */ new Map();
+	const headHost = el("div", { class: "nanovia-row nanovia-keys-head" });
+	const noticeHost = el("div", {
+		class: "nanovia-notice-host",
+		attrs: { "aria-live": "polite" }
+	});
+	const listHost = el("div", { class: "nanovia-keys-body" });
+	const addHost = el("div", { class: "nanovia-keys-addhost" });
+	root.append(headHost, noticeHost, listHost, addHost);
+	function notify(kind, text) {
+		clear(noticeHost);
+		noticeHost.appendChild(el("div", {
+			class: ["nanovia-notice", `nanovia-notice-${kind}`],
+			text
+		}));
+	}
+	function drawHead() {
+		clear(headHost);
+		headHost.append(el("b", { text: t("keys.title") }), button({
+			label: t("keys.refresh"),
+			icon: "rotate",
+			kind: "ghost",
+			onClick: async () => {
+				await load();
+				if (failure === null) notify("ok", t("keys.notice.refreshed"));
+			}
+		}));
+	}
+	function drawCard(row) {
+		const { key } = row;
+		const users = usersText(row.users, t);
+		const check = checks.get(key.id);
+		const line = check && check !== "pending" ? checkLine(check, t) : null;
+		return el("div", {
+			class: "nanovia-key-card",
+			data: { key: key.id }
+		}, [
+			el("div", { class: "nanovia-row" }, [
+				el("b", {
+					class: "nanovia-key-name",
+					text: keyName(key)
+				}),
+				el("code", {
+					class: "nanovia-key-masked nanovia-muted",
+					text: key.masked
+				}),
+				key.active ? chip(t("keys.active"), "ok", t("keys.active.hint")) : null
+			]),
+			el("div", {
+				class: "nanovia-muted nanovia-key-users",
+				text: users ?? t("keys.unused")
+			}),
+			line ? el("div", {
+				class: ["nanovia-key-check", line.kind === "ok" ? "nanovia-ok-text" : "nanovia-error-text"],
+				text: line.text
+			}) : null,
+			check === "pending" ? el("div", {
+				class: "nanovia-muted nanovia-key-check",
+				text: t("keys.check.running")
+			}) : null,
+			el("div", { class: "nanovia-row" }, [button({
+				label: t("keys.action.check"),
+				icon: "wallet",
+				title: t("keys.action.check.hint"),
+				disabled: check === "pending",
+				onClick: () => runCheck(key)
+			}), button({
+				label: t("keys.action.delete"),
+				icon: "trash",
+				kind: "danger",
+				onClick: () => remove(row)
+			})])
+		]);
+	}
+	function drawList() {
+		clear(listHost);
+		if (failure) {
+			listHost.appendChild(el("div", { class: "nanovia-banner nanovia-banner-down" }, [
+				el("div", { class: "nanovia-row" }, [chip(t("keys.down.title"), "error")]),
+				el("div", {
+					class: "nanovia-error-text",
+					text: failure.text
+				}),
+				el("div", {
+					class: "nanovia-muted",
+					text: t("keys.down.hint")
+				})
+			]));
+			return;
+		}
+		if (keys === null) {
+			listHost.appendChild(el("div", {
+				class: "nanovia-muted",
+				text: loading ? t("keys.loading") : ""
+			}));
+			return;
+		}
+		if (keys.length === 0) {
+			listHost.appendChild(el("div", {
+				class: "nanovia-notice nanovia-notice-warn nanovia-no-keys",
+				text: t("keys.none")
+			}));
+			return;
+		}
+		const configs = ctx.connections.list().map((entry) => entry.config);
+		listHost.appendChild(el("div", { class: "nanovia-key-list" }, keyRows(keys, configs).map(drawCard)));
+	}
+	/** The add form is built once (so what is typed survives a redraw of the list) and hidden while the plugin is down. */
+	function buildAddForm() {
+		let keyLabel = "";
+		let keyValue = "";
+		const nameInput = textInput({
+			value: "",
+			label: t("keys.add.name"),
+			placeholder: t("keys.add.name"),
+			maxLength: 80,
+			onInput: (value) => void (keyLabel = value)
+		});
+		const valueInput = textInput({
+			value: "",
+			type: "password",
+			label: t("keys.add.value"),
+			placeholder: t("keys.add.value"),
+			onInput: (value) => void (keyValue = value)
+		});
+		const submit = button({
+			label: t("keys.add.save"),
+			icon: "key",
+			kind: "primary",
+			onClick: async () => {
+				const value = keyValue;
+				const label = keyLabel.trim() || t("keys.add.defaultLabel");
+				keyValue = "";
+				valueInput.value = "";
+				if (!value.trim()) {
+					notify("error", t("keys.add.empty"));
+					return;
+				}
+				const result = await ctx.plugin.addKey(label, value);
+				if (!result.ok) {
+					notify("error", t("keys.add.failed", { message: result.error.message }));
+					return;
+				}
+				keyLabel = "";
+				nameInput.value = "";
+				await load();
+				notify("ok", t("keys.add.added"));
+				ctx.connections.refresh();
+			}
+		});
+		addHost.appendChild(el("details", {
+			class: "nanovia-details",
+			attrs: { open: true }
+		}, [el("summary", { text: t("keys.add.title") }), el("div", { class: "nanovia-key-add" }, [
+			nameInput,
+			valueInput,
+			submit,
+			el("div", {
+				class: "nanovia-field-hint",
+				text: t("keys.add.hint")
+			})
+		])]));
+	}
+	function showAddForm() {
+		addHost.hidden = failure !== null;
+	}
+	async function load() {
+		loading = true;
+		if (keys === null) drawList();
+		const result = await ctx.plugin.listKeys();
+		if (disposed) return;
+		loading = false;
+		if (result.ok) {
+			keys = result.data;
+			failure = null;
+		} else {
+			keys = null;
+			failure = loadFailure(result.error, t);
+		}
+		drawList();
+		showAddForm();
+	}
+	async function runCheck(key) {
+		checks.set(key.id, "pending");
+		drawList();
+		const result = await ctx.plugin.checkKey(key.id);
+		if (disposed) return;
+		checks.set(key.id, result.ok ? result.data : {
+			ok: false,
+			usdBalance: null,
+			nanoBalance: null,
+			error: result.error.message
+		});
+		drawList();
+	}
+	async function remove(row) {
+		if (!await ctx.host.confirm(confirmDeleteText(row, t), t("keys.confirm.title"))) return;
+		const result = await ctx.plugin.deleteKey(row.key.id);
+		if (!result.ok) {
+			notify("error", t("keys.delete.failed", { message: result.error.message }));
+			return;
+		}
+		checks.delete(row.key.id);
+		await load();
+		notify("ok", t("keys.delete.done"));
+		ctx.connections.refresh();
+	}
+	const off = ctx.connections.onChange(() => {
+		if (!disposed) drawList();
+	});
+	drawHead();
+	buildAddForm();
+	showAddForm();
+	drawList();
+	load();
+	return () => {
+		disposed = true;
+		off();
+		checks.clear();
+	};
+}
+// src/features/keys/index.ts
+var KEYS_FEATURE_ID = "keys";
+var KEYS_TAB_ID = "keys";
+/** Tab «Keys»: the NanoGPT keys the plugin holds, which connections use them, balance check, add and delete. */
+var keysFeature = {
+	id: KEYS_FEATURE_ID,
+	init(ctx) {
+		ctx.i18n.register(KEYS_STRINGS);
+		return ctx.panel.registerTab({
+			id: KEYS_TAB_ID,
+			titleKey: "keys.tab",
+			order: 300,
+			render: (root, tabCtx) => renderKeysTab(root, tabCtx)
+		});
+	}
+};
+// src/core/billing-view.ts
+/** `order, sort` (the `fields` parameter of a reason) as a list of labels in the interface language. */
+function fieldList(value, t) {
+	return value.split(",").map((part) => part.trim()).filter((part) => part.length > 0).map((name) => labelOrName(`billing.field.${name}`, name, t)).join(", ");
+}
+function labelOrName(key, fallback, t) {
+	const text = t(key);
+	return text === key ? fallback : text;
+}
+/** Label of one routing setting by its RoutingConfig name (`order` -> "Provider order"). */
+function routingFieldLabel(name, t) {
+	return labelOrName(`billing.field.${name}`, name, t);
+}
+function paramsOf(source, t) {
+	const params = { markup: 5 };
+	for (const [key, value] of Object.entries(source ?? {})) params[key] = typeof value === "boolean" ? String(value) : value;
+	if (typeof params["fields"] === "string") params["fields"] = fieldList(params["fields"], t);
+	for (const key of ["requested", "applied"]) {
+		const effort = params[key];
+		if (typeof effort === "string") params[key] = labelOrName(`billing.effort.${effort}`, effort, t);
+	}
+	return params;
+}
+function textOf(prefix, item, t) {
+	const key = `${prefix}.${item.code}`;
+	const text = t(key, paramsOf(item.params, t));
+	return text === key ? item.code : text;
+}
+/** One reason of `BillingImpact.reasons` as a sentence. */
+function billingReasonText(reason, t) {
+	return textOf("billing.reason", reason, t);
+}
+/** One warning of `UpstreamPlan.warnings` as a sentence. */
+function planWarningText(warning, t) {
+	return textOf("plan.warning", warning, t);
+}
+/** "Subscription" / "Pay as you go" / "Unknown". */
+function billingOutcomeLabel(outcome, t) {
+	return t(`billing.outcome.${outcome}`);
+}
+/** Names of the settings the proxy strips in subscription-safe mode, as labels. */
+function strippedLabels(stripped, t) {
+	return stripped.map((name) => routingFieldLabel(name, t));
+}
+var BILLING_STRINGS = {
+	en: {
+		"billing.outcome.subscription": "Subscription",
+		"billing.outcome.paygo": "Pay as you go",
+		"billing.outcome.unknown": "Not known",
+		"billing.reason.billing.forced": "This connection is set to pay as you go: every request is billed per token.",
+		"billing.reason.model.notIncluded": "{model} is not included in the subscription, so it is billed per token.",
+		"billing.reason.billing.modelNotCoverable": "Subscription only cannot be kept: {model} is outside the subscription.",
+		"billing.reason.routing.explicit": "Explicit routing ({fields}) is billed pay as you go with about {markup}% markup and leaves the subscription.",
+		"billing.reason.routing.unsupportedByModel": "This model runs on a fixed route: the routing settings ({fields}) are ignored, so they change nothing.",
+		"billing.reason.routing.zdrOnly": "Zero data retention only narrows the platform’s own routing; the billing stays as it is.",
+		"billing.reason.search.billedSeparately": "Web search (:online) is billed separately.",
+		"billing.reason.memory.billedSeparately": "Context Memory is billed separately.",
+		"billing.reason.subscription.multiplier": "This model counts {value}× of the input tokens against the subscription quota.",
+		"plan.warning.reasoning.modelUnknown": "The model is not in the catalog, so the reasoning effort is sent as asked, unchecked.",
+		"plan.warning.reasoning.cannotDisable": "{model} always reasons (efforts: {efforts}). Nanovia sends the lowest effort and hides the thoughts.",
+		"plan.warning.reasoning.effortAdjusted": "The model does not offer the effort \"{requested}\"; \"{applied}\" is sent instead.",
+		"plan.warning.routing.preferenceNeedsSort": "A preferred latency or throughput does nothing without a sort. Pick a sort.",
+		"plan.warning.routing.onlyAndOrder": "\"Only these providers\" already limits the candidates; the provider order is redundant.",
+		"billing.effort.none": "none",
+		"billing.effort.minimal": "minimal",
+		"billing.effort.low": "low",
+		"billing.effort.medium": "medium",
+		"billing.effort.high": "high",
+		"billing.effort.xhigh": "extra high",
+		"billing.effort.max": "max",
+		"billing.field.order": "provider order",
+		"billing.field.only": "only these providers",
+		"billing.field.ignore": "ignored providers",
+		"billing.field.sort": "sort",
+		"billing.field.quantizations": "precision allowlist",
+		"billing.field.minQuantization": "minimum precision",
+		"billing.field.maxPrice": "price cap",
+		"billing.field.allowFallbacks": "no fallbacks",
+		"billing.field.requireParameters": "require parameters",
+		"billing.field.preferredMaxLatency": "preferred latency",
+		"billing.field.preferredMinThroughput": "preferred throughput",
+		"billing.field.cachingRoute": "caching route"
+	},
+	ru: {
+		"billing.outcome.subscription": "Подписка",
+		"billing.outcome.paygo": "Оплата за токены",
+		"billing.outcome.unknown": "Неизвестно",
+		"billing.reason.billing.forced": "Подключение настроено на оплату за токены: каждый запрос оплачивается отдельно.",
+		"billing.reason.model.notIncluded": "{model} не входит в подписку, поэтому оплачивается за токены.",
+		"billing.reason.billing.modelNotCoverable": "Режим «только подписка» не удержать: {model} вне подписки.",
+		"billing.reason.routing.explicit": "Явная маршрутизация ({fields}) оплачивается за токены с наценкой около {markup}% и уводит запрос из подписки.",
+		"billing.reason.routing.unsupportedByModel": "Модель работает по фиксированному маршруту: настройки маршрутизации ({fields}) игнорируются и ни на что не влияют.",
+		"billing.reason.routing.zdrOnly": "Нулевое хранение данных лишь сужает собственный выбор платформы; оплата не меняется.",
+		"billing.reason.search.billedSeparately": "Веб-поиск (:online) оплачивается отдельно.",
+		"billing.reason.memory.billedSeparately": "Context Memory оплачивается отдельно.",
+		"billing.reason.subscription.multiplier": "Эта модель списывает {value}× входных токенов с квоты подписки.",
+		"plan.warning.reasoning.modelUnknown": "Модели нет в каталоге, поэтому уровень рассуждений отправляется как запрошен, без проверки.",
+		"plan.warning.reasoning.cannotDisable": "{model} рассуждает всегда (уровни: {efforts}). Nanovia отправит самый низкий уровень и скроет мысли.",
+		"plan.warning.reasoning.effortAdjusted": "Модель не поддерживает уровень «{requested}»; вместо него отправляется «{applied}».",
+		"plan.warning.routing.preferenceNeedsSort": "Желаемая задержка или скорость ничего не делают без сортировки. Выберите сортировку.",
+		"plan.warning.routing.onlyAndOrder": "«Только эти провайдеры» уже ограничивает выбор; порядок провайдеров лишний.",
+		"billing.effort.none": "нет",
+		"billing.effort.minimal": "минимальный",
+		"billing.effort.low": "низкий",
+		"billing.effort.medium": "средний",
+		"billing.effort.high": "высокий",
+		"billing.effort.xhigh": "очень высокий",
+		"billing.effort.max": "максимальный",
+		"billing.field.order": "порядок провайдеров",
+		"billing.field.only": "только эти провайдеры",
+		"billing.field.ignore": "исключённые провайдеры",
+		"billing.field.sort": "сортировка",
+		"billing.field.quantizations": "список точностей",
+		"billing.field.minQuantization": "минимальная точность",
+		"billing.field.maxPrice": "потолок цены",
+		"billing.field.allowFallbacks": "без запасных вариантов",
+		"billing.field.requireParameters": "требовать параметры",
+		"billing.field.preferredMaxLatency": "желаемая задержка",
+		"billing.field.preferredMinThroughput": "желаемая скорость",
+		"billing.field.cachingRoute": "маршрут с кешем"
+	}
+};
+// src/features/routing/strings.ts
+var ROUTING_STRINGS = {
+	en: {
+		"routing.tab": "Routing",
+		"routing.connection": "Connection",
+		"routing.save": "Save",
+		"routing.revert": "Revert",
+		"routing.dirty": "Unsaved changes",
+		"routing.empty": "No connections yet. Create one in the Connections tab, then set its routing here.",
+		"routing.confirm.title": "Unsaved changes",
+		"routing.confirm.discard": "Discard the unsaved changes of this connection?",
+		"routing.notice.saved": "Saved.",
+		"routing.notice.reverted": "Changes discarded.",
+		"routing.header.badge.hint": "What the settings below do to the billing of a request (live).",
+		"routing.section.routing": "Routing",
+		"routing.section.routing.hint": "NanoGPT’s provider preferences, OpenRouter style. Most of them select a host explicitly, which NanoGPT bills pay as you go instead of through the subscription.",
+		"routing.enabled": "Send routing preferences",
+		"routing.enabled.hint": "Off: nothing is sent and NanoGPT routes the request itself.",
+		"routing.offNote": "Routing is off: the settings below are kept but nothing is sent.",
+		"routing.fixedRoute": "This model runs on a fixed route: NanoGPT ignores the routing settings, only zero data retention is sent.",
+		"routing.needsSortNow": "A preferred latency or throughput does nothing until a sort is chosen.",
+		"routing.providers.placeholder": "Type a provider id, press Enter",
+		"routing.providers.remove": "Remove {id}",
+		"routing.field.noLimit": "No limit",
+		"routing.disabled.subscriptionSafe": "Locked: subscription-only mode would strip this setting.",
+		"routing.lockedNote": "This connection is subscription-only: the settings that leave the subscription are locked and Nanovia strips them from every request. Change the billing mode to use them.",
+		"routing.field.order": "Provider order",
+		"routing.field.order.hint": "Providers are tried in this order.",
+		"routing.field.only": "Only these providers",
+		"routing.field.only.hint": "No other provider is used, even when these fail.",
+		"routing.field.ignore": "Never these providers",
+		"routing.field.ignore.hint": "These providers are skipped.",
+		"routing.field.sort": "Sort",
+		"routing.sort.default": "Platform default",
+		"routing.sort.price": "Cheapest first",
+		"routing.sort.throughput": "Fastest throughput",
+		"routing.sort.latency": "Lowest latency",
+		"routing.sort.speed": "Speed",
+		"routing.field.sort.hint": "How candidate providers are ranked.",
+		"routing.field.quantizations": "Allowed precisions",
+		"routing.field.quantizations.hint": "Only hosts that serve the weights in one of the ticked precisions.",
+		"routing.field.minQuantization": "Minimum precision",
+		"routing.field.minQuantization.none": "No floor",
+		"routing.field.minQuantization.hint": "Hosts below this precision are skipped.",
+		"routing.field.maxPrice": "Price cap (USD per 1M tokens)",
+		"routing.field.maxPrice.prompt": "Prompt",
+		"routing.field.maxPrice.completion": "Completion",
+		"routing.field.maxPrice.hint": "Empty means no cap. Hosts above the cap are skipped.",
+		"routing.field.allowFallbacks": "Allow fallbacks",
+		"routing.field.allowFallbacks.hint": "Off: the request fails instead of moving to another provider.",
+		"routing.field.requireParameters": "Require parameter support",
+		"routing.field.requireParameters.hint": "Only hosts that support every parameter of the request.",
+		"routing.field.zdr": "Zero data retention only",
+		"routing.field.zdr.hint": "Only endpoints that keep no copy of your prompts.",
+		"routing.field.zdr.keeps": "Keeps the subscription: it only narrows the platform’s own routing.",
+		"routing.field.preferredMaxLatency": "Preferred latency (seconds)",
+		"routing.field.preferredMaxLatency.hint": "Needs a sort: it is a preference the sort works with.",
+		"routing.field.preferredMinThroughput": "Preferred throughput (tokens per second)",
+		"routing.field.preferredMinThroughput.hint": "Needs a sort: it is a preference the sort works with.",
+		"routing.field.cachingRoute": "Route for prompt caching",
+		"routing.field.cachingRoute.hint": "Only providers with prompt caching; later requests stay on the same one.",
+		"routing.bypass.order": "Leaves the subscription: a provider order is an explicit choice, pay as you go plus about {markup}%.",
+		"routing.bypass.only": "Leaves the subscription: limiting to named providers is pay as you go plus about {markup}%.",
+		"routing.bypass.ignore": "Leaves the subscription: excluding providers counts as routing, pay as you go plus about {markup}%.",
+		"routing.bypass.sort": "Leaves the subscription: any sort but the default is pay as you go plus about {markup}%.",
+		"routing.bypass.quantizations": "Leaves the subscription: choosing precisions selects hosts, pay as you go plus about {markup}%.",
+		"routing.bypass.minQuantization": "Leaves the subscription: a precision floor selects hosts, pay as you go plus about {markup}%.",
+		"routing.bypass.maxPrice": "Leaves the subscription: a price cap selects hosts, pay as you go plus about {markup}%.",
+		"routing.bypass.allowFallbacks": "Leaves the subscription when fallbacks are off: pay as you go plus about {markup}%.",
+		"routing.bypass.requireParameters": "Leaves the subscription: requiring parameters selects hosts, pay as you go plus about {markup}%.",
+		"routing.bypass.preferredMaxLatency": "Leaves the subscription: a latency preference is routing, pay as you go plus about {markup}%.",
+		"routing.bypass.preferredMinThroughput": "Leaves the subscription: a throughput preference is routing, pay as you go plus about {markup}%.",
+		"routing.bypass.cachingRoute": "May leave the subscription: cache routing pins the host (to be confirmed live).",
+		"routing.section.billing": "Billing",
+		"routing.section.billing.hint": "Whether requests stay inside your NanoGPT subscription.",
+		"routing.billing.mode": "Billing mode",
+		"routing.billing.auto": "Automatic",
+		"routing.billing.subscription": "Subscription only",
+		"routing.billing.paygo": "Pay as you go",
+		"routing.billing.auto.hint": "Any setting is allowed; the verdict below shows what leaves the subscription.",
+		"routing.billing.subscription.hint": "Settings that would bill outside the subscription are locked, and Nanovia strips them from every request. Zero data retention stays.",
+		"routing.billing.paygo.hint": "Always billed pay as you go, whatever the model offers.",
+		"routing.verdict.title": "Verdict",
+		"routing.verdict.markup": "+{percent}% markup",
+		"routing.verdict.safe": "Nothing leaves the subscription",
+		"routing.verdict.safe.hint": "No setting of this connection bypasses the subscription.",
+		"routing.verdict.modelUnknown": "The catalog does not know this model yet, so the outcome is a guess. It improves when the catalog loads.",
+		"routing.verdict.subscription": "Requests are covered by the subscription.",
+		"routing.verdict.paygo": "Requests are billed per token.",
+		"routing.verdict.unknown": "The billing of these requests cannot be told from the settings alone.",
+		"routing.verdict.stripped": "Nanovia removes these settings from every request: {fields}.",
+		"routing.verdict.makeSafe": "Remove what leaves the subscription",
+		"routing.verdict.makeSafe.hint": "Resets the settings that bypass the subscription to neutral values; zero data retention stays.",
+		"routing.section.reasoning": "Reasoning",
+		"routing.reasoning.policy": "Reasoning policy",
+		"routing.reasoning.follow": "Follow the request",
+		"routing.reasoning.fixed": "Fixed effort",
+		"routing.reasoning.off": "Off",
+		"routing.reasoning.default": "Model default",
+		"routing.reasoning.follow.hint": "Takes the effort SillyTavern asked for and maps it to what the model supports. Background tasks without an effort reason as little as possible.",
+		"routing.reasoning.fixed.hint": "Always the effort below.",
+		"routing.reasoning.off.hint": "No reasoning when the model allows it; the lowest effort with the text hidden when it always reasons.",
+		"routing.reasoning.default.hint": "Sends nothing: the model decides.",
+		"routing.reasoning.effort": "Effort",
+		"routing.reasoning.effort.hint": "Limited to what the model offers when the catalog knows it.",
+		"routing.reasoning.hide": "Leave the reasoning text out of the reply",
+		"routing.reasoning.hide.hint": "Asks NanoGPT not to return the thoughts (reasoning.exclude).",
+		"routing.reasoning.caps.unknown": "The catalog does not know this model: efforts are not limited and are sent as asked.",
+		"routing.reasoning.caps.none": "This model does not reason: the settings above have no effect.",
+		"routing.reasoning.caps.alwaysOn": "The model always reasons; it cannot be switched off.",
+		"routing.reasoning.caps.canDisable": "The model can be switched off.",
+		"routing.reasoning.caps.efforts": "Efforts: {efforts}.",
+		"routing.reasoning.caps.noDial": "It has no effort dial, only on or off.",
+		"routing.preview.title": "What would be sent",
+		"routing.preview.nothing": "nothing, the model decides",
+		"routing.preview.effort": "effort {effort}",
+		"routing.preview.off": "reasoning off",
+		"routing.preview.on": "reasoning on",
+		"routing.preview.hidden": "text hidden",
+		"routing.preview.row.main": "Chat, no effort asked",
+		"routing.preview.row.mainNone": "Chat asks for no reasoning",
+		"routing.preview.row.mainHigh": "Chat asks for high",
+		"routing.preview.row.background": "Background task"
+	},
+	ru: {
+		"routing.tab": "Маршрутизация",
+		"routing.connection": "Подключение",
+		"routing.save": "Сохранить",
+		"routing.revert": "Отменить",
+		"routing.dirty": "Есть несохранённые изменения",
+		"routing.empty": "Подключений пока нет. Создайте его на вкладке «Подключения», затем настройте маршрутизацию здесь.",
+		"routing.confirm.title": "Несохранённые изменения",
+		"routing.confirm.discard": "Отбросить несохранённые изменения этого подключения?",
+		"routing.notice.saved": "Сохранено.",
+		"routing.notice.reverted": "Изменения отброшены.",
+		"routing.header.badge.hint": "Что настройки ниже делают с оплатой запроса (обновляется сразу).",
+		"routing.section.routing": "Маршрутизация",
+		"routing.section.routing.hint": "Предпочтения по провайдерам NanoGPT в стиле OpenRouter. Большинство из них явно выбирают хост, а NanoGPT оплачивает такой выбор за токены, а не по подписке.",
+		"routing.enabled": "Отправлять предпочтения маршрутизации",
+		"routing.enabled.hint": "Выключено: ничего не отправляется, NanoGPT выбирает маршрут сам.",
+		"routing.offNote": "Маршрутизация выключена: настройки ниже сохраняются, но ничего не отправляется.",
+		"routing.fixedRoute": "Модель работает по фиксированному маршруту: NanoGPT игнорирует настройки маршрутизации, отправляется только нулевое хранение данных.",
+		"routing.needsSortNow": "Желаемая задержка или скорость ничего не делают, пока не выбрана сортировка.",
+		"routing.providers.placeholder": "Введите id провайдера и нажмите Enter",
+		"routing.providers.remove": "Убрать {id}",
+		"routing.field.noLimit": "Без ограничения",
+		"routing.disabled.subscriptionSafe": "Заблокировано: режим «только подписка» убрал бы эту настройку.",
+		"routing.lockedNote": "Подключение работает только по подписке: настройки, уводящие из подписки, заблокированы, а Nanovia убирает их из каждого запроса. Чтобы ими пользоваться, смените режим оплаты.",
+		"routing.field.order": "Порядок провайдеров",
+		"routing.field.order.hint": "Провайдеры пробуются в этом порядке.",
+		"routing.field.only": "Только эти провайдеры",
+		"routing.field.only.hint": "Других провайдеров не будет, даже если эти не отвечают.",
+		"routing.field.ignore": "Никогда эти провайдеры",
+		"routing.field.ignore.hint": "Эти провайдеры пропускаются.",
+		"routing.field.sort": "Сортировка",
+		"routing.sort.default": "По умолчанию платформы",
+		"routing.sort.price": "Сначала дешёвые",
+		"routing.sort.throughput": "Наибольшая скорость",
+		"routing.sort.latency": "Наименьшая задержка",
+		"routing.sort.speed": "Скорость",
+		"routing.field.sort.hint": "Как ранжируются провайдеры-кандидаты.",
+		"routing.field.quantizations": "Допустимые точности",
+		"routing.field.quantizations.hint": "Только хосты, которые держат веса в одной из отмеченных точностей.",
+		"routing.field.minQuantization": "Минимальная точность",
+		"routing.field.minQuantization.none": "Без нижней границы",
+		"routing.field.minQuantization.hint": "Хосты с точностью ниже этой пропускаются.",
+		"routing.field.maxPrice": "Потолок цены (USD за 1 млн токенов)",
+		"routing.field.maxPrice.prompt": "Запрос",
+		"routing.field.maxPrice.completion": "Ответ",
+		"routing.field.maxPrice.hint": "Пусто означает «без потолка». Хосты дороже потолка пропускаются.",
+		"routing.field.allowFallbacks": "Разрешить запасные провайдеры",
+		"routing.field.allowFallbacks.hint": "Выключено: запрос завершится ошибкой, а не уйдёт к другому провайдеру.",
+		"routing.field.requireParameters": "Требовать поддержку параметров",
+		"routing.field.requireParameters.hint": "Только хосты, которые поддерживают все параметры запроса.",
+		"routing.field.zdr": "Только с нулевым хранением данных",
+		"routing.field.zdr.hint": "Только точки, которые не хранят копии ваших запросов.",
+		"routing.field.zdr.keeps": "Подписка сохраняется: это лишь сужает собственный выбор платформы.",
+		"routing.field.preferredMaxLatency": "Желаемая задержка (секунды)",
+		"routing.field.preferredMaxLatency.hint": "Нужна сортировка: это предпочтение, с которым она работает.",
+		"routing.field.preferredMinThroughput": "Желаемая скорость (токенов в секунду)",
+		"routing.field.preferredMinThroughput.hint": "Нужна сортировка: это предпочтение, с которым она работает.",
+		"routing.field.cachingRoute": "Маршрут с кешем запросов",
+		"routing.field.cachingRoute.hint": "Только провайдеры с кешем запросов; следующие запросы остаются на том же.",
+		"routing.bypass.order": "Уводит из подписки: порядок провайдеров — явный выбор, оплата за токены плюс около {markup}%.",
+		"routing.bypass.only": "Уводит из подписки: ограничение именованными провайдерами — оплата за токены плюс около {markup}%.",
+		"routing.bypass.ignore": "Уводит из подписки: исключение провайдеров считается маршрутизацией, оплата за токены плюс около {markup}%.",
+		"routing.bypass.sort": "Уводит из подписки: любая сортировка, кроме стандартной, — оплата за токены плюс около {markup}%.",
+		"routing.bypass.quantizations": "Уводит из подписки: выбор точностей выбирает хосты, оплата за токены плюс около {markup}%.",
+		"routing.bypass.minQuantization": "Уводит из подписки: нижняя граница точности выбирает хосты, оплата за токены плюс около {markup}%.",
+		"routing.bypass.maxPrice": "Уводит из подписки: потолок цены выбирает хосты, оплата за токены плюс около {markup}%.",
+		"routing.bypass.allowFallbacks": "Уводит из подписки, когда запасные провайдеры выключены: оплата за токены плюс около {markup}%.",
+		"routing.bypass.requireParameters": "Уводит из подписки: требование параметров выбирает хосты, оплата за токены плюс около {markup}%.",
+		"routing.bypass.preferredMaxLatency": "Уводит из подписки: предпочтение по задержке — маршрутизация, оплата за токены плюс около {markup}%.",
+		"routing.bypass.preferredMinThroughput": "Уводит из подписки: предпочтение по скорости — маршрутизация, оплата за токены плюс около {markup}%.",
+		"routing.bypass.cachingRoute": "Может увести из подписки: маршрут с кешем закрепляет хост (требует проверки вживую).",
+		"routing.section.billing": "Оплата",
+		"routing.section.billing.hint": "Остаются ли запросы внутри вашей подписки NanoGPT.",
+		"routing.billing.mode": "Режим оплаты",
+		"routing.billing.auto": "Автоматически",
+		"routing.billing.subscription": "Только подписка",
+		"routing.billing.paygo": "За токены",
+		"routing.billing.auto.hint": "Разрешены любые настройки; вердикт ниже показывает, что уводит из подписки.",
+		"routing.billing.subscription.hint": "Настройки, которые оплачивались бы вне подписки, заблокированы, а Nanovia убирает их из каждого запроса. Нулевое хранение данных остаётся.",
+		"routing.billing.paygo.hint": "Всегда оплата за токены, что бы ни предлагала модель.",
+		"routing.verdict.title": "Вердикт",
+		"routing.verdict.markup": "наценка +{percent}%",
+		"routing.verdict.safe": "Из подписки ничего не уходит",
+		"routing.verdict.safe.hint": "Ни одна настройка этого подключения не обходит подписку.",
+		"routing.verdict.modelUnknown": "Каталог пока не знает эту модель, поэтому итог — предположение. Он уточнится, когда каталог загрузится.",
+		"routing.verdict.subscription": "Запросы покрываются подпиской.",
+		"routing.verdict.paygo": "Запросы оплачиваются за токены.",
+		"routing.verdict.unknown": "По одним настройкам нельзя сказать, как оплатятся эти запросы.",
+		"routing.verdict.stripped": "Nanovia убирает эти настройки из каждого запроса: {fields}.",
+		"routing.verdict.makeSafe": "Убрать то, что уводит из подписки",
+		"routing.verdict.makeSafe.hint": "Сбрасывает настройки, обходящие подписку, к нейтральным значениям; нулевое хранение данных остаётся.",
+		"routing.section.reasoning": "Рассуждения",
+		"routing.reasoning.policy": "Политика рассуждений",
+		"routing.reasoning.follow": "Как в запросе",
+		"routing.reasoning.fixed": "Фиксированный уровень",
+		"routing.reasoning.off": "Выключены",
+		"routing.reasoning.default": "По умолчанию модели",
+		"routing.reasoning.follow.hint": "Берёт уровень, который запросил SillyTavern, и подгоняет под возможности модели. Фоновые задачи без уровня рассуждают как можно меньше.",
+		"routing.reasoning.fixed.hint": "Всегда уровень, выбранный ниже.",
+		"routing.reasoning.off.hint": "Без рассуждений, если модель позволяет; если рассуждает всегда — самый низкий уровень со скрытым текстом.",
+		"routing.reasoning.default.hint": "Ничего не отправляется: решает модель.",
+		"routing.reasoning.effort": "Уровень",
+		"routing.reasoning.effort.hint": "Ограничен тем, что предлагает модель, если каталог её знает.",
+		"routing.reasoning.hide": "Не возвращать текст рассуждений в ответе",
+		"routing.reasoning.hide.hint": "Просит NanoGPT не присылать мысли (reasoning.exclude).",
+		"routing.reasoning.caps.unknown": "Каталог не знает эту модель: уровни не ограничены и отправляются как запрошены.",
+		"routing.reasoning.caps.none": "Эта модель не рассуждает: настройки выше ни на что не влияют.",
+		"routing.reasoning.caps.alwaysOn": "Модель рассуждает всегда; выключить нельзя.",
+		"routing.reasoning.caps.canDisable": "Модель можно выключить.",
+		"routing.reasoning.caps.efforts": "Уровни: {efforts}.",
+		"routing.reasoning.caps.noDial": "Регулятора уровня нет, только вкл. и выкл.",
+		"routing.preview.title": "Что будет отправлено",
+		"routing.preview.nothing": "ничего, решает модель",
+		"routing.preview.effort": "уровень: {effort}",
+		"routing.preview.off": "рассуждения выключены",
+		"routing.preview.on": "рассуждения включены",
+		"routing.preview.hidden": "текст скрыт",
+		"routing.preview.row.main": "Чат, уровень не задан",
+		"routing.preview.row.mainNone": "Чат просит без рассуждений",
+		"routing.preview.row.mainHigh": "Чат просит высокий",
+		"routing.preview.row.background": "Фоновая задача"
+	}
+};
+// src/domain/catalog.ts
+/** Weight precisions from the coarsest to the finest. `unknown` is outside the scale. */
+var QUANTIZATION_ORDER = [
+	"int4",
+	"fp4",
+	"fp6",
+	"int8",
+	"fp8",
+	"fp16",
+	"bf16",
+	"fp32"
+];
+new Intl.Collator("en", {
+	numeric: true,
+	sensitivity: "base"
+});
+// src/features/routing/view-model.ts
+var BILLING_MODES = [
+	"auto",
+	"subscription",
+	"paygo"
+];
+var ROUTING_SORTS = [
+	"default",
+	"price",
+	"throughput",
+	"latency",
+	"speed"
+];
+var REASONING_POLICIES = [
+	"follow",
+	"fixed",
+	"off",
+	"default"
+];
+var EFFORT_LADDER = [
+	"none",
+	"minimal",
+	"low",
+	"medium",
+	"high",
+	"xhigh",
+	"max"
+];
+/** The precisions a floor can be set to (`unknown` is outside the scale). */
+var MIN_QUANTIZATIONS = QUANTIZATION_ORDER;
+function cloneRouting(r) {
+	return {
+		...r,
+		order: [...r.order],
+		only: [...r.only],
+		ignore: [...r.ignore],
+		quantizations: [...r.quantizations],
+		maxPrice: { ...r.maxPrice }
+	};
+}
+/** A deep copy of what the tab edits, so changing the draft never touches the live connection. */
+function draftOf(config) {
+	return {
+		billing: config.billing,
+		routing: cloneRouting(config.routing),
+		reasoning: { ...config.reasoning }
+	};
+}
+/** The connection as it would be with the draft applied: what the domain functions are asked about. */
+function configWith(config, draft) {
+	return {
+		...config,
+		billing: draft.billing,
+		routing: cloneRouting(draft.routing),
+		reasoning: { ...draft.reasoning }
+	};
+}
+/** What gets saved. The effort only matters to the `fixed` policy and defaults to medium there. */
+function patchOf(draft) {
+	const fixed = draft.reasoning.policy === "fixed";
+	return {
+		billing: draft.billing,
+		routing: cloneRouting(draft.routing),
+		reasoning: {
+			policy: draft.reasoning.policy,
+			effort: fixed ? draft.reasoning.effort ?? "medium" : null,
+			hideThoughts: draft.reasoning.hideThoughts
+		}
+	};
+}
+/** Whether the draft differs from the connection it was taken from. */
+function isDirty(config, draft) {
+	const saved = patchOf(draftOf(config));
+	return JSON.stringify(saved) !== JSON.stringify(patchOf(draft));
+}
+/** A price, latency or throughput typed into a field: empty means "no limit", otherwise a number of zero or more. */
+function parseNumberInput(text) {
+	const trimmed = text.trim().replace(",", ".");
+	if (trimmed === "") return {
+		ok: true,
+		value: null
+	};
+	if (!/^(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/.test(trimmed)) return { ok: false };
+	const value = Number(trimmed);
+	return Number.isFinite(value) && value >= 0 ? {
+		ok: true,
+		value
+	} : { ok: false };
+}
+/** A stored limit back into a field. */
+function numberText(value) {
+	return value === null ? "" : String(value);
+}
+/** Provider ids as the domain sends them: trimmed, lower case, without duplicates. */
+function normalizeProviderIds(values) {
+	const out = [];
+	for (const value of values) {
+		const id = value.trim().toLowerCase();
+		if (id && !out.includes(id)) out.push(id);
+	}
+	return out;
+}
+/** Adds the ids typed into a chip field (separated by commas, spaces or new lines) to a list. */
+function addProviderIds(current, typed) {
+	return normalizeProviderIds([...current, ...typed.split(/[\s,;]+/)]);
+}
+/** Host ids the catalog knows for the model that are not chosen yet, for the suggestion list. */
+function providerSuggestions(providers, chosen) {
+	if (!providers) return [];
+	const taken = new Set(chosen.map((id) => id.toLowerCase()));
+	return providers.providers.map((host) => host.id).filter((id) => !taken.has(id.toLowerCase()));
+}
+/** The settings NanoGPT bills as an explicit provider choice (domain/routing.ts routingFields), in display order. */
+var BYPASS_FIELDS = [
+	"order",
+	"only",
+	"ignore",
+	"sort",
+	"quantizations",
+	"minQuantization",
+	"maxPrice",
+	"allowFallbacks",
+	"requireParameters",
+	"preferredMaxLatency",
+	"preferredMinThroughput",
+	"cachingRoute"
+];
+/** Which controls are locked. In subscription-safe mode every bypassing control is, with the reason; `zdr` never is. */
+function controlStates(draft) {
+	const locked = draft.billing === "subscription";
+	const states = {};
+	for (const name of BYPASS_FIELDS) states[name] = {
+		bypass: true,
+		disabled: locked,
+		reason: locked ? "routing.disabled.subscriptionSafe" : null
+	};
+	states.zdr = {
+		bypass: false,
+		disabled: false,
+		reason: null
+	};
+	states.enabled = {
+		bypass: false,
+		disabled: false,
+		reason: null
+	};
+	return states;
+}
+/** The draft with every bypassing setting reset to neutral (what subscription-safe mode would do); `zdr` stays. */
+function makeSubscriptionSafe(config, draft, model) {
+	const { routing } = subscriptionSafeOverrides(configWith(config, draft), model);
+	return {
+		...draft,
+		routing
+	};
+}
+/** Whether "remove the settings that leave the subscription" has anything to remove. */
+function hasBypassingSettings(draft) {
+	return draft.routing.enabled && routingFields(draft.routing).length > 0;
+}
+/** A preferred latency or throughput is set but no sort is: NanoGPT ignores it (the domain's own warning). */
+function preferenceNeedsSort(routing) {
+	return routingWarnings({
+		...routing,
+		enabled: true
+	}).some((warning) => warning.code === "routing.preferenceNeedsSort");
+}
+function reasoningCaps(model) {
+	if (!model) return {
+		known: false,
+		reasons: true,
+		efforts: [],
+		alwaysOn: false,
+		canDisable: true
+	};
+	const listed = new Set(model.reasoningEfforts.map((effort) => effort.trim().toLowerCase()));
+	const efforts = EFFORT_LADDER.filter((effort) => listed.has(effort));
+	const reasons = model.capabilities.reasoning;
+	const alwaysOn = reasons && efforts.length > 0 && !efforts.includes("none");
+	return {
+		known: true,
+		reasons,
+		efforts,
+		alwaysOn,
+		canDisable: !alwaysOn
+	};
+}
+/** The efforts the select offers: the model's list when it has one, the whole ladder otherwise; the chosen one stays. */
+function effortChoices(caps, current) {
+	const base = caps.known && caps.efforts.length > 0 ? [...caps.efforts] : [...EFFORT_LADDER];
+	if (current && !base.includes(current)) base.push(current);
+	return EFFORT_LADDER.filter((effort) => base.includes(effort));
+}
+/** One sentence about what the catalog says of the model's reasoning. */
+function capabilityLine(caps, t) {
+	if (!caps.known) return t("routing.reasoning.caps.unknown");
+	if (!caps.reasons) return t("routing.reasoning.caps.none");
+	const efforts = caps.efforts.map((effort) => t(`billing.effort.${effort}`)).join(", ");
+	const parts = [caps.alwaysOn ? t("routing.reasoning.caps.alwaysOn") : t("routing.reasoning.caps.canDisable")];
+	parts.push(efforts ? t("routing.reasoning.caps.efforts", { efforts }) : t("routing.reasoning.caps.noDial"));
+	return parts.join(" ");
+}
+/** The requests the preview shows: the chat asking for nothing, for no reasoning, for high; a background task. */
+var PREVIEW_SCENARIOS = [
+	{
+		id: "main",
+		hints: {
+			effort: null,
+			consumer: "main",
+			thoughts: false
+		}
+	},
+	{
+		id: "mainNone",
+		hints: {
+			effort: "none",
+			consumer: "main",
+			thoughts: false
+		}
+	},
+	{
+		id: "mainHigh",
+		hints: {
+			effort: "high",
+			consumer: "main",
+			thoughts: false
+		}
+	},
+	{
+		id: "background",
+		hints: {
+			effort: null,
+			consumer: "background",
+			thoughts: false
+		}
+	}
+];
+/** planReasoning for the sample requests. */
+function reasoningPreview(model, reasoning) {
+	return PREVIEW_SCENARIOS.map(({ id, hints }) => {
+		const plan = planReasoning(model, reasoning, hints);
+		return {
+			id,
+			params: plan.reasoning,
+			warnings: plan.warnings
+		};
+	});
+}
+/** `effort high · text hidden`, `reasoning off`, or "nothing is sent". */
+function describeReasoning(params, t) {
+	if (params === null) return t("routing.preview.nothing");
+	const parts = [];
+	if (params.effort !== void 0) parts.push(t("routing.preview.effort", { effort: t(`billing.effort.${params.effort}`) }));
+	if (params.enabled === false) parts.push(t("routing.preview.off"));
+	if (params.enabled === true) parts.push(t("routing.preview.on"));
+	if (params.exclude === true) parts.push(t("routing.preview.hidden"));
+	return parts.join(" · ");
+}
+/**
+* What the draft does to billing and to the request: the domain's BillingImpact plus the warnings of the plan the
+* connection makes for an ordinary chat request that asks for nothing (routing warnings, and the reasoning warnings of
+* the `fixed` and `off` policies, which do not depend on the request). What the `follow` policy does with a particular
+* request is shown by the preview, not here. `providerSelection` is the catalog's `supportsProviderSelection` for the
+* model (null = unknown).
+*/
+function verdictFor(config, draft, model, providerSelection) {
+	const connection = configWith(config, draft);
+	const impact = analyzeBilling(connection, model, providerSelection);
+	const sample = planUpstream({
+		connection,
+		model,
+		body: {
+			model: connection.modelId,
+			messages: []
+		},
+		hints: PREVIEW_SCENARIOS[0]?.hints ?? {
+			effort: null,
+			consumer: "main",
+			thoughts: false
+		},
+		providerSelection
+	});
+	return {
+		outcome: impact.outcome,
+		markupPercent: impact.markupPercent,
+		subscriptionSafe: impact.subscriptionSafe,
+		reasons: impact.reasons,
+		warnings: sample.warnings,
+		stripped: impact.stripped,
+		modelKnown: model !== null,
+		providerSelection
+	};
+}
+function outcomeKind(outcome) {
+	return outcome === "subscription" ? "ok" : outcome === "paygo" ? "warn" : "muted";
+}
+/** The outcome badge: "Subscription", "Pay as you go · +5%" or "Not known". */
+function outcomeBadge(verdict, t) {
+	const label = billingOutcomeLabel(verdict.outcome, t);
+	return {
+		label: verdict.markupPercent > 0 ? `${label} · +${verdict.markupPercent}%` : label,
+		kind: outcomeKind(verdict.outcome)
+	};
+}
+/** A line of the panel that says why the outcome is what it is when no reason does (nothing special in the settings). */
+function verdictSummaryKey(verdict) {
+	if (!verdict.modelKnown) return "routing.verdict.modelUnknown";
+	if (verdict.outcome === "subscription") return "routing.verdict.subscription";
+	if (verdict.outcome === "paygo") return "routing.verdict.paygo";
+	return "routing.verdict.unknown";
+}
+/** Whether the routing settings are ignored by the model (a fixed route): only `zdr` has an effect. */
+function routingIgnored(verdict) {
+	return verdict.providerSelection === false;
+}
+/** The connection names for the selector: "Name · model". */
+function connectionLabel(config) {
+	return `${config.name} · ${config.modelId}`;
+}
+// src/features/routing/chips.ts
+function chipListInput(options) {
+	let values = [...options.values];
+	const listId = uid("nanovia-suggest");
+	const chips = el("div", { class: "nanovia-chiplist-chips" });
+	const datalist = el("datalist", { attrs: { id: listId } });
+	const input = el("input", {
+		class: "text_pole nanovia-text",
+		attrs: {
+			type: "text",
+			list: listId,
+			placeholder: options.placeholder,
+			"aria-label": options.label,
+			autocomplete: "off",
+			autocapitalize: "off",
+			spellcheck: "false"
+		}
+	});
+	function draw() {
+		clear(chips);
+		for (const id of values) chips.appendChild(el("span", {
+			class: "nanovia-chip nanovia-chip-info nanovia-chip-item",
+			data: { id }
+		}, [el("span", { text: id }), el("button", {
+			class: "nanovia-chip-remove",
+			text: "×",
+			attrs: {
+				type: "button",
+				"aria-label": options.removeLabel(id)
+			},
+			on: { click: () => remove(id) }
+		})]));
+	}
+	function commit() {
+		const typed = input.value;
+		input.value = "";
+		if (!typed.trim()) return;
+		const next = addProviderIds(values, typed);
+		if (next.length === values.length) return;
+		values = next;
+		draw();
+		options.onChange([...values]);
+	}
+	function remove(id) {
+		values = values.filter((value) => value !== id);
+		draw();
+		options.onChange([...values]);
+	}
+	input.addEventListener("change", commit);
+	input.addEventListener("keydown", (event) => {
+		if (event.key === "Enter" || event.key === ",") {
+			event.preventDefault();
+			commit();
+		}
+	});
+	draw();
+	return {
+		node: el("div", { class: "nanovia-chiplist" }, [
+			chips,
+			input,
+			datalist
+		]),
+		setSuggestions(ids) {
+			clear(datalist);
+			for (const id of ids) datalist.appendChild(el("option", { attrs: { value: id } }));
+		}
+	};
+}
+// src/features/routing/sections.ts
+function section(id, title, children) {
+	return el("details", {
+		class: "nanovia-section",
+		attrs: { open: true },
+		data: { section: id }
+	}, [el("summary", {
+		class: "nanovia-section-title",
+		text: title
+	}), ...children]);
+}
+function setDisabled(root, disabled) {
+	for (const control of root.querySelectorAll("input, select, button")) control.disabled = disabled;
+}
+function options(values, label) {
+	return values.map((value) => ({
+		value,
+		label: label(value)
+	}));
+}
+function buildRoutingSection(env) {
+	const { t, draft } = env;
+	const routing = draft.routing;
+	const rows = /* @__PURE__ */ new Map();
+	const locks = /* @__PURE__ */ new Map();
+	const suggestors = [];
+	/** A row of a setting that leaves the subscription: the control, "what leaves the subscription", and the lock reason. */
+	function bypassRow(name, control) {
+		const lock = el("div", {
+			class: "nanovia-field-hint nanovia-lock",
+			attrs: { hidden: true }
+		});
+		locks.set(name, lock);
+		const row = el("div", {
+			class: "nanovia-row-block",
+			data: { field: name }
+		}, [
+			control,
+			el("div", {
+				class: "nanovia-field-hint nanovia-bypass",
+				text: t(`routing.bypass.${name}`, { markup: 5 })
+			}),
+			lock
+		]);
+		rows.set(name, row);
+		return row;
+	}
+	function idsRow(name) {
+		const list = chipListInput({
+			label: t(`routing.field.${name}`),
+			placeholder: t("routing.providers.placeholder"),
+			values: routing[name],
+			removeLabel: (id) => t("routing.providers.remove", { id }),
+			onChange: (values) => {
+				routing[name] = values;
+				env.changed();
+			}
+		});
+		suggestors.push({
+			setSuggestions: list.setSuggestions,
+			read: () => routing[name]
+		});
+		return bypassRow(name, field(t(`routing.field.${name}`), list.node, t(`routing.field.${name}.hint`)));
+	}
+	function numberRow(name, read, write) {
+		const input = textInput({
+			value: numberText(read()),
+			label: t(`routing.field.${name}`),
+			placeholder: t("routing.field.noLimit"),
+			onInput: (value) => {
+				const parsed = parseNumberInput(value);
+				input.classList.toggle("nanovia-invalid", !parsed.ok);
+				if (!parsed.ok) return;
+				write(parsed.value);
+				env.changed();
+			}
+		});
+		return bypassRow(name, field(t(`routing.field.${name}`), input, t(`routing.field.${name}.hint`)));
+	}
+	function priceInput(side) {
+		const input = textInput({
+			value: numberText(routing.maxPrice[side]),
+			label: t(`routing.field.maxPrice.${side}`),
+			placeholder: t(`routing.field.maxPrice.${side}`),
+			onInput: (value) => {
+				const parsed = parseNumberInput(value);
+				input.classList.toggle("nanovia-invalid", !parsed.ok);
+				if (!parsed.ok) return;
+				routing.maxPrice[side] = parsed.value;
+				env.changed();
+			}
+		});
+		return input;
+	}
+	function boolRow(name, read, write) {
+		return bypassRow(name, toggle({
+			label: t(`routing.field.${name}`),
+			checked: read(),
+			hint: t(`routing.field.${name}.hint`),
+			onChange: (checked) => {
+				write(checked);
+				env.changed();
+			}
+		}));
+	}
+	const enabled = toggle({
+		label: t("routing.enabled"),
+		checked: routing.enabled,
+		hint: t("routing.enabled.hint"),
+		onChange: (checked) => {
+			routing.enabled = checked;
+			env.changed();
+		}
+	});
+	const offNote = el("div", {
+		class: "nanovia-muted nanovia-off-note",
+		text: t("routing.offNote"),
+		attrs: { hidden: true }
+	});
+	const lockedNote = el("div", {
+		class: "nanovia-notice nanovia-notice-warn nanovia-locked-note",
+		text: t("routing.lockedNote"),
+		attrs: { hidden: true }
+	});
+	const fixedNote = el("div", {
+		class: "nanovia-notice nanovia-notice-warn nanovia-fixed-note",
+		text: t("routing.fixedRoute"),
+		attrs: { hidden: true }
+	});
+	const needsSort = el("div", {
+		class: "nanovia-field-hint nanovia-warn-text",
+		text: t("routing.needsSortNow"),
+		attrs: { hidden: true }
+	});
+	const quantizationBox = el("div", {
+		class: "nanovia-checks",
+		attrs: {
+			role: "group",
+			"aria-label": t("routing.field.quantizations")
+		}
+	}, QUANTIZATIONS.map((value) => toggle({
+		label: value,
+		checked: routing.quantizations.includes(value),
+		onChange: (checked) => {
+			routing.quantizations = checked ? [...routing.quantizations.filter((q) => q !== value), value] : routing.quantizations.filter((q) => q !== value);
+			env.changed();
+		}
+	})));
+	const minOptions = [{
+		value: "",
+		label: t("routing.field.minQuantization.none")
+	}, ...MIN_QUANTIZATIONS.map((value) => ({
+		value,
+		label: value
+	}))];
+	const zdr = el("div", {
+		class: "nanovia-row-block",
+		data: { field: "zdr" }
+	}, [toggle({
+		label: t("routing.field.zdr"),
+		checked: routing.zdr,
+		hint: t("routing.field.zdr.hint"),
+		onChange: (checked) => {
+			routing.zdr = checked;
+			env.changed();
+		}
+	}), el("div", {
+		class: "nanovia-field-hint",
+		text: t("routing.field.zdr.keeps")
+	})]);
+	rows.set("zdr", zdr);
+	return {
+		node: section("routing", t("routing.section.routing"), [
+			el("div", {
+				class: "nanovia-field-hint",
+				text: t("routing.section.routing.hint")
+			}),
+			enabled,
+			lockedNote,
+			offNote,
+			fixedNote,
+			idsRow("order"),
+			idsRow("only"),
+			idsRow("ignore"),
+			bypassRow("sort", field(t("routing.field.sort"), select({
+				value: routing.sort,
+				options: options(ROUTING_SORTS, (value) => t(`routing.sort.${value}`)),
+				label: t("routing.field.sort"),
+				onChange: (value) => {
+					routing.sort = value;
+					env.changed();
+				}
+			}), t("routing.field.sort.hint"))),
+			bypassRow("quantizations", field(t("routing.field.quantizations"), quantizationBox, t("routing.field.quantizations.hint"))),
+			bypassRow("minQuantization", field(t("routing.field.minQuantization"), select({
+				value: routing.minQuantization ?? "",
+				options: minOptions,
+				label: t("routing.field.minQuantization"),
+				onChange: (value) => {
+					routing.minQuantization = MIN_QUANTIZATIONS.find((q) => q === value) ?? null;
+					env.changed();
+				}
+			}), t("routing.field.minQuantization.hint"))),
+			bypassRow("maxPrice", field(t("routing.field.maxPrice"), el("div", { class: "nanovia-row nanovia-pair" }, [priceInput("prompt"), priceInput("completion")]), t("routing.field.maxPrice.hint"))),
+			boolRow("allowFallbacks", () => routing.allowFallbacks, (value) => void (routing.allowFallbacks = value)),
+			boolRow("requireParameters", () => routing.requireParameters, (value) => void (routing.requireParameters = value)),
+			zdr,
+			numberRow("preferredMaxLatency", () => routing.preferredMaxLatency, (value) => void (routing.preferredMaxLatency = value)),
+			numberRow("preferredMinThroughput", () => routing.preferredMinThroughput, (value) => void (routing.preferredMinThroughput = value)),
+			needsSort,
+			boolRow("cachingRoute", () => routing.cachingRoute, (value) => void (routing.cachingRoute = value))
+		]),
+		update(data) {
+			const { controls, verdict } = data;
+			for (const [name, row] of rows) {
+				const state = controls[name];
+				setDisabled(row, state.disabled);
+				row.classList.toggle("nanovia-locked", state.disabled);
+				if (name !== "zdr") {
+					const lock = locks.get(name);
+					if (lock) {
+						lock.textContent = state.reason ? t(state.reason) : "";
+						lock.hidden = !state.reason;
+					}
+				}
+			}
+			lockedNote.hidden = draft.billing !== "subscription";
+			offNote.hidden = draft.routing.enabled;
+			fixedNote.hidden = !routingIgnored(verdict);
+			needsSort.hidden = !(draft.routing.enabled && draft.billing !== "subscription" && preferenceNeedsSort(draft.routing));
+			for (const suggestor of suggestors) suggestor.setSuggestions(providerSuggestions(data.providers, suggestor.read()));
+		}
+	};
+}
+function buildBillingSection(env) {
+	const { t, draft } = env;
+	const modeHint = el("div", { class: "nanovia-field-hint" });
+	const panel = el("div", {
+		class: "nanovia-verdict",
+		attrs: { "aria-live": "polite" }
+	});
+	const mode = field(t("routing.billing.mode"), select({
+		value: draft.billing,
+		options: options(BILLING_MODES, (value) => t(`routing.billing.${value}`)),
+		label: t("routing.billing.mode"),
+		onChange: (value) => {
+			draft.billing = value;
+			env.changed();
+		}
+	}));
+	mode.appendChild(modeHint);
+	function drawPanel(data) {
+		const { verdict } = data;
+		clear(panel);
+		const head = el("div", { class: "nanovia-row nanovia-verdict-head" }, [
+			el("b", { text: t("routing.verdict.title") }),
+			chip(billingOutcomeLabel(verdict.outcome, t), outcomeKind(verdict.outcome)),
+			verdict.markupPercent > 0 ? chip(t("routing.verdict.markup", { percent: verdict.markupPercent }), "warn") : null,
+			verdict.subscriptionSafe ? chip(t("routing.verdict.safe"), "ok", t("routing.verdict.safe.hint")) : null
+		]);
+		panel.appendChild(head);
+		panel.appendChild(el("div", {
+			class: "nanovia-muted",
+			text: t(verdictSummaryKey(verdict))
+		}));
+		if (verdict.reasons.length > 0) panel.appendChild(el("ul", { class: "nanovia-reasons" }, verdict.reasons.map((reason) => el("li", { text: billingReasonText(reason, t) }))));
+		if (verdict.warnings.length > 0) panel.appendChild(el("ul", { class: "nanovia-warnings" }, verdict.warnings.map((warning) => el("li", { text: planWarningText(warning, t) }))));
+		if (verdict.stripped.length > 0) panel.appendChild(el("div", {
+			class: "nanovia-stripped",
+			text: t("routing.verdict.stripped", { fields: strippedLabels(verdict.stripped, t).join(", ") })
+		}));
+		if (draft.billing !== "subscription" && hasBypassingSettings(draft)) panel.appendChild(el("div", { class: "nanovia-row" }, [button({
+			label: t("routing.verdict.makeSafe"),
+			title: t("routing.verdict.makeSafe.hint"),
+			icon: "shield-halved",
+			onClick: () => {
+				Object.assign(draft.routing, makeSubscriptionSafe(data.config, draft, data.model).routing);
+				env.rebuild();
+			}
+		})]));
+	}
+	return {
+		node: section("billing", t("routing.section.billing"), [
+			el("div", {
+				class: "nanovia-field-hint",
+				text: t("routing.section.billing.hint")
+			}),
+			mode,
+			panel
+		]),
+		update(data) {
+			modeHint.textContent = t(`routing.billing.${draft.billing}.hint`);
+			drawPanel(data);
+		}
+	};
+}
+function buildReasoningSection(env) {
+	const { t, draft } = env;
+	const reasoning = draft.reasoning;
+	const policyHint = el("div", { class: "nanovia-field-hint" });
+	const capsLine = el("div", { class: "nanovia-muted nanovia-caps" });
+	const preview = el("div", {
+		class: "nanovia-preview",
+		attrs: {
+			role: "table",
+			"aria-label": t("routing.preview.title")
+		}
+	});
+	const policy = field(t("routing.reasoning.policy"), select({
+		value: reasoning.policy,
+		options: options(REASONING_POLICIES, (value) => t(`routing.reasoning.${value}`)),
+		label: t("routing.reasoning.policy"),
+		onChange: (value) => {
+			reasoning.policy = value;
+			env.changed();
+		}
+	}));
+	policy.appendChild(policyHint);
+	const effortHost = el("div", { class: "nanovia-effort" });
+	let effortSignature = "";
+	function drawEffort(caps) {
+		const current = reasoning.effort ?? "medium";
+		const choices = effortChoices(caps, current);
+		const signature = `${choices.join(",")}|${current}`;
+		effortHost.hidden = reasoning.policy !== "fixed";
+		if (signature === effortSignature) return;
+		effortSignature = signature;
+		clear(effortHost);
+		effortHost.appendChild(field(t("routing.reasoning.effort"), select({
+			value: current,
+			options: options(choices, (value) => t(`billing.effort.${value}`)),
+			label: t("routing.reasoning.effort"),
+			onChange: (value) => {
+				reasoning.effort = value;
+				env.changed();
+			}
+		}), t("routing.reasoning.effort.hint")));
+	}
+	function drawPreview(rows) {
+		clear(preview);
+		preview.appendChild(el("div", {
+			class: "nanovia-field-hint",
+			text: t("routing.preview.title")
+		}));
+		for (const row of rows) preview.appendChild(el("div", {
+			class: "nanovia-preview-row",
+			attrs: { role: "row" },
+			data: { scenario: row.id }
+		}, [
+			el("span", {
+				class: "nanovia-preview-case",
+				text: t(`routing.preview.row.${row.id}`)
+			}),
+			el("code", {
+				class: "nanovia-preview-result",
+				text: describeReasoning(row.params, t)
+			}),
+			...row.warnings.map((warning) => el("div", {
+				class: "nanovia-field-hint nanovia-preview-warning",
+				text: planWarningText(warning, t)
+			}))
+		]));
+	}
+	return {
+		node: section("reasoning", t("routing.section.reasoning"), [
+			policy,
+			effortHost,
+			toggle({
+				label: t("routing.reasoning.hide"),
+				checked: reasoning.hideThoughts,
+				hint: t("routing.reasoning.hide.hint"),
+				onChange: (checked) => {
+					reasoning.hideThoughts = checked;
+					env.changed();
+				}
+			}),
+			capsLine,
+			preview
+		]),
+		update(data) {
+			policyHint.textContent = t(`routing.reasoning.${reasoning.policy}.hint`);
+			drawEffort(data.caps);
+			capsLine.textContent = capabilityLine(data.caps, t);
+			drawPreview(data.preview);
+		}
+	};
+}
+// src/features/routing/view.ts
+function renderRoutingTab(root, ctx) {
+	const t = ctx.t;
+	let selected = null;
+	let draft = null;
+	let sections = [];
+	/** The saved values the draft was taken from, as text: tells an edit of the user from a change of the connection. */
+	let shownBaseline = "";
+	let disposed = false;
+	let notice = null;
+	const headHost = el("div", { class: "nanovia-routing-head" });
+	const noticeHost = el("div", {
+		class: "nanovia-notice-host",
+		attrs: { "aria-live": "polite" }
+	});
+	const bodyHost = el("div", { class: "nanovia-routing-body" });
+	root.append(headHost, noticeHost, bodyHost);
+	/** The chip that follows the draft in the header, filled in by `update()`. */
+	const badgeHost = el("span", { class: "nanovia-routing-badge" });
+	const dirtyHost = el("span", { class: "nanovia-routing-dirty" });
+	function baselineOf(config) {
+		return JSON.stringify(patchOf(draftOf(config)));
+	}
+	function current() {
+		return selected ? ctx.connections.get(selected) : null;
+	}
+	function drawNotice() {
+		clear(noticeHost);
+		if (!notice) return;
+		noticeHost.appendChild(el("div", {
+			class: ["nanovia-notice", `nanovia-notice-${notice.kind}`],
+			text: notice.text
+		}));
+	}
+	function notify(kind, text) {
+		notice = {
+			kind,
+			text
+		};
+		drawNotice();
+	}
+	function report(result, success) {
+		if (!result.ok) {
+			notify("error", issueText(result.error, t));
+			return false;
+		}
+		if (result.warnings.length === 0) notify("ok", success);
+		else notify("warn", [success, ...result.warnings.map((warning) => issueText(warning, t))].join(" "));
+		return true;
+	}
+	function compute(data) {
+		const { config } = data;
+		const model = ctx.catalog.model(config.modelId);
+		const providers = ctx.catalog.providers(model?.id ?? config.modelId);
+		const verdict = verdictFor(config, data.draft, model, providers?.supportsProviderSelection ?? null);
+		return {
+			config,
+			draft: data.draft,
+			model,
+			providers,
+			verdict,
+			controls: controlStates(data.draft),
+			caps: reasoningCaps(model),
+			preview: reasoningPreview(model, data.draft.reasoning)
+		};
+	}
+	function update() {
+		const entry = current();
+		if (!entry || !draft) return;
+		const data = compute({
+			config: entry.config,
+			draft
+		});
+		for (const view of sections) view.update(data);
+		const badge = outcomeBadge(data.verdict, t);
+		clear(badgeHost);
+		badgeHost.appendChild(chip(badge.label, badge.kind, t("routing.header.badge.hint")));
+		clear(dirtyHost);
+		if (isDirty(entry.config, draft)) dirtyHost.appendChild(chip(t("routing.dirty"), "warn"));
+	}
+	function buildBody() {
+		clear(bodyHost);
+		sections = [];
+		if (!current() || !draft) {
+			bodyHost.appendChild(el("div", {
+				class: "nanovia-muted nanovia-empty",
+				text: t("routing.empty")
+			}));
+			return;
+		}
+		const env = {
+			ctx,
+			t,
+			draft,
+			changed: update,
+			rebuild: () => {
+				buildBody();
+			}
+		};
+		sections = [
+			buildRoutingSection(env),
+			buildBillingSection(env),
+			buildReasoningSection(env)
+		];
+		for (const view of sections) bodyHost.appendChild(view.node);
+		update();
+	}
+	function drawHead() {
+		clear(headHost);
+		const entries = ctx.connections.list();
+		if (entries.length === 0) return;
+		const chooser = select({
+			value: selected ?? "",
+			options: entries.map((entry) => ({
+				value: entry.config.id,
+				label: connectionLabel(entry.config)
+			})),
+			label: t("routing.connection"),
+			onChange: (id) => void choose(id)
+		});
+		headHost.appendChild(el("div", { class: "nanovia-row nanovia-routing-bar" }, [
+			chooser,
+			badgeHost,
+			dirtyHost,
+			button({
+				label: t("routing.save"),
+				icon: "check",
+				kind: "primary",
+				onClick: () => save()
+			}),
+			button({
+				label: t("routing.revert"),
+				icon: "rotate-left",
+				onClick: () => revert()
+			})
+		]));
+	}
+	function loadHosts() {
+		const entry = current();
+		if (!entry) return;
+		const modelId = entry.config.modelId;
+		const id = ctx.catalog.model(modelId)?.id ?? modelId;
+		ctx.catalog.ensureProviders(id).then(() => {
+			if (!disposed && current()?.config.modelId === modelId) update();
+		});
+	}
+	async function choose(id) {
+		const entry = current();
+		if (id === selected) return;
+		if (entry && draft && isDirty(entry.config, draft)) {
+			if (!await ctx.host.confirm(t("routing.confirm.discard"), t("routing.confirm.title"))) {
+				drawHead();
+				update();
+				return;
+			}
+		}
+		open(id);
+	}
+	function open(id) {
+		selected = id;
+		notice = null;
+		drawNotice();
+		const entry = current();
+		draft = entry ? draftOf(entry.config) : null;
+		shownBaseline = entry ? baselineOf(entry.config) : "";
+		drawHead();
+		buildBody();
+		loadHosts();
+	}
+	function revert() {
+		const entry = current();
+		if (!entry) return;
+		draft = draftOf(entry.config);
+		shownBaseline = baselineOf(entry.config);
+		buildBody();
+		notify("ok", t("routing.notice.reverted"));
+	}
+	async function save() {
+		const entry = current();
+		if (!entry || !draft) return;
+		report(await ctx.connections.save({
+			id: entry.config.id,
+			patch: patchOf(draft)
+		}), t("routing.notice.saved"));
+	}
+	/** The connections changed (a save, a refresh): follow them unless the user has edits that would be lost. */
+	function onConnections() {
+		if (disposed) return;
+		const entry = current();
+		if (!entry) {
+			open(ctx.connections.list()[0]?.config.id ?? null);
+			return;
+		}
+		const baseline = baselineOf(entry.config);
+		if (draft && JSON.stringify(patchOf(draft)) === shownBaseline && baseline !== shownBaseline) {
+			draft = draftOf(entry.config);
+			shownBaseline = baseline;
+			drawHead();
+			buildBody();
+			return;
+		}
+		shownBaseline = baseline;
+		drawHead();
+		update();
+	}
+	const offConnections = ctx.connections.onChange(onConnections);
+	const offCatalog = ctx.catalog.onChange(() => {
+		if (!disposed) update();
+	});
+	open(ctx.connections.list()[0]?.config.id ?? null);
+	return () => {
+		disposed = true;
+		offConnections();
+		offCatalog();
+		draft = null;
+	};
+}
+// src/features/routing/index.ts
+var ROUTING_FEATURE_ID = "routing";
+var ROUTING_TAB_ID = "routing";
+// src/features/index.ts
+var FEATURES = [
+	connectionsFeature,
+	{
+		id: ROUTING_FEATURE_ID,
+		init(ctx) {
+			ctx.i18n.register(BILLING_STRINGS);
+			ctx.i18n.register(ROUTING_STRINGS);
+			return ctx.panel.registerTab({
+				id: ROUTING_TAB_ID,
+				titleKey: "routing.tab",
+				order: 200,
+				render: (root, tabCtx) => renderRoutingTab(root, tabCtx)
+			});
+		}
+	},
+	keysFeature
+];
 // src/app/api.ts
 function createApiPublisher(deps) {
 	const { connections, profiles, settings, log } = deps;
@@ -3519,7 +6482,6 @@ async function startNanovia(options = {}) {
 	const bus = createBus(log.scope("bus"));
 	const requests = installFetchHook(log.scope("request"));
 	requests.register(proxyHintsHook);
-	requests.register(directModeHook);
 	const plugin = createPluginClient({
 		ctx: host.ctx,
 		log: log.scope("plugin")
@@ -3570,7 +6532,18 @@ async function startNanovia(options = {}) {
 		bus,
 		log
 	});
-	const owned = [];
+	const directMode = createDirectMode({
+		connections: () => connections.list().map((entry) => ({
+			config: entry.config,
+			effectiveMode: entry.effectiveMode
+		})),
+		directSecrets: () => settings.get().directSecrets,
+		model: (id) => ctx.catalog.model(id),
+		providers: (id) => ctx.catalog.providers(id),
+		emit: (record) => void bus.emit("usage:record", { record }),
+		log: log.scope("direct")
+	});
+	const owned = [requests.register(directMode.hook), requests.observe(directMode.observer)];
 	owned.push(panel.registerTab(generalTab({
 		settings,
 		i18n,
