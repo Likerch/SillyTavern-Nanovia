@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMediaStore, isActiveJob } from '../../src/core/media';
 import type { MediaStore, MediaStoreDeps } from '../../src/core/media';
+import type { UsageStore } from '../../src/core/usage';
 import type { PluginResult } from '../../src/host/plugin-client';
 import type { UsageRecord } from '../../src/shared/contracts';
 import { usageRecord } from '../helpers/account-fake';
@@ -14,7 +15,10 @@ import type { MediaFake } from '../helpers/media-fake';
 let h: Harness;
 let fake: MediaFake;
 let store: MediaStore;
-let usage: { refresh: ReturnType<typeof vi.fn>; ingest: ReturnType<typeof vi.fn> };
+let usage: {
+    refresh: ReturnType<typeof vi.fn<UsageStore['refresh']>>;
+    ingest: ReturnType<typeof vi.fn<UsageStore['ingest']>>;
+};
 let recent: ReturnType<typeof vi.fn<(options?: unknown) => Promise<PluginResult<UsageRecord[]>>>>;
 let pluginUp = true;
 let checked = true;
@@ -43,7 +47,7 @@ beforeEach(() => {
     ];
     fake.catalogs.video = [mediaModel({ id: 'veo3', medium: 'video' })];
     fake.catalogs.stt = [mediaModel({ id: 'asr', medium: 'stt' })];
-    usage = { refresh: vi.fn(async () => {}), ingest: vi.fn() };
+    usage = { refresh: vi.fn<UsageStore['refresh']>(async () => {}), ingest: vi.fn<UsageStore['ingest']>() };
     recent = vi.fn(async () => ({ ok: true as const, data: [] }));
     pluginUp = true;
     checked = true;
