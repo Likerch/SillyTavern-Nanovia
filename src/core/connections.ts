@@ -76,6 +76,8 @@ export interface ConnectionsService {
     get(id: string): ConnectionEntry | null;
     /** Whether `/status` answered the last time we asked. */
     pluginUp(): boolean;
+    /** Whether the plugin has been asked at all yet (before that, "not up" means "not known"). */
+    checked(): boolean;
     pluginStatus(): ApiStatus | null;
     /** Why the plugin is down, null when it is up (or never asked). */
     pluginError(): PluginError | null;
@@ -145,6 +147,7 @@ export function createConnectionsService(deps: ConnectionsDeps): ConnectionsServ
     const newId = deps.newId ?? (() => randomConnectionId());
 
     let up = false;
+    let asked = false;
     let status: ApiStatus | null = null;
     let error: PluginError | null = null;
     /** Views the plugin sent, by connection id. Survives a failed refresh, so a short outage keeps the proxy URLs. */
@@ -352,6 +355,7 @@ export function createConnectionsService(deps: ConnectionsDeps): ConnectionsServ
 
     async function doRefresh(): Promise<void> {
         const state = await plugin.status();
+        asked = true;
         if (!state.ok) {
             up = false;
             status = null;
@@ -391,6 +395,7 @@ export function createConnectionsService(deps: ConnectionsDeps): ConnectionsServ
 
         const pluginUp = await plugin.available({ fresh: true });
         up = pluginUp;
+        asked = true;
         const modeAfter = patch.mode ?? existing?.config.mode ?? 'auto';
         if (modeAfter === 'plugin' && !pluginUp) return fail('plugin_down');
 
@@ -468,6 +473,7 @@ export function createConnectionsService(deps: ConnectionsDeps): ConnectionsServ
         if (entry.config.mode !== 'direct') {
             const answering = await plugin.available({ fresh: true });
             up = answering;
+            asked = true;
             if (!answering) return fail('plugin_down');
             // Asked even when this session never saw the connection on the plugin: it may be there all the same.
             const result = await plugin.deleteConnection(id);
@@ -543,6 +549,7 @@ export function createConnectionsService(deps: ConnectionsDeps): ConnectionsServ
             return entries.find((entry) => entry.config.id === id) ?? null;
         },
         pluginUp: () => up,
+        checked: () => asked,
         pluginStatus: () => status,
         pluginError: () => error,
 

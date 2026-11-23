@@ -17,8 +17,11 @@ export interface FeatureContext {
     profiles: ProfilesHost;
     /** Write-only access to ST's secret store, for direct mode. */
     secrets: SecretsHost;
-    /** `register(hook)` adds a hook to the fetch wrapper of chat-completion requests. */
-    requests: RequestHooks;
+    /**
+     * Adds a hook to the fetch wrapper of chat-completion requests: it receives the parsed body of every request to
+     * `/api/backends/chat-completions/generate` and may change it (see host/fetch-hook.ts). Returns the remover.
+     */
+    registerRequestHook: RequestHooks['register'];
     /** `registerTab({ id, titleKey, order, render(root, ctx) { …; return dispose } })`. */
     panel: PanelApi<FeatureContext>;
     i18n: I18n;

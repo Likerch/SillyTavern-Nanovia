@@ -55,6 +55,14 @@ describe('pure helpers', () => {
 });
 
 describe('refresh', () => {
+    it('knows whether the plugin has been asked yet', async () => {
+        expect(h.connections.checked()).toBe(false);
+        expect(h.connections.pluginUp()).toBe(false);
+        h.backend.plugin.up = false;
+        await h.connections.refresh();
+        expect(h.connections.checked()).toBe(true);
+    });
+
     it('lists what the plugin has and mirrors it', async () => {
         seedConnection(h.backend, { name: 'Main', modelId: 'deepseek/deepseek-v4' }, 'seed000001');
         await h.connections.refresh();
