@@ -1,6 +1,7 @@
 // Types of the server plugin: the router subset it needs, the SillyTavern services it injects, the proxy pipeline
 // (docs/ARCHITECTURE.md §4) and the dependencies handed to every route module. Contracts live in shared/.
 import type { CatalogModel, ConnectionConfig, RequestHints, UpstreamPlan, UsageRecord } from '../shared/contracts';
+import type { CatalogService } from './catalog';
 import type { ServerConfig } from './config';
 import type { SecretValue } from './secret-value';
 import type { Store } from './store';
@@ -13,6 +14,8 @@ import type { UsageLog } from './usage-log';
 export interface RouteRequest {
     body?: unknown;
     params: Record<string, string>;
+    /** The parsed query string (Express fills it; a hand-made request may lack it). */
+    query?: Record<string, unknown>;
     /** ST's auth middleware: the logged-in user. */
     user?: { profile?: { handle?: string }; directories?: { root?: string } };
 }
@@ -171,8 +174,15 @@ export interface ServerDeps {
     fetch: FetchLike;
     /** The live state of the proxy listener. */
     proxy: () => ProxyStatus;
-    /** Catalog lookup (stage 3 replaces the default that knows nothing). */
+    /** Catalog lookup, synchronous from the in-memory snapshot: null while the catalog is not loaded or the id is unknown. */
     lookupModel: (modelId: string) => CatalogModel | null;
+    /** The catalog service behind lookupModel, providerSelection and the /catalog routes (stage 3). */
+    catalog?: CatalogService;
+    /**
+     * Does the model support provider selection? Answered from the cached host list only: null = unknown. Never blocks;
+     * a missing entry is fetched in the background. Same meaning as `UpstreamInput.providerSelection`.
+     */
+    providerSelection?: (modelId: string) => boolean | null;
     now: () => number;
     log: Logger;
 }
