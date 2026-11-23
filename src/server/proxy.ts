@@ -13,9 +13,11 @@ import type { UsageRecord } from '../shared/contracts';
 import { PROXY_HOST, RESPONSE_HEADERS, SECRET_KEY_NANOGPT } from '../shared/constants';
 import { createProxyContext, parseHints } from './context';
 import { REQUEST_STEPS, RESPONSE_STEPS } from './pipeline';
+import { lookupCatalog, requestedModelId } from './pipeline/steps/plan';
 import { SecretValue } from './secret-value';
 import { hashToken } from './tokens';
 import { callUpstream, UpstreamError, type UpstreamHandle } from './upstream';
+import { SseUsageShim, shimContextOf } from './usage-capture';
 import type { ProxyContext, ProxyStatus, RequestStep, ResponseStep, ServerDeps, UpstreamInfo } from './types';
 
 export const MAX_BODY_BYTES = 32 * 1024 * 1024;
@@ -169,13 +171,15 @@ export function createProxyServer(
             return early(409, 'invalid_request_error', 'no_key', message, stream);
         }
 
+        const catalog = lookupCatalog(deps, requestedModelId(connection, incoming));
         const ctx = createProxyContext({
             localId: randomBytes(4).toString('hex'),
             now: startedAt,
             user,
             connection,
             key,
-            model: deps.lookupModel(typeof incoming['model'] === 'string' ? incoming['model'] : connection.modelId),
+            model: catalog.model,
+            providerSelection: catalog.providerSelection,
             hints: parseHints(req.headers),
             body: incoming,
             signal: clientAbort.signal,
@@ -240,15 +244,24 @@ export function createProxyServer(
             res.writeHead(info.status, clientHeaders(ctx, info, true));
             res.flushHeaders();
             res.socket?.setNoDelay(true);
+            // Chunks are relayed as they arrive: whole events leave at once, only an event that carries usage is rewritten.
+            const shim = new SseUsageShim(shimContextOf(ctx));
             try {
                 for await (const chunk of upstream.body) {
                     upstream.touch();
-                    await writeChunk(res, chunk);
+                    const out = shim.push(chunk);
+                    if (out) await writeChunk(res, out);
                     if (clientGone(ctx)) break;
+                }
+                if (!clientGone(ctx)) {
+                    // The upstream finished: an event it never terminated still reaches the client.
+                    const tail = shim.end();
+                    if (tail) await writeChunk(res, tail);
                 }
             } catch (error) {
                 failure = error instanceof UpstreamError ? error : new UpstreamError('unreachable', null);
             }
+            ctx.resolved = shim.resolved;
             if (failure && failure.kind !== 'aborted' && !res.destroyed) {
                 const text =
                     failure.kind === 'timeout' ? 'The upstream stopped sending data' : 'The upstream connection broke';
@@ -258,7 +271,7 @@ export function createProxyServer(
             const aborted = clientGone(ctx) || failure?.kind === 'aborted';
             ctx.usage.status = aborted ? 499 : failure ? (failure.kind === 'timeout' ? 504 : 502) : info.status;
             ctx.usage.error = aborted
-                ? 'client_closed'
+                ? 'client_aborted'
                 : failure
                   ? failure.kind === 'timeout'
                       ? 'upstream_timeout'
@@ -308,9 +321,14 @@ export function createProxyServer(
         }
     }
 
+    /** The one usage record of the request. Bookkeeping never fails a request: a broken log is a warning. */
     async function finish(ctx: ProxyContext, userRoot: string): Promise<void> {
         ctx.usage.latencyMs = Math.max(0, deps.now() - ctx.startedAt);
-        await deps.usage.append(userRoot, ctx.usage);
+        try {
+            await deps.usage.append(userRoot, ctx.usage);
+        } catch (error) {
+            log.warn(`usage record not written (${describe(error, ctx.key)})`);
+        }
     }
 
     async function finishWithError(
@@ -337,7 +355,7 @@ export function createProxyServer(
         const failure = error instanceof UpstreamError ? error : new UpstreamError('unreachable', null);
         if (failure.kind === 'aborted') {
             ctx.usage.status = 499;
-            ctx.usage.error = 'client_closed';
+            ctx.usage.error = 'client_aborted';
             return finish(ctx, userRoot);
         }
         const timeout = failure.kind === 'timeout';

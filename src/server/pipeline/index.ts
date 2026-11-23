@@ -1,11 +1,11 @@
 // The proxy pipeline (docs/ARCHITECTURE.md §4). A stage adds steps by appending one import and one array entry here;
-// each step lives in its own file under steps/ and stays small and pure where it can.
+// each step lives in its own file under steps/ (or next to the proxy, like the usage capture) and stays small.
 import type { RequestStep, ResponseStep } from '../types';
-import { modelStep } from './steps/model';
-import { stripSamplersStep } from './steps/strip-samplers';
+import { usageStep } from '../usage-capture';
+import { planStep } from './steps/plan';
 
-/** Run in order before the upstream call. */
-export const REQUEST_STEPS: RequestStep[] = [modelStep, stripSamplersStep];
+/** Run in order before the upstream call. `planStep` goes first: it builds the plan the other steps refine. */
+export const REQUEST_STEPS: RequestStep[] = [planStep];
 
-/** Run once the upstream answer is complete. Empty in stage 0.1; usage and cost land here in stage 0.4. */
-export const RESPONSE_STEPS: ResponseStep[] = [];
+/** Run once the upstream answer is complete. `usageStep` shims a whole body and completes the usage record. */
+export const RESPONSE_STEPS: ResponseStep[] = [usageStep];

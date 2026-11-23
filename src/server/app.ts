@@ -18,6 +18,8 @@ export interface NanoviaOptions {
     version?: string;
     now?: () => number;
     lookupModel?: (modelId: string) => CatalogModel | null;
+    /** `supportsProviderSelection` of a model; absent = unknown. */
+    providerSelection?: (modelId: string) => boolean | null;
     /** Defaults to ROUTE_MODULES. */
     routes?: RouteModule[];
     /** Defaults to REQUEST_STEPS / RESPONSE_STEPS. */
@@ -51,6 +53,7 @@ export async function startNanovia(router: RouterLike, options: NanoviaOptions):
         fetch: options.fetch,
         proxy: () => proxy?.status() ?? { up: false, host: '127.0.0.1', port: config.port, error: null },
         lookupModel: options.lookupModel ?? (() => null),
+        ...(options.providerSelection ? { providerSelection: options.providerSelection } : {}),
         now,
         log,
     };
