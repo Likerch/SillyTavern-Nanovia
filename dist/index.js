@@ -417,7 +417,7 @@ function isRecord$10(value) {
 function str(value) {
 	return typeof value === "string" ? value : null;
 }
-function invalid$3(what) {
+function invalid$4(what) {
 	return {
 		ok: false,
 		error: {
@@ -561,7 +561,7 @@ function createPluginClient(deps) {
 				};
 			}
 			noteAnswered();
-			if (!parsedOk) return invalid$3("response (not JSON)");
+			if (!parsedOk) return invalid$4("response (not JSON)");
 			return {
 				ok: true,
 				data: json
@@ -583,7 +583,7 @@ function createPluginClient(deps) {
 	function map(result, read, what) {
 		if (!result.ok) return result;
 		const value = read(result.data);
-		return value === null ? invalid$3(what) : {
+		return value === null ? invalid$4(what) : {
 			ok: true,
 			data: value
 		};
@@ -846,7 +846,7 @@ function isRecord$9(value) {
 }
 var DECIMAL$1 = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/;
 /** A USD amount from a number or a decimal string; null for negatives, NaN, infinities and anything else. */
-function parseCost(value) {
+function parseCost$1(value) {
 	let n;
 	if (typeof value === "number") n = value;
 	else if (typeof value === "string" && DECIMAL$1.test(value.trim())) n = Number(value.trim());
@@ -867,7 +867,7 @@ function firstCount(...values) {
 }
 function firstCost(...values) {
 	for (const value of values) {
-		const n = parseCost(value);
+		const n = parseCost$1(value);
 		if (n !== null) return n;
 	}
 	return null;
@@ -887,7 +887,7 @@ function preferPositive(...values) {
 /** NanoGPT answers within 15 s on the plugin's side; the browser waits a little longer than that. */
 var NANOGPT_TIMEOUT_MS = 2e4;
 var SPEND_TIMEOUT_MS = 15e3;
-function invalid$2(what) {
+function invalid$3(what) {
 	return {
 		ok: false,
 		error: {
@@ -899,7 +899,7 @@ function invalid$2(what) {
 }
 var DECIMAL = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/;
 /** A finite number from a JSON number or a decimal string; null otherwise. */
-function numberOf$1(value) {
+function numberOf$2(value) {
 	if (typeof value === "number") return Number.isFinite(value) ? value : null;
 	if (typeof value === "string" && DECIMAL.test(value.trim())) {
 		const n = Number(value.trim());
@@ -908,23 +908,23 @@ function numberOf$1(value) {
 	return null;
 }
 function countOf(value) {
-	const n = numberOf$1(value);
+	const n = numberOf$2(value);
 	return n !== null && n > 0 ? n : 0;
 }
 function parseBalance(raw, now) {
 	if (!isRecord$9(raw)) return null;
 	return {
-		usdBalance: numberOf$1(raw["usdBalance"]),
-		nanoBalance: numberOf$1(raw["nanoBalance"]),
-		fetchedAt: numberOf$1(raw["fetchedAt"]) ?? now
+		usdBalance: numberOf$2(raw["usdBalance"]),
+		nanoBalance: numberOf$2(raw["nanoBalance"]),
+		fetchedAt: numberOf$2(raw["fetchedAt"]) ?? now
 	};
 }
 function parseWindow(raw) {
 	const window = isRecord$9(raw) ? raw : {};
 	return {
-		used: numberOf$1(window["used"]),
-		limit: numberOf$1(window["limit"]),
-		resetsAt: numberOf$1(window["resetsAt"])
+		used: numberOf$2(window["used"]),
+		limit: numberOf$2(window["limit"]),
+		resetsAt: numberOf$2(window["resetsAt"])
 	};
 }
 function parseSubscriptionUsage(raw) {
@@ -943,11 +943,11 @@ function parseSubscriptionState(raw, now) {
 	if (subscription !== null && subscription !== void 0 && parseSubscriptionUsage(subscription) === null) return null;
 	return {
 		subscription: subscription ? parseSubscriptionUsage(subscription) : null,
-		fetchedAt: numberOf$1(raw["fetchedAt"]) ?? now
+		fetchedAt: numberOf$2(raw["fetchedAt"]) ?? now
 	};
 }
 function parseTotals(raw) {
-	if (!isRecord$9(raw) || numberOf$1(raw["requests"]) === null) return null;
+	if (!isRecord$9(raw) || numberOf$2(raw["requests"]) === null) return null;
 	return {
 		requests: countOf(raw["requests"]),
 		costUsd: countOf(raw["costUsd"]),
@@ -969,13 +969,36 @@ function rows(raw, read) {
 	}
 	return out;
 }
+/**
+* The rows of `UsageSummary.byMedium` (an optional field the plugin adds in stage 0.7): a list of rows with a `medium`, or an
+* object keyed by medium. Tolerant on purpose: an older plugin sends none, and a row that cannot be read is dropped.
+*/
+function readMediumRows(raw) {
+	const entries = [];
+	if (Array.isArray(raw)) {
+		for (const item of raw) if (isRecord$9(item) && typeof item["medium"] === "string") entries.push([item["medium"], item]);
+	} else if (isRecord$9(raw)) entries.push(...Object.entries(raw));
+	const rows = [];
+	for (const [medium, item] of entries) {
+		const totals = medium ? parseTotals(item) : null;
+		if (totals) rows.push({
+			medium,
+			...totals
+		});
+	}
+	return rows;
+}
+/** The per-medium rows of a spend summary; empty when the plugin did not send any. */
+function mediumRowsOf(summary) {
+	return readMediumRows(summary.byMedium);
+}
 function parseSpend(raw) {
 	if (!isRecord$9(raw)) return null;
-	const from = numberOf$1(raw["from"]);
-	const to = numberOf$1(raw["to"]);
+	const from = numberOf$2(raw["from"]);
+	const to = numberOf$2(raw["to"]);
 	const total = parseTotals(raw["total"]);
 	if (from === null || to === null || total === null) return null;
-	return {
+	const summary = {
 		from,
 		to,
 		total,
@@ -992,6 +1015,7 @@ function parseSpend(raw) {
 			...totals
 		} : null)
 	};
+	return raw["byMedium"] === void 0 ? summary : Object.assign(summary, { byMedium: readMediumRows(raw["byMedium"]) });
 }
 var OUTCOMES = [
 	"subscription",
@@ -1003,17 +1027,33 @@ var CONSUMERS = [
 	"background",
 	"unknown"
 ];
+var MEDIA_OF_RECORD = [
+	"chat",
+	"image",
+	"video",
+	"tts",
+	"stt"
+];
+var COST_SOURCES_OF_RECORD = [
+	"response",
+	"lookup",
+	"estimate",
+	"unknown"
+];
 /** One record of `GET /usage/recent`; null when it is not a record. The plugin already normalised it, this only guards. */
 function parseRecord(raw) {
 	if (!isRecord$9(raw)) return null;
-	const at = numberOf$1(raw["at"]);
+	const at = numberOf$2(raw["at"]);
 	if (at === null || at < 0) return null;
 	const text = (value) => typeof value === "string" && value ? value : null;
 	const count = (value) => {
-		const n = numberOf$1(value);
+		const n = numberOf$2(value);
 		return n !== null && n >= 0 ? n : null;
 	};
-	return {
+	const medium = MEDIA_OF_RECORD.find((m) => m === raw["medium"]);
+	const costSource = COST_SOURCES_OF_RECORD.find((c) => c === raw["costSource"]);
+	const units = count(raw["units"]);
+	const record = {
 		at,
 		connectionId: text(raw["connectionId"]),
 		requestId: text(raw["requestId"]),
@@ -1031,6 +1071,10 @@ function parseRecord(raw) {
 		consumer: CONSUMERS.find((c) => c === raw["consumer"]) ?? "unknown",
 		error: text(raw["error"])
 	};
+	if (medium !== void 0) record.medium = medium;
+	if (units !== null && raw["units"] !== void 0) record.units = units;
+	if (costSource !== void 0) record.costSource = costSource;
+	return record;
 }
 function parseRecent(raw) {
 	if (!isRecord$9(raw) || !Array.isArray(raw["records"])) return null;
@@ -1043,7 +1087,7 @@ function parseRecent(raw) {
 }
 function parseLookup(raw) {
 	if (!isRecord$9(raw) || typeof raw["requestId"] !== "string" || typeof raw["ready"] !== "boolean") return null;
-	const cost = numberOf$1(raw["costUsd"]);
+	const cost = numberOf$2(raw["costUsd"]);
 	return {
 		requestId: raw["requestId"],
 		ready: raw["ready"],
@@ -1053,7 +1097,7 @@ function parseLookup(raw) {
 function map(result, read, what) {
 	if (!result.ok) return result;
 	const value = read(result.data);
-	return value === null ? invalid$2(what) : {
+	return value === null ? invalid$3(what) : {
 		ok: true,
 		data: value
 	};
@@ -1231,7 +1275,7 @@ var CACHE_TTLS = ["5m", "1h"];
 var PRESET_NAME_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$/;
 var PRESET_PROMPT_MAX_LENGTH = 12e3;
 var PRESET_BODY_LIMIT_BYTES = 16384;
-function pick$1(value, allowed) {
+function pick$2(value, allowed) {
 	if (typeof value !== "string") return null;
 	const wanted = value.trim().toLowerCase();
 	return allowed.find((item) => item === wanted) ?? null;
@@ -1289,7 +1333,7 @@ function checkExpiry(value, issues) {
 	return Math.round(value);
 }
 function checkPolicy(value, allowed, issues) {
-	const policy = pick$1(value, allowed);
+	const policy = pick$2(value, allowed);
 	if (policy === null) {
 		issues.push({
 			field: "zdrPolicy",
@@ -1820,10 +1864,10 @@ var ERROR_CODES = [
 	"upstream_error",
 	"rate_limited"
 ];
-function numberOf(value) {
+function numberOf$1(value) {
 	return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
-function pick(value, allowed) {
+function pick$1(value, allowed) {
 	return typeof value === "string" ? allowed.find((item) => item === value) ?? null : null;
 }
 function flag(value) {
@@ -1832,7 +1876,7 @@ function flag(value) {
 function text$2(value) {
 	return typeof value === "string" ? value : null;
 }
-function invalid$1(what) {
+function invalid$2(what) {
 	return {
 		ok: false,
 		error: {
@@ -1855,8 +1899,8 @@ function parseMgmtStatus(raw) {
 	return {
 		present: true,
 		valid: flag(raw["valid"]),
-		checkedAt: numberOf(raw["checkedAt"]),
-		error: pick(raw["error"], ERROR_CODES)
+		checkedAt: numberOf$1(raw["checkedAt"]),
+		error: pick$1(raw["error"], ERROR_CODES)
 	};
 }
 function parseLimits$1(raw) {
@@ -1887,7 +1931,7 @@ function parseLimits$1(raw) {
 		const periods = source[kind];
 		if (!isRecord$9(periods)) continue;
 		for (const period of KEY_LIMIT_PERIODS) {
-			const value = numberOf(periods[period]);
+			const value = numberOf$1(periods[period]);
 			limits[kind][period] = value !== null && value >= 0 ? value : null;
 		}
 	}
@@ -1903,10 +1947,10 @@ function parseManagedKey(raw) {
 		id,
 		name: text$2(raw["name"]) ?? "",
 		status: raw["status"] === "expired" ? "expired" : "active",
-		createdAt: numberOf(raw["createdAt"]),
-		expiresAt: numberOf(raw["expiresAt"]),
+		createdAt: numberOf$1(raw["createdAt"]),
+		expiresAt: numberOf$1(raw["expiresAt"]),
 		limits: parseLimits$1(raw["limits"]),
-		zdrPolicy: pick(raw["zdrPolicy"], ZDR_POLICIES)
+		zdrPolicy: pick$1(raw["zdrPolicy"], ZDR_POLICIES)
 	};
 }
 function parseKeys(raw) {
@@ -1923,7 +1967,7 @@ function parseKeys(raw) {
 }
 function parseThinking(raw) {
 	if (!isRecord$9(raw) || typeof raw["enabled"] !== "boolean") return null;
-	const budget = numberOf(raw["budgetTokens"]);
+	const budget = numberOf$1(raw["budgetTokens"]);
 	return {
 		enabled: raw["enabled"],
 		budgetTokens: budget !== null && Number.isInteger(budget) && budget > 0 ? budget : null
@@ -1933,7 +1977,7 @@ function parseCaching(raw) {
 	if (!isRecord$9(raw) || typeof raw["enabled"] !== "boolean") return null;
 	return {
 		enabled: raw["enabled"],
-		ttl: pick(raw["ttl"], CACHE_TTLS)
+		ttl: pick$1(raw["ttl"], CACHE_TTLS)
 	};
 }
 /** One preset of the contract (`ModelPreset`). null when it has no usable name. */
@@ -1945,26 +1989,26 @@ function parseModelPreset(raw) {
 		name,
 		model: text$2(raw["model"]) ?? "",
 		systemPrompt: text$2(raw["systemPrompt"]),
-		maxTokens: numberOf(raw["maxTokens"]),
-		topK: numberOf(raw["topK"]),
-		temperature: numberOf(raw["temperature"]),
-		topP: numberOf(raw["topP"]),
-		minP: numberOf(raw["minP"]),
-		topA: numberOf(raw["topA"]),
-		frequencyPenalty: numberOf(raw["frequencyPenalty"]),
-		presencePenalty: numberOf(raw["presencePenalty"]),
-		repetitionPenalty: numberOf(raw["repetitionPenalty"]),
-		responseFormat: pick(raw["responseFormat"], RESPONSE_FORMATS),
+		maxTokens: numberOf$1(raw["maxTokens"]),
+		topK: numberOf$1(raw["topK"]),
+		temperature: numberOf$1(raw["temperature"]),
+		topP: numberOf$1(raw["topP"]),
+		minP: numberOf$1(raw["minP"]),
+		topA: numberOf$1(raw["topA"]),
+		frequencyPenalty: numberOf$1(raw["frequencyPenalty"]),
+		presencePenalty: numberOf$1(raw["presencePenalty"]),
+		repetitionPenalty: numberOf$1(raw["repetitionPenalty"]),
+		responseFormat: pick$1(raw["responseFormat"], RESPONSE_FORMATS),
 		structuredOutputs: flag(raw["structuredOutputs"]),
-		reasoningEffort: pick(raw["reasoningEffort"], REASONING_EFFORTS$1),
-		reasoningSummary: pick(raw["reasoningSummary"], REASONING_SUMMARIES),
-		verbosity: pick(raw["verbosity"], VERBOSITIES),
-		routing: pick(raw["routing"], ROUTINGS),
-		serviceTier: pick(raw["serviceTier"], SERVICE_TIERS),
+		reasoningEffort: pick$1(raw["reasoningEffort"], REASONING_EFFORTS$1),
+		reasoningSummary: pick$1(raw["reasoningSummary"], REASONING_SUMMARIES),
+		verbosity: pick$1(raw["verbosity"], VERBOSITIES),
+		routing: pick$1(raw["routing"], ROUTINGS),
+		serviceTier: pick$1(raw["serviceTier"], SERVICE_TIERS),
 		thinking: parseThinking(raw["thinking"]),
 		promptCaching: parseCaching(raw["promptCaching"]),
-		createdAt: numberOf(raw["createdAt"]),
-		updatedAt: numberOf(raw["updatedAt"])
+		createdAt: numberOf$1(raw["createdAt"]),
+		updatedAt: numberOf$1(raw["updatedAt"])
 	};
 }
 function parsePresets(raw) {
@@ -2087,7 +2131,7 @@ function createPluginMgmt(deps) {
 			error: mgmtErrorOf(result.error, options.needed, options.secret)
 		};
 		const value = read(result.data);
-		return value === null ? invalid$1(what) : {
+		return value === null ? invalid$2(what) : {
 			ok: true,
 			data: value
 		};
@@ -2113,7 +2157,7 @@ function createPluginMgmt(deps) {
 				const keys = isRecord$9(data) ? parseKeys(data["keys"]) : null;
 				return keys ? {
 					keys,
-					fetchedAt: (isRecord$9(data) ? numberOf(data["fetchedAt"]) : null) ?? now()
+					fetchedAt: (isRecord$9(data) ? numberOf$1(data["fetchedAt"]) : null) ?? now()
 				} : null;
 			}, "key list");
 		},
@@ -2146,7 +2190,7 @@ function createPluginMgmt(deps) {
 				const presets = isRecord$9(data) ? parsePresets(data["presets"]) : null;
 				return presets ? {
 					presets,
-					fetchedAt: (isRecord$9(data) ? numberOf(data["fetchedAt"]) : null) ?? now()
+					fetchedAt: (isRecord$9(data) ? numberOf$1(data["fetchedAt"]) : null) ?? now()
 				} : null;
 			}, "preset list");
 		},
@@ -2164,6 +2208,656 @@ function createPluginMgmt(deps) {
 		},
 		deletePreset(name) {
 			return call("DELETE", `/mgmt/presets/${encodeURIComponent(name)}`, { needed: "model_presets:write" }, acknowledged, "acknowledgement");
+		}
+	};
+}
+// src/shared/contracts-media.ts
+var MEDIA_MEDIA = [
+	"image",
+	"video",
+	"tts",
+	"stt"
+];
+// src/host/plugin-media.ts
+/** True for the errors that mean "the plugin itself is not there", as opposed to NanoGPT or the input being the problem. */
+function isMediaPluginDown(error) {
+	return error.kind === "plugin_down" || error.kind === "not_installed" || error.kind === "forbidden";
+}
+/** Generation calls wait for NanoGPT on the plugin's side, which can take a minute or two for images and long speech. */
+var MEDIA_CALL_TIMEOUT_MS = 12e4;
+/** A video submit answers at once with a job id. */
+var VIDEO_SUBMIT_TIMEOUT_MS = 3e4;
+var CATALOG_TIMEOUT_MS$2 = 4e4;
+var STATUS_TIMEOUT_MS = 3e4;
+var LIST_TIMEOUT_MS = 15e3;
+/**
+* The URL of a saved video for `<video src>`: the plugin's files route. `file` is the id the plugin gave (`output.file`);
+* a value that already is a path or an URL is used as it is. Same origin as ST, so the session cookie goes along.
+*/
+function mediaFileUrl(file) {
+	if (/^(?:https?:)?\/\//i.test(file) || file.startsWith("/")) return file;
+	return `${PLUGIN_ADMIN_BASE}/media/files/${encodeURIComponent(file)}`;
+}
+function numberOf(value) {
+	return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+function textOf$1(value) {
+	return typeof value === "string" ? value : null;
+}
+function listOf(value) {
+	return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
+}
+function pick(value, allowed) {
+	return typeof value === "string" ? allowed.find((item) => item === value) ?? null : null;
+}
+function invalid$1(what) {
+	return {
+		ok: false,
+		error: {
+			kind: "invalid_response",
+			code: "invalid_response",
+			message: `unexpected ${what}`,
+			status: null
+		}
+	};
+}
+var PRICE_UNITS = [
+	"image",
+	"megapixel",
+	"second",
+	"minute",
+	"thousand_chars",
+	"thousand_bytes",
+	"million_tokens",
+	"request",
+	"unknown"
+];
+var PARAM_TYPES = [
+	"enum",
+	"range",
+	"integer",
+	"number",
+	"boolean",
+	"text",
+	"unknown"
+];
+var COST_SOURCES = [
+	"response",
+	"lookup",
+	"estimate",
+	"unknown"
+];
+var VIDEO_STATUSES = [
+	"queued",
+	"running",
+	"completed",
+	"failed",
+	"expired"
+];
+var OUTPUT_KINDS = [
+	"image",
+	"video",
+	"audio"
+];
+var CAPABILITY_KEYS = [
+	"textToImage",
+	"imageToImage",
+	"inpainting",
+	"textToVideo",
+	"imageToVideo",
+	"videoToVideo",
+	"audioInput",
+	"voiceCloning",
+	"streaming",
+	"diarization",
+	"music",
+	"nsfw"
+];
+function parsePrice(raw) {
+	const source = isRecord$9(raw) ? raw : {};
+	const byKey = {};
+	if (isRecord$9(source["byKey"])) for (const [key, value] of Object.entries(source["byKey"])) {
+		const figure = numberOf(value);
+		if (figure !== null) byKey[key] = figure;
+	}
+	const unit = pick(source["unit"], PRICE_UNITS) ?? "unknown";
+	return {
+		unit,
+		from: numberOf(source["from"]),
+		to: numberOf(source["to"]),
+		byKey,
+		raw: unit === "unknown" ? source["raw"] ?? null : null
+	};
+}
+function parseParam(raw) {
+	if (!isRecord$9(raw)) return null;
+	const key = textOf$1(raw["key"]);
+	if (!key) return null;
+	const spec = {
+		key,
+		type: pick(raw["type"], PARAM_TYPES) ?? "unknown"
+	};
+	if (Array.isArray(raw["values"])) spec.values = raw["values"].map((value) => String(value));
+	for (const field of [
+		"min",
+		"max",
+		"step"
+	]) {
+		const figure = numberOf(raw[field]);
+		if (figure !== null) spec[field] = figure;
+	}
+	const fallback = raw["default"];
+	if (typeof fallback === "string" || typeof fallback === "number" || typeof fallback === "boolean") spec.default = fallback;
+	else if (fallback === null) spec.default = null;
+	if (typeof raw["required"] === "boolean") spec.required = raw["required"];
+	return spec;
+}
+function parseCapabilities(raw) {
+	const capabilities = {};
+	if (!isRecord$9(raw)) return capabilities;
+	for (const key of CAPABILITY_KEYS) if (typeof raw[key] === "boolean") capabilities[key] = raw[key];
+	return capabilities;
+}
+/** One model of a catalog. null when it has no id (or names a medium that does not exist). */
+function parseMediaModel(raw, fallbackMedium) {
+	if (!isRecord$9(raw)) return null;
+	const id = textOf$1(raw["id"])?.trim();
+	if (!id) return null;
+	const medium = pick(raw["medium"], MEDIA_MEDIA) ?? fallbackMedium ?? null;
+	if (medium === null) return null;
+	const params = [];
+	if (Array.isArray(raw["params"])) for (const item of raw["params"]) {
+		const spec = parseParam(item);
+		if (spec) params.push(spec);
+	}
+	const maxInput = numberOf(raw["maxInputImages"]);
+	return {
+		id,
+		medium,
+		name: textOf$1(raw["name"])?.trim() || id,
+		description: textOf$1(raw["description"]) ?? "",
+		owner: textOf$1(raw["owner"]) ?? "",
+		category: textOf$1(raw["category"]) ?? "",
+		tags: listOf(raw["tags"]),
+		price: parsePrice(raw["price"]),
+		capabilities: parseCapabilities(raw["capabilities"]),
+		params,
+		voices: listOf(raw["voices"]),
+		formats: listOf(raw["formats"]),
+		maxInputImages: maxInput !== null && maxInput > 0 ? Math.floor(maxInput) : 0,
+		subscriptionIncluded: typeof raw["subscriptionIncluded"] === "boolean" ? raw["subscriptionIncluded"] : null,
+		priceIsApproximate: raw["priceIsApproximate"] === true
+	};
+}
+function parseCatalogResponse(raw, medium, now) {
+	if (!isRecord$9(raw) || !Array.isArray(raw["models"])) return null;
+	const seen = /* @__PURE__ */ new Set();
+	const models = [];
+	for (const item of raw["models"]) {
+		const model = parseMediaModel(item, medium);
+		if (!model || model.medium !== medium || seen.has(model.id)) continue;
+		seen.add(model.id);
+		models.push(model);
+	}
+	return {
+		medium,
+		models,
+		fetchedAt: numberOf(raw["fetchedAt"]) ?? now,
+		source: pick(raw["source"], [
+			"live",
+			"cache",
+			"stale"
+		]) ?? "live"
+	};
+}
+function parseCost(raw) {
+	const source = isRecord$9(raw) ? raw : {};
+	return {
+		usd: numberOf(source["usd"]),
+		source: pick(source["source"], COST_SOURCES) ?? "unknown",
+		estimateUsd: numberOf(source["estimateUsd"]),
+		paymentSource: textOf$1(source["paymentSource"]),
+		remainingUsd: numberOf(source["remainingUsd"])
+	};
+}
+/** One piece of output; null when it carries neither bytes nor a URL (nothing to show). */
+function parseOutput(raw) {
+	if (!isRecord$9(raw)) return null;
+	const kind = pick(raw["kind"], OUTPUT_KINDS);
+	if (kind === null) return null;
+	const dataBase64 = textOf$1(raw["dataBase64"]);
+	const url = textOf$1(raw["url"]);
+	const file = textOf$1(raw["file"]);
+	if (!dataBase64 && !url && !file) return null;
+	const output = {
+		kind,
+		mime: textOf$1(raw["mime"]) || "application/octet-stream"
+	};
+	if (dataBase64) output.dataBase64 = dataBase64;
+	else if (url) output.url = url;
+	const bytes = numberOf(raw["bytes"]);
+	if (bytes !== null && bytes >= 0) output.bytes = bytes;
+	if (file) output.file = file;
+	return output;
+}
+function parseImageResult(raw) {
+	if (!isRecord$9(raw) || !Array.isArray(raw["outputs"])) return null;
+	const outputs = raw["outputs"].map(parseOutput).filter((item) => item !== null);
+	if (outputs.length === 0) return null;
+	return {
+		model: textOf$1(raw["model"]) ?? "",
+		outputs,
+		requestId: textOf$1(raw["requestId"]) || null,
+		cost: parseCost(raw["cost"]),
+		latencyMs: numberOf(raw["latencyMs"]) ?? 0
+	};
+}
+function parseTtsResult(raw) {
+	if (!isRecord$9(raw)) return null;
+	const audio = parseOutput(raw["audio"]);
+	if (!audio || audio.kind !== "audio" || !audio.dataBase64 && !audio.url) return null;
+	return {
+		model: textOf$1(raw["model"]) ?? "",
+		audio,
+		cost: parseCost(raw["cost"]),
+		chars: Math.max(0, numberOf(raw["chars"]) ?? 0),
+		latencyMs: numberOf(raw["latencyMs"]) ?? 0
+	};
+}
+function parseSegment(raw) {
+	if (!isRecord$9(raw)) return null;
+	const text = textOf$1(raw["text"]);
+	if (text === null) return null;
+	return {
+		start: numberOf(raw["start"]),
+		end: numberOf(raw["end"]),
+		text,
+		speaker: textOf$1(raw["speaker"]) || null
+	};
+}
+function parseSttResult(raw) {
+	if (!isRecord$9(raw)) return null;
+	const text = textOf$1(raw["text"]);
+	if (text === null) return null;
+	const segments = [];
+	if (Array.isArray(raw["segments"])) for (const item of raw["segments"]) {
+		const segment = parseSegment(item);
+		if (segment) segments.push(segment);
+	}
+	return {
+		model: textOf$1(raw["model"]) ?? "",
+		text,
+		language: textOf$1(raw["language"]) ?? "",
+		durationSec: numberOf(raw["durationSec"]),
+		segments,
+		cost: parseCost(raw["cost"]),
+		latencyMs: numberOf(raw["latencyMs"]) ?? 0
+	};
+}
+function parseVideoJob(raw) {
+	if (!isRecord$9(raw)) return null;
+	const id = textOf$1(raw["id"])?.trim();
+	if (!id) return null;
+	const progress = numberOf(raw["progress"]);
+	const createdAt = numberOf(raw["createdAt"]) ?? 0;
+	return {
+		id,
+		model: textOf$1(raw["model"]) ?? "",
+		prompt: textOf$1(raw["prompt"]) ?? "",
+		status: pick(raw["status"], VIDEO_STATUSES) ?? "running",
+		progress: progress === null ? null : Math.min(1, Math.max(0, progress)),
+		createdAt,
+		updatedAt: numberOf(raw["updatedAt"]) ?? createdAt,
+		cost: parseCost(raw["cost"]),
+		connectionId: textOf$1(raw["connectionId"]) || null,
+		output: raw["output"] === null || raw["output"] === void 0 ? null : parseOutput(raw["output"]),
+		error: textOf$1(raw["error"]) || null
+	};
+}
+/**
+* The amount an insufficient-balance message names ("required: 0.0035", "needs $0.12"), or null when it names none.
+* The plugin passes NanoGPT's figure along in its own words; only a number next to "required"/"need" or a `$` counts.
+*/
+function requiredAmountOf(message) {
+	const match = /(?:requir\w*|need\w*)[^0-9$]{0,40}\$?\s*(\d+(?:\.\d+)?)/i.exec(message) ?? /\$\s*(\d+(?:\.\d+)?)/.exec(message);
+	if (!match) return null;
+	const amount = Number(match[1]);
+	return Number.isFinite(amount) && amount > 0 ? amount : null;
+}
+/** Maps what the plugin client reports to a kind the UI switches on. */
+function mediaErrorOf(error) {
+	const base = {
+		code: error.code,
+		message: error.message,
+		status: error.status
+	};
+	switch (error.code) {
+		case "unreachable": return {
+			...base,
+			kind: "plugin_down"
+		};
+		case "timeout":
+		case "upstream_timeout": return {
+			...base,
+			kind: "timeout"
+		};
+		case "not_installed": return {
+			...base,
+			kind: "not_installed"
+		};
+		case "forbidden": return {
+			...base,
+			kind: "forbidden"
+		};
+		case "invalid_response": return {
+			...base,
+			kind: "invalid_response"
+		};
+		case "no_key": return {
+			...base,
+			kind: "no_key"
+		};
+		case "invalid_request": return {
+			...base,
+			kind: "invalid_request"
+		};
+		case "payload_too_large": return {
+			...base,
+			kind: "too_large"
+		};
+		case "rate_limited": return {
+			...base,
+			kind: "rate_limited"
+		};
+		case "media_unavailable": return {
+			...base,
+			kind: "unavailable"
+		};
+		case "upstream_error":
+		case "upstream_unreachable":
+		case "bad_response": return {
+			...base,
+			kind: "upstream"
+		};
+		case "insufficient_balance": return balanceError(base);
+		case "content_policy_violation": return {
+			...base,
+			kind: "content_policy"
+		};
+		case "not_found": return {
+			...base,
+			kind: "not_found"
+		};
+	}
+	switch (error.status) {
+		case 402: return balanceError(base);
+		case 413: return {
+			...base,
+			kind: "too_large"
+		};
+		case 429: return {
+			...base,
+			kind: "rate_limited"
+		};
+		case 504: return {
+			...base,
+			kind: "timeout"
+		};
+		case 502: return {
+			...base,
+			kind: "upstream"
+		};
+		default: return {
+			...base,
+			kind: "other"
+		};
+	}
+}
+function balanceError(base) {
+	const required = requiredAmountOf(base.message);
+	return required === null ? {
+		...base,
+		kind: "insufficient_balance"
+	} : {
+		...base,
+		kind: "insufficient_balance",
+		requiredUsd: required
+	};
+}
+function createPluginMedia(deps) {
+	const { client } = deps;
+	const now = () => Date.now();
+	/** One call: the plugin client's result with its error mapped and its data read by `read` (null = not what we expect). */
+	async function call(method, path, options, read, what) {
+		const result = await client.request(method, path, {
+			...options.body !== void 0 ? { body: options.body } : {},
+			timeoutMs: options.timeoutMs
+		});
+		if (!result.ok) return {
+			ok: false,
+			error: mediaErrorOf(result.error)
+		};
+		const value = read(result.data);
+		return value === null ? invalid$1(what) : {
+			ok: true,
+			data: value
+		};
+	}
+	const jobOf = (data) => parseVideoJob(data);
+	const acknowledged = (data) => isRecord$9(data) && data["ok"] === true ? true : null;
+	return {
+		catalog(medium, options) {
+			return call("GET", `/media/catalog?medium=${encodeURIComponent(medium)}${options?.refresh ? "&refresh=1" : ""}`, { timeoutMs: CATALOG_TIMEOUT_MS$2 }, (data) => parseCatalogResponse(data, medium, now()), "catalog");
+		},
+		image(request) {
+			return call("POST", "/media/image", {
+				body: request,
+				timeoutMs: MEDIA_CALL_TIMEOUT_MS
+			}, parseImageResult, "image result");
+		},
+		tts(request) {
+			return call("POST", "/media/tts", {
+				body: request,
+				timeoutMs: MEDIA_CALL_TIMEOUT_MS
+			}, parseTtsResult, "speech result");
+		},
+		stt(request) {
+			return call("POST", "/media/stt", {
+				body: request,
+				timeoutMs: MEDIA_CALL_TIMEOUT_MS
+			}, parseSttResult, "transcription");
+		},
+		startVideo(request) {
+			return call("POST", "/media/video", {
+				body: request,
+				timeoutMs: VIDEO_SUBMIT_TIMEOUT_MS
+			}, jobOf, "video job");
+		},
+		listVideo() {
+			return call("GET", "/media/video", { timeoutMs: LIST_TIMEOUT_MS }, (data) => {
+				if (!isRecord$9(data) || !Array.isArray(data["jobs"])) return null;
+				const jobs = [];
+				const seen = /* @__PURE__ */ new Set();
+				for (const item of data["jobs"]) {
+					const job = parseVideoJob(item);
+					if (!job || seen.has(job.id)) continue;
+					seen.add(job.id);
+					jobs.push(job);
+				}
+				return jobs;
+			}, "video list");
+		},
+		videoStatus(id) {
+			return call("GET", `/media/video/${encodeURIComponent(id)}`, { timeoutMs: STATUS_TIMEOUT_MS }, jobOf, "video job");
+		},
+		deleteVideo(id) {
+			return call("DELETE", `/media/video/${encodeURIComponent(id)}`, { timeoutMs: LIST_TIMEOUT_MS }, acknowledged, "acknowledgement");
+		}
+	};
+}
+// src/host/recorder.ts
+/** Containers in the order the studio prefers: opus in webm (Chrome, Firefox), mp4 (Safari), ogg. */
+var RECORDER_MIME_CANDIDATES = [
+	"audio/webm;codecs=opus",
+	"audio/webm",
+	"audio/mp4",
+	"audio/ogg;codecs=opus"
+];
+function browserEnv() {
+	const scope = globalThis;
+	return {
+		...scope.navigator?.mediaDevices ? { mediaDevices: scope.navigator.mediaDevices } : {},
+		...scope.MediaRecorder ? { Recorder: scope.MediaRecorder } : {},
+		...typeof scope.isSecureContext === "boolean" ? { isSecureContext: scope.isSecureContext } : {}
+	};
+}
+/** Can this page record at all? `insecure` is its own reason because the fix (https, or localhost) is the user's. */
+function recorderSupport(env = browserEnv()) {
+	if (typeof env.Recorder !== "function" || typeof env.mediaDevices?.getUserMedia !== "function") return {
+		supported: false,
+		reason: env.isSecureContext === false ? "insecure" : "unsupported"
+	};
+	if (env.isSecureContext === false) return {
+		supported: false,
+		reason: "insecure"
+	};
+	return { supported: true };
+}
+function failure(kind, error) {
+	return {
+		ok: false,
+		error: {
+			kind,
+			message: error instanceof Error ? error.message : String(error)
+		}
+	};
+}
+function kindOfDomError(error) {
+	switch (typeof error === "object" && error !== null ? error.name : void 0) {
+		case "NotAllowedError":
+		case "PermissionDeniedError":
+		case "SecurityError": return "denied";
+		case "NotFoundError":
+		case "DevicesNotFoundError": return "no_device";
+		case "NotReadableError":
+		case "TrackStartError":
+		case "AbortError": return "busy";
+		default: return "failed";
+	}
+}
+/** Asks for the microphone and starts recording. Resolves to a handle, or to the reason it could not. */
+async function startRecording(options) {
+	const env = options.env ?? browserEnv();
+	const support = recorderSupport(env);
+	if (!support.supported) return failure(support.reason, support.reason === "insecure" ? "not a secure context" : "no MediaRecorder");
+	const Recorder = env.Recorder;
+	const getUserMedia = env.mediaDevices?.getUserMedia?.bind(env.mediaDevices);
+	if (!Recorder || !getUserMedia) return failure("unsupported", "no MediaRecorder");
+	const now = env.now ?? Date.now;
+	const setTimer = env.setTimer ?? ((callback, ms) => setTimeout(callback, ms));
+	const clearTimer = env.clearTimer ?? ((handle) => clearTimeout(handle));
+	let stream;
+	try {
+		stream = await getUserMedia({ audio: true });
+	} catch (error) {
+		return failure(kindOfDomError(error), error);
+	}
+	const stopTracks = () => {
+		for (const track of stream.getTracks()) try {
+			track.stop();
+		} catch {}
+	};
+	let recorder;
+	const chosen = RECORDER_MIME_CANDIDATES.find((type) => Recorder.isTypeSupported?.(type) === true);
+	try {
+		recorder = chosen ? new Recorder(stream, { mimeType: chosen }) : new Recorder(stream);
+	} catch (error) {
+		stopTracks();
+		return failure("unsupported", error);
+	}
+	const fullMime = recorder.mimeType || chosen || "audio/webm";
+	const mime = (fullMime.split(";")[0] ?? "audio/webm").trim() || "audio/webm";
+	const chunks = [];
+	let bytes = 0;
+	const startedAt = now();
+	let endedAt = null;
+	let reason = "stopped";
+	let timer = null;
+	let ended = null;
+	let discard = false;
+	function finish(why) {
+		if (ended) return ended;
+		reason = why;
+		endedAt = now();
+		if (timer !== null) clearTimer(timer);
+		timer = null;
+		ended = new Promise((resolve) => {
+			const done = () => {
+				stopTracks();
+				resolve({
+					blob: new Blob(chunks, { type: fullMime }),
+					mime,
+					durationMs: Math.max(0, (endedAt ?? now()) - startedAt),
+					bytes,
+					reason
+				});
+			};
+			if (recorder.state === "inactive") {
+				done();
+				return;
+			}
+			recorder.onstop = done;
+			try {
+				recorder.stop();
+			} catch {
+				done();
+			}
+		});
+		return ended;
+	}
+	recorder.ondataavailable = (event) => {
+		if (discard || ended !== null) {
+			if (!discard && event.data.size > 0) {
+				chunks.push(event.data);
+				bytes += event.data.size;
+			}
+			return;
+		}
+		if (event.data.size > 0) {
+			chunks.push(event.data);
+			bytes += event.data.size;
+		}
+		if (bytes >= options.maxBytes) {
+			options.onLimit?.("max_bytes");
+			finish("max_bytes");
+		}
+	};
+	recorder.onerror = () => {
+		finish("stopped");
+	};
+	try {
+		recorder.start(1e3);
+	} catch (error) {
+		stopTracks();
+		return failure("failed", error);
+	}
+	timer = setTimer(() => {
+		options.onLimit?.("max_time");
+		finish("max_time");
+	}, options.maxMs);
+	return {
+		ok: true,
+		handle: {
+			mime,
+			elapsedMs: () => Math.max(0, (endedAt ?? now()) - startedAt),
+			bytes: () => bytes,
+			stop: () => finish("stopped"),
+			cancel: () => {
+				discard = true;
+				chunks.length = 0;
+				bytes = 0;
+				finish("stopped");
+			}
 		}
 	};
 }
@@ -6626,6 +7320,521 @@ function stringify(value) {
 function createLogger() {
 	return new ConsoleLogger();
 }
+// src/core/media-select.ts
+/** The `type=tts` list holds music models too; they say so through `capabilities.music`. */
+function isMusicModel(model) {
+	return model.medium === "tts" && model.capabilities.music === true;
+}
+function isSpeechModel(model) {
+	return model.medium === "tts" && model.capabilities.music !== true;
+}
+function haystack(model) {
+	return [
+		model.id,
+		model.name,
+		model.owner,
+		model.category,
+		model.description,
+		...model.tags
+	].join(" ").toLowerCase();
+}
+/** Every word of `text` is somewhere in the model's descriptive fields; an empty text matches everything. */
+function matchesSearch(model, text) {
+	const words = text.toLowerCase().split(/\s+/).filter(Boolean);
+	if (words.length === 0) return true;
+	const hay = haystack(model);
+	return words.every((word) => hay.includes(word));
+}
+/** The figure models are ranked by when sorting by price: the cheapest the list gives; unknown prices rank last. */
+function priceRank(model) {
+	const figure = model.price.from;
+	return figure === null || !Number.isFinite(figure) ? Number.POSITIVE_INFINITY : figure;
+}
+function byName(a, b) {
+	const x = a.name.toLowerCase();
+	const y = b.name.toLowerCase();
+	return x < y ? -1 : x > y ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+}
+function sortModels(models, sort) {
+	const list = [...models];
+	if (sort === "name") return list.sort(byName);
+	return list.sort((a, b) => {
+		const x = priceRank(a);
+		const y = priceRank(b);
+		if (x === y) return byName(a, b);
+		return x < y ? -1 : 1;
+	});
+}
+/** The models of a list that pass `query`, in its order (by name unless asked for the price). */
+function selectModels(models, query = {}) {
+	const kind = query.ttsKind ?? "speech";
+	return sortModels(models.filter((model) => {
+		if (model.medium === "tts") {
+			if (kind === "speech" && !isSpeechModel(model)) return false;
+			if (kind === "music" && !isMusicModel(model)) return false;
+		}
+		if (query.uncensored && model.capabilities.nsfw !== true) return false;
+		return matchesSearch(model, query.search ?? "");
+	}), query.sort ?? "name");
+}
+/**
+* The model a studio starts with: the remembered one when it is still in the list, else the preferred id (any case) when the
+* list has it, else the cheapest, else the first by name. null for an empty list.
+*/
+function defaultModel(models, options = {}) {
+	if (models.length === 0) return null;
+	const remembered = options.remembered ? models.find((model) => model.id === options.remembered) : void 0;
+	if (remembered) return remembered;
+	const preferred = options.preferred?.toLowerCase();
+	const wanted = preferred ? models.find((model) => model.id.toLowerCase() === preferred) : void 0;
+	if (wanted) return wanted;
+	const priced = sortModels(models, "price")[0];
+	if (priced && Number.isFinite(priceRank(priced))) return priced;
+	return sortModels(models, "name")[0] ?? null;
+}
+/** When the plugin's billing lookup is re-read for an image's real cost (ms after the call). */
+var COST_RECONCILE_DELAYS_MS = [
+	2e4,
+	45e3,
+	9e4
+];
+function emptySlot$1() {
+	return {
+		status: "idle",
+		models: [],
+		fetchedAt: null,
+		loadedAt: null,
+		source: null,
+		error: null,
+		failedAt: null,
+		inflight: null,
+		generation: 0
+	};
+}
+/** A job NanoGPT is still working on (queued or running): the ones that are polled. */
+function isActiveJob(job) {
+	return job.status === "queued" || job.status === "running";
+}
+function thrown(error) {
+	return {
+		kind: "other",
+		code: "unreachable",
+		message: error instanceof Error ? error.message : "the call failed",
+		status: null
+	};
+}
+function createMediaStore(deps) {
+	const { media, usage, account, connections, log } = deps;
+	const now = deps.now ?? Date.now;
+	const ttl = deps.ttlMs ?? 6e5;
+	const retry = deps.retryMs ?? 1e4;
+	const pollMs = deps.pollMs ?? 5e3;
+	const reconcileDelays = deps.reconcileDelaysMs ?? COST_RECONCILE_DELAYS_MS;
+	const slots = new Map(MEDIA_MEDIA.map((medium) => [medium, emptySlot$1()]));
+	const slot = (medium) => slots.get(medium) ?? emptySlot$1();
+	const kept = {
+		image: null,
+		tts: null,
+		stt: null
+	};
+	let jobs = [];
+	let jobsLoaded = false;
+	let jobsError = null;
+	let problem = null;
+	let touched = false;
+	let watchers = 0;
+	let pollTimer = null;
+	let polling = false;
+	let disposed = false;
+	const reconcileTimers = /* @__PURE__ */ new Set();
+	const listeners = /* @__PURE__ */ new Set();
+	function changed() {
+		for (const listener of [...listeners]) try {
+			listener();
+		} catch (error) {
+			log.error("media listener failed", error);
+		}
+	}
+	/** A call got through: the plugin is there and has a key. */
+	function noteSuccess() {
+		touched = true;
+		problem = null;
+	}
+	/** A failed call may say something about the plugin or the key that the whole tab should know. */
+	function noteFailure(error) {
+		touched = true;
+		if (isMediaPluginDown(error) || error.kind === "no_key") problem = error;
+	}
+	function state() {
+		if (problem) {
+			if (problem.kind === "not_installed") return connections.checked() && connections.pluginUp() ? "plugin_outdated" : "needs_plugin";
+			if (problem.kind === "plugin_down" || problem.kind === "forbidden") return "plugin_down";
+			if (problem.kind === "no_key") return "no_key";
+		}
+		return touched ? "ready" : "idle";
+	}
+	function viewOf(medium) {
+		const s = slot(medium);
+		return {
+			medium,
+			status: s.status,
+			models: [...s.models],
+			fetchedAt: s.fetchedAt,
+			source: s.source,
+			error: s.error
+		};
+	}
+	function ensure(medium, options) {
+		const s = slot(medium);
+		const force = options?.refresh === true;
+		if (s.inflight && !force) return s.inflight;
+		if (!force) {
+			if (s.status === "ready" && s.loadedAt !== null && now() - s.loadedAt < ttl) return Promise.resolve({
+				ok: true,
+				data: [...s.models]
+			});
+			if (s.status === "failed" && s.error && s.failedAt !== null && now() - s.failedAt < retry) return Promise.resolve({
+				ok: false,
+				error: s.error
+			});
+		}
+		const mine = ++s.generation;
+		s.status = "loading";
+		changed();
+		const run = (async () => {
+			let result;
+			try {
+				result = await media.catalog(medium, force ? { refresh: true } : void 0);
+			} catch (error) {
+				log.error(`media catalog ${medium} failed`, error);
+				result = {
+					ok: false,
+					error: thrown(error)
+				};
+			}
+			if (mine !== s.generation) return s.error && s.status === "failed" ? {
+				ok: false,
+				error: s.error
+			} : {
+				ok: true,
+				data: [...s.models]
+			};
+			if (result.ok) {
+				s.models = result.data.models;
+				s.fetchedAt = result.data.fetchedAt;
+				s.loadedAt = now();
+				s.source = result.data.source;
+				s.error = null;
+				s.failedAt = null;
+				s.status = "ready";
+				noteSuccess();
+				return {
+					ok: true,
+					data: [...s.models]
+				};
+			}
+			s.error = result.error;
+			s.failedAt = now();
+			s.status = "failed";
+			log.debug(`media catalog ${medium} failed: ${result.error.kind}`);
+			noteFailure(result.error);
+			return {
+				ok: false,
+				error: result.error
+			};
+		})().finally(() => {
+			if (s.inflight === run) s.inflight = null;
+			changed();
+		});
+		s.inflight = run;
+		return run;
+	}
+	/** After a call: the plugin wrote a usage record (also for most failures), so the usage store reads again. */
+	function afterCall(result) {
+		if (result.ok) noteSuccess();
+		else noteFailure(result.error);
+		if (!result.ok && (isMediaPluginDown(result.error) || result.error.kind === "no_key")) return;
+		usage.refresh();
+	}
+	function clearReconcile() {
+		for (const timer of reconcileTimers) clearTimeout(timer);
+		reconcileTimers.clear();
+	}
+	async function reconcileOnce(requestId) {
+		const current = kept.image;
+		if (disposed || !current || current.requestId !== requestId || current.cost.source === "lookup") return;
+		const result = await account.recent({ limit: 50 });
+		if (!result.ok) return;
+		const record = result.data.find((item) => item.requestId === requestId);
+		if (!record || record.costSource !== "lookup" || record.costUsd === null) return;
+		const latest = kept.image;
+		if (disposed || !latest || latest.requestId !== requestId) return;
+		kept.image = {
+			...latest,
+			cost: {
+				...latest.cost,
+				usd: record.costUsd,
+				source: "lookup"
+			}
+		};
+		usage.ingest([record]);
+		changed();
+	}
+	function scheduleReconcile(requestId) {
+		clearReconcile();
+		for (const delay of reconcileDelays) {
+			const timer = setTimeout(() => {
+				reconcileTimers.delete(timer);
+				reconcileOnce(requestId).catch((error) => log.debug("cost reconcile failed", error));
+			}, delay);
+			reconcileTimers.add(timer);
+		}
+	}
+	async function generateImage(request, options) {
+		let result;
+		try {
+			result = await media.image(request);
+		} catch (error) {
+			log.error("image call failed", error);
+			result = {
+				ok: false,
+				error: thrown(error)
+			};
+		}
+		if (result.ok && options?.remember !== false) {
+			const data = result.data.model ? result.data : {
+				...result.data,
+				model: request.model
+			};
+			kept.image = data;
+			if (data.requestId && data.cost.source !== "lookup") scheduleReconcile(data.requestId);
+			else clearReconcile();
+		}
+		afterCall(result);
+		changed();
+		return result;
+	}
+	async function speak(request, options) {
+		let result;
+		try {
+			result = await media.tts(request);
+		} catch (error) {
+			log.error("speech call failed", error);
+			result = {
+				ok: false,
+				error: thrown(error)
+			};
+		}
+		if (result.ok && options?.remember !== false) kept.tts = result.data.model ? result.data : {
+			...result.data,
+			model: request.model
+		};
+		afterCall(result);
+		changed();
+		return result;
+	}
+	async function transcribe(request, options) {
+		let result;
+		try {
+			result = await media.stt(request);
+		} catch (error) {
+			log.error("transcription call failed", error);
+			result = {
+				ok: false,
+				error: thrown(error)
+			};
+		}
+		if (result.ok && options?.remember !== false) kept.stt = result.data.model ? result.data : {
+			...result.data,
+			model: request.model
+		};
+		afterCall(result);
+		changed();
+		return result;
+	}
+	function upsertJob(job) {
+		const index = jobs.findIndex((item) => item.id === job.id);
+		if (index >= 0) jobs = jobs.map((item, i) => i === index ? job : item);
+		else jobs = [job, ...jobs];
+	}
+	function reconcileTimer() {
+		const needed = !disposed && watchers > 0 && jobs.some(isActiveJob);
+		if (needed && pollTimer === null) pollTimer = setInterval(() => void pollOnce(), pollMs);
+		else if (!needed && pollTimer !== null) {
+			clearInterval(pollTimer);
+			pollTimer = null;
+		}
+	}
+	async function pollOnce() {
+		if (polling || disposed) return;
+		const active = jobs.filter(isActiveJob).slice(0, 8);
+		if (active.length === 0) {
+			reconcileTimer();
+			return;
+		}
+		polling = true;
+		try {
+			const answers = await Promise.all(active.map(async (job) => ({
+				job,
+				result: await safeStatus(job.id)
+			})));
+			let failure = null;
+			for (const { job, result } of answers) if (result.ok) {
+				upsertJob(result.data);
+				noteSuccess();
+			} else if (result.error.kind === "not_found") jobs = jobs.filter((item) => item.id !== job.id);
+			else {
+				failure = result.error;
+				noteFailure(result.error);
+			}
+			jobsError = failure;
+			if (answers.some(({ job, result }) => result.ok && isActiveJob(job) && !isActiveJob(result.data))) usage.refresh();
+		} finally {
+			polling = false;
+		}
+		reconcileTimer();
+		changed();
+	}
+	async function safeStatus(id) {
+		try {
+			return await media.videoStatus(id);
+		} catch (error) {
+			log.error("video status failed", error);
+			return {
+				ok: false,
+				error: thrown(error)
+			};
+		}
+	}
+	async function refreshVideos() {
+		let result;
+		try {
+			result = await media.listVideo();
+		} catch (error) {
+			log.error("video list failed", error);
+			result = {
+				ok: false,
+				error: thrown(error)
+			};
+		}
+		if (result.ok) {
+			jobs = result.data;
+			jobsLoaded = true;
+			jobsError = null;
+			noteSuccess();
+		} else {
+			jobsError = result.error;
+			noteFailure(result.error);
+			log.debug(`video list failed: ${result.error.kind}`);
+		}
+		reconcileTimer();
+		changed();
+	}
+	async function startVideo(request) {
+		let result;
+		try {
+			result = await media.startVideo(request);
+		} catch (error) {
+			log.error("video submit failed", error);
+			result = {
+				ok: false,
+				error: thrown(error)
+			};
+		}
+		if (result.ok) {
+			upsertJob(result.data.model ? result.data : {
+				...result.data,
+				model: request.model
+			});
+			jobsLoaded = true;
+		}
+		afterCall(result);
+		reconcileTimer();
+		changed();
+		return result;
+	}
+	return {
+		models: (medium) => [...slot(medium).models],
+		model: (medium, id) => slot(medium).models.find((model) => model.id === id) ?? null,
+		select: (medium, query) => selectModels(slot(medium).models, query),
+		catalogView: viewOf,
+		state,
+		problem: () => state() === "ready" || state() === "idle" ? null : problem,
+		ensure,
+		generateImage,
+		speak,
+		transcribe,
+		startVideo,
+		async videoStatus(id) {
+			const result = await safeStatus(id);
+			if (result.ok) {
+				const before = jobs.find((job) => job.id === id);
+				upsertJob(result.data);
+				noteSuccess();
+				if (before && isActiveJob(before) && !isActiveJob(result.data)) usage.refresh();
+			} else if (result.error.kind === "not_found") jobs = jobs.filter((job) => job.id !== id);
+			else noteFailure(result.error);
+			reconcileTimer();
+			changed();
+			return result;
+		},
+		async deleteVideo(id) {
+			let result;
+			try {
+				result = await media.deleteVideo(id);
+			} catch (error) {
+				log.error("video delete failed", error);
+				result = {
+					ok: false,
+					error: thrown(error)
+				};
+			}
+			if (result.ok || result.error.kind === "not_found") {
+				jobs = jobs.filter((job) => job.id !== id);
+				if (result.ok) noteSuccess();
+			} else noteFailure(result.error);
+			reconcileTimer();
+			changed();
+			return result;
+		},
+		videos: () => ({
+			jobs: [...jobs],
+			loaded: jobsLoaded,
+			error: jobsError
+		}),
+		refreshVideos,
+		watchVideos() {
+			watchers++;
+			if (watchers === 1) refreshVideos();
+			reconcileTimer();
+			let released = false;
+			return () => {
+				if (released) return;
+				released = true;
+				watchers--;
+				reconcileTimer();
+			};
+		},
+		last: () => ({ ...kept }),
+		clearLast(medium) {
+			kept[medium] = null;
+			if (medium === "image") clearReconcile();
+			changed();
+		},
+		onChange(listener) {
+			listeners.add(listener);
+			return () => void listeners.delete(listener);
+		},
+		dispose() {
+			disposed = true;
+			if (pollTimer !== null) clearInterval(pollTimer);
+			pollTimer = null;
+			clearReconcile();
+			listeners.clear();
+			watchers = 0;
+		}
+	};
+}
 function emptySlot() {
 	return {
 		items: null,
@@ -7086,12 +8295,19 @@ function mergeRows(a, b, keyOf) {
 	}
 	return [...merged.values()];
 }
+/** The per-medium rows (`byMedium`, stage 0.7) of two summaries as one; undefined when neither has any. */
+function mergeMediumRows(a, b) {
+	const left = mediumRowsOf(a);
+	const right = mediumRowsOf(b);
+	if (left.length === 0 && right.length === 0) return void 0;
+	return mergeRows(left, right, (row) => row.medium).sort((x, y) => weight(x, y) || text(x.medium, y.medium));
+}
 /** Two summaries of disjoint sets of records as one (the plugin's log and the browser's own records). */
 function mergeSummaries(a, b) {
 	const byDay = mergeRows(a.byDay, b.byDay, (row) => row.day).sort((x, y) => text(x.day, y.day));
 	const byConnection = mergeRows(a.byConnection, b.byConnection, (row) => row.connectionId ?? "").sort((x, y) => weight(x, y) || text(x.connectionId ?? "", y.connectionId ?? ""));
 	const byModel = mergeRows(a.byModel, b.byModel, (row) => row.model).sort((x, y) => weight(x, y) || text(x.model, y.model));
-	return {
+	const merged = {
 		from: Math.min(a.from, b.from),
 		to: Math.max(a.to, b.to),
 		total: addTotals(a.total, b.total),
@@ -7099,6 +8315,8 @@ function mergeSummaries(a, b) {
 		byConnection,
 		byModel
 	};
+	const byMedium = mergeMediumRows(a, b);
+	return byMedium ? Object.assign(merged, { byMedium }) : merged;
 }
 function recordTotals(record) {
 	return summarizeUsage([record], {
@@ -7163,9 +8381,33 @@ function createUsageStore(deps) {
 			log.error("usage listener failed", err);
 		}
 	}
+	/**
+	* A record the plugin reports again with a corrected cost (an image's billing lookup arrives seconds after the call)
+	* replaces the one in the ring and fixes the day's sum; any other repeat is a duplicate.
+	*/
+	function upgrade(record, origin) {
+		if (origin !== "plugin" || record.costSource !== "lookup") return "duplicate";
+		const index = ring.findIndex((entry) => entry.origin === "plugin" && entry.record.requestId === record.requestId);
+		const old = index < 0 ? void 0 : ring[index].record;
+		if (!old || old.costSource === "lookup") return "duplicate";
+		ring[index] = {
+			record,
+			origin
+		};
+		if (startOfDay(old.at) === today0()) {
+			const before = recordTotals(old);
+			const after = recordTotals(record);
+			book.pluginRecords = {
+				...book.pluginRecords,
+				costUsd: roundUsd$1(book.pluginRecords.costUsd - before.costUsd + after.costUsd),
+				equivalentUsd: roundUsd$1(book.pluginRecords.equivalentUsd - before.equivalentUsd + after.equivalentUsd)
+			};
+		}
+		return "replaced";
+	}
 	function accept(record, origin) {
-		if (!looksLikeRecord(record)) return false;
-		if (record.requestId !== null && record.requestId !== void 0 && ids.has(record.requestId)) return false;
+		if (!looksLikeRecord(record)) return "duplicate";
+		if (record.requestId !== null && record.requestId !== void 0 && ids.has(record.requestId)) return upgrade(record, origin);
 		let index = ring.length;
 		while (index > 0 && ring[index - 1].record.at > record.at) index--;
 		ring.splice(index, 0, {
@@ -7182,7 +8424,7 @@ function createUsageStore(deps) {
 			const key = origin === "browser" ? "browser" : "pluginRecords";
 			book[key] = addTotals(book[key], recordTotals(record));
 		}
-		return true;
+		return "new";
 	}
 	function announce(record) {
 		for (const listener of [...recordListeners]) try {
@@ -7192,7 +8434,7 @@ function createUsageStore(deps) {
 		}
 	}
 	const offBus = bus.on("usage:record", (event) => {
-		if (accept(event.record, "browser")) {
+		if (accept(event.record, "browser") === "new") {
 			announce(event.record);
 			changed();
 		}
@@ -7341,12 +8583,13 @@ function createUsageStore(deps) {
 			};
 		},
 		ingest(records) {
-			let added = false;
-			for (const record of records) if (accept(record, "plugin")) {
-				announce(record);
-				added = true;
+			let touched = false;
+			for (const record of records) {
+				const outcome = accept(record, "plugin");
+				if (outcome === "new") announce(record);
+				if (outcome !== "duplicate") touched = true;
 			}
-			if (added) changed();
+			if (touched) changed();
 		},
 		dispose() {
 			offBus();
@@ -7425,6 +8668,25 @@ var ACCOUNT_STRINGS = {
 		"account.range.week": "Last 7 days",
 		"account.range.month": "Last 30 days",
 		"account.row.noConnection": "outside Nanovia",
+		"account.spend.byMedium": "By kind of request",
+		"account.spend.col.medium": "Kind",
+		"account.medium.chat": "Chat",
+		"account.medium.image": "Images",
+		"account.medium.video": "Video",
+		"account.medium.tts": "Speech",
+		"account.medium.stt": "Transcription",
+		"account.units.image": "images: {count}",
+		"account.units.video": "video: {count} s",
+		"account.units.tts": "characters: {count}",
+		"account.units.stt": "audio: {count} s",
+		"account.costSource.response": "NanoGPT’s figure",
+		"account.costSource.response.hint": "The figure in NanoGPT’s answer. For images it is the list price and can understate the charge until the billing lookup corrects it.",
+		"account.costSource.lookup": "confirmed",
+		"account.costSource.lookup.hint": "Corrected from NanoGPT’s own billing record of this request.",
+		"account.costSource.estimate": "estimate",
+		"account.costSource.estimate.hint": "Computed from the catalog price: NanoGPT sent no figure for this call.",
+		"account.costSource.unknown": "unknown",
+		"account.costSource.unknown.hint": "NanoGPT gave no figure for this call.",
 		"account.recent.title": "Recent requests",
 		"account.recent.note": "The list shows the requests this browser has seen since the page was opened. Requests made through the plugin are counted in the totals above.",
 		"account.recent.empty": "No requests seen yet.",
@@ -7512,6 +8774,25 @@ var ACCOUNT_STRINGS = {
 		"account.range.week": "Последние 7 дней",
 		"account.range.month": "Последние 30 дней",
 		"account.row.noConnection": "вне Nanovia",
+		"account.spend.byMedium": "По видам запросов",
+		"account.spend.col.medium": "Вид",
+		"account.medium.chat": "Чат",
+		"account.medium.image": "Картинки",
+		"account.medium.video": "Видео",
+		"account.medium.tts": "Озвучка",
+		"account.medium.stt": "Распознавание",
+		"account.units.image": "картинок: {count}",
+		"account.units.video": "видео: {count} с",
+		"account.units.tts": "символов: {count}",
+		"account.units.stt": "звук: {count} с",
+		"account.costSource.response": "цифра NanoGPT",
+		"account.costSource.response.hint": "Цифра из ответа NanoGPT. Для картинок это цена по прайсу, и она может быть ниже реального списания, пока проверка биллинга её не поправит.",
+		"account.costSource.lookup": "подтверждено",
+		"account.costSource.lookup.hint": "Исправлено по собственной записи биллинга NanoGPT об этом запросе.",
+		"account.costSource.estimate": "оценка",
+		"account.costSource.estimate.hint": "Посчитано по цене из каталога: NanoGPT не прислал цифру для этого вызова.",
+		"account.costSource.unknown": "неизвестно",
+		"account.costSource.unknown.hint": "NanoGPT не дал цифры для этого вызова.",
 		"account.recent.title": "Последние запросы",
 		"account.recent.note": "В списке запросы, которые этот браузер видел с момента открытия страницы. Запросы через плагин учтены в итогах выше.",
 		"account.recent.empty": "Запросов пока не было.",
@@ -7987,13 +9268,13 @@ var UI_STRINGS = {
 // src/features/account/view-model.ts
 var HOUR_MS$1 = 36e5;
 var DAY_MS$1 = 864e5;
-var DASH = "—";
+var DASH$1 = "—";
 /**
 * USD with the decimals the amount needs to show three significant digits, at least two and at most six:
 * $12.40, $0.052, $0.0123, $0.000345. A positive amount too small for six decimals reads "<$0.000001", never "$0.00".
 */
 function formatUsd$1(value) {
-	if (value === null || !Number.isFinite(value)) return DASH;
+	if (value === null || !Number.isFinite(value)) return DASH$1;
 	if (value === 0) return "$0.00";
 	const abs = Math.abs(value);
 	const decimals = abs >= 1 ? 2 : Math.min(6, Math.max(2, 2 - Math.floor(Math.log10(abs))));
@@ -8003,7 +9284,7 @@ function formatUsd$1(value) {
 }
 /** 950 -> 950, 12_345 -> 12.3k, 2_500_000 -> 2.5M. */
 function formatTokens(value) {
-	if (value === null || !Number.isFinite(value)) return DASH;
+	if (value === null || !Number.isFinite(value)) return DASH$1;
 	const abs = Math.abs(value);
 	if (abs >= 1e9) return `${trim(value / 1e9)}B`;
 	if (abs >= 1e6) return `${trim(value / 1e6)}M`;
@@ -8017,22 +9298,22 @@ function formatPercent$1(fraction) {
 	return `${Math.round(fraction * 100)}`;
 }
 function formatLatency(ms) {
-	if (!Number.isFinite(ms) || ms <= 0) return DASH;
+	if (!Number.isFinite(ms) || ms <= 0) return DASH$1;
 	return ms < 1e3 ? `${Math.round(ms)} ms` : `${trim(ms / 1e3)} s`;
 }
-function pad(n) {
+function pad$1(n) {
 	return String(n).padStart(2, "0");
 }
 /** HH:MM:SS in the browser's time zone. */
-function formatClock(at) {
+function formatClock$1(at) {
 	const d = new Date(at);
-	return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+	return `${pad$1(d.getHours())}:${pad$1(d.getMinutes())}:${pad$1(d.getSeconds())}`;
 }
 /** HH:MM:SS for today, DD.MM HH:MM:SS for another day. */
-function formatMoment(at, now) {
+function formatMoment$1(at, now) {
 	const d = new Date(at);
 	const n = new Date(now);
-	return d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth() && d.getDate() === n.getDate() ? formatClock(at) : `${pad(d.getDate())}.${pad(d.getMonth() + 1)} ${formatClock(at)}`;
+	return d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth() && d.getDate() === n.getDate() ? formatClock$1(at) : `${pad$1(d.getDate())}.${pad$1(d.getMonth() + 1)} ${formatClock$1(at)}`;
 }
 /** "3 d 4 h", "3 h 20 min", "12 min", "< 1 min": the two largest units. */
 function formatDuration(ms, t) {
@@ -8065,7 +9346,7 @@ function quotaBar(id, window, now, t) {
 		const wait = resetsAt - now;
 		resetText = wait > 0 ? t("account.quota.resets", {
 			in: formatDuration(wait, t),
-			at: formatMoment(resetsAt, now)
+			at: formatMoment$1(resetsAt, now)
 		}) : t("account.quota.resetDue");
 	}
 	return {
@@ -8089,7 +9370,7 @@ function recommendedChip(mode, t) {
 		title: t("account.recommended.paygo.hint")
 	};
 }
-function errorText$2(error, t) {
+function errorText$3(error, t) {
 	if ([
 		"key_rejected",
 		"rate_limited",
@@ -8119,7 +9400,7 @@ function accountNotice(detail, t) {
 		};
 		case "error": return {
 			kind: "error",
-			text: detail.error ? errorText$2(detail.error, t) : t("account.error.other", { code: "?" }),
+			text: detail.error ? errorText$3(detail.error, t) : t("account.error.other", { code: "?" }),
 			action: detail.error?.code === "key_rejected" ? "keys" : null
 		};
 		case "ok":
@@ -8139,7 +9420,7 @@ function accountNotice(detail, t) {
 function balanceUpdated(detail, now, t) {
 	const brief = detail.brief;
 	if (!brief) return null;
-	const text = t("account.updated", { time: formatMoment(brief.fetchedAt, now) });
+	const text = t("account.updated", { time: formatMoment$1(brief.fetchedAt, now) });
 	return detail.stale ? `${text} · ${t("account.updated.stale")}` : text;
 }
 /** Label of an option of the key selector. */
@@ -8169,10 +9450,10 @@ function spendCard(range, totals, t) {
 	if (!totals) return {
 		id: range,
 		title,
-		requests: DASH,
-		real: DASH,
-		equivalent: DASH,
-		tokens: DASH,
+		requests: DASH$1,
+		real: DASH$1,
+		equivalent: DASH$1,
+		tokens: DASH$1,
 		empty: true
 	};
 	return {
@@ -8205,6 +9486,21 @@ function connectionRows(rows, nameOf, t) {
 function modelRows(rows) {
 	return rows.map((row) => breakdownRow(row.model, row.model, row));
 }
+/** The kinds of request the spend is split by (stage 0.7); a medium this build does not know is shown as it came. */
+var MEDIA_LABELS = [
+	"chat",
+	"image",
+	"video",
+	"tts",
+	"stt"
+];
+function mediumLabelOf(medium, t) {
+	return MEDIA_LABELS.includes(medium) ? t(`account.medium.${medium}`) : medium;
+}
+/** Rows by kind of request (chat, image, video, speech, transcription); tokens do not mean anything for most of them. */
+function mediumRows(rows, t) {
+	return rows.map((row) => breakdownRow(row.medium, mediumLabelOf(row.medium, t), row));
+}
 /** Where the spend numbers come from, null when nothing needs saying (the plugin's log is part of them). */
 function spendSourceNote(result, t) {
 	if (!result || result.plugin) return null;
@@ -8224,10 +9520,11 @@ function recentRow(record, index, now, nameOf, t) {
 	const failed = record.error !== null || record.status >= 400;
 	const share = cachedShare(record);
 	const connection = record.connectionId === null ? t("account.row.noConnection") : nameOf(record.connectionId) ?? record.connectionId;
-	return {
+	const media = record.medium !== void 0 && record.medium !== "chat" ? record.medium : null;
+	const row = {
 		key: record.requestId ?? `${record.at}-${index}`,
 		requestId: record.requestId,
-		time: formatMoment(record.at, now),
+		time: formatMoment$1(record.at, now),
 		connection,
 		model: record.model,
 		billing: {
@@ -8236,7 +9533,7 @@ function recentRow(record, index, now, nameOf, t) {
 		},
 		cost: formatUsd$1(record.costUsd),
 		equivalent: formatUsd$1(record.equivalentUsd),
-		tokens: t("account.row.tokens", {
+		tokens: media !== null ? "" : t("account.row.tokens", {
 			prompt: formatTokens(record.promptTokens),
 			completion: formatTokens(record.completionTokens)
 		}),
@@ -8247,6 +9544,23 @@ function recentRow(record, index, now, nameOf, t) {
 			title: record.error ?? t("account.row.errorStatus", { status: record.status })
 		} : null
 	};
+	if (media !== null) {
+		row.medium = {
+			label: mediumLabelOf(media, t),
+			kind: "info"
+		};
+		if (record.units !== void 0 && record.units !== null) row.units = t(`account.units.${media}`, { count: formatUnits(record.units) });
+	}
+	if (record.costSource !== void 0) row.source = {
+		label: t(`account.costSource.${record.costSource}`),
+		kind: record.costSource === "lookup" ? "ok" : "muted",
+		title: t(`account.costSource.${record.costSource}.hint`)
+	};
+	return row;
+}
+/** Units of a media request (seconds, characters, images) without float noise: 12 -> "12", 2.5 -> "2.5". */
+function formatUnits(value) {
+	return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(2)));
 }
 /** What the "check exact cost" button answers. Never shows a figure for a request that is not ready. */
 function lookupView(result, t) {
@@ -8412,13 +9726,14 @@ function renderAccountTab(root, ctx) {
 		}
 		accountHost.append(balance, subscription);
 	}
-	function breakdownTable(title, rows) {
+	function breakdownTable(title, rows, options = {}) {
+		const withTokens = options.tokens !== false;
 		const head = el("tr", {}, [
-			el("th", { text: t("account.spend.col.name") }),
+			el("th", { text: options.nameColumn ?? t("account.spend.col.name") }),
 			el("th", { text: t("account.spend.col.requests") }),
 			el("th", { text: t("account.spend.col.real") }),
 			el("th", { text: t("account.spend.col.equivalent") }),
-			el("th", { text: t("account.spend.col.tokens") })
+			withTokens ? el("th", { text: t("account.spend.col.tokens") }) : null
 		]);
 		const body = rows.map((row) => el("tr", { data: { row: row.key } }, [
 			el("td", {
@@ -8431,10 +9746,10 @@ function renderAccountTab(root, ctx) {
 				class: "nanovia-muted",
 				text: row.equivalent
 			}),
-			el("td", {
+			withTokens ? el("td", {
 				class: "nanovia-muted",
 				text: row.tokens
-			})
+			}) : null
 		]));
 		return el("div", { class: "nanovia-table-block" }, [el("b", { text: title }), el("div", { class: "nanovia-table-wrap" }, [el("table", { class: "nanovia-table" }, [el("thead", {}, [head]), el("tbody", {}, body)])])]);
 	}
@@ -8500,7 +9815,14 @@ function renderAccountTab(root, ctx) {
 				class: "nanovia-muted",
 				text: t("account.spend.empty")
 			}));
-			else spendHost.append(breakdownTable(t("account.spend.byConnection"), connectionRows(current.summary.byConnection, nameOf, t)), breakdownTable(t("account.spend.byModel"), modelRows(current.summary.byModel)));
+			else {
+				spendHost.append(breakdownTable(t("account.spend.byConnection"), connectionRows(current.summary.byConnection, nameOf, t)), breakdownTable(t("account.spend.byModel"), modelRows(current.summary.byModel)));
+				const byMedium = mediumRows(mediumRowsOf(current.summary), t);
+				if (byMedium.length > 0) spendHost.appendChild(breakdownTable(t("account.spend.byMedium"), byMedium, {
+					nameColumn: t("account.spend.col.medium"),
+					tokens: false
+				}));
+			}
 		}
 	}
 	function renderRecent(row) {
@@ -8539,17 +9861,26 @@ function renderAccountTab(root, ctx) {
 					text: row.model
 				})
 			]),
-			el("div", { class: "nanovia-row nanovia-chips" }, [chip(row.billing.label, row.billing.kind), row.error ? chip(row.error.label, "error", row.error.title) : null]),
+			el("div", { class: "nanovia-row nanovia-chips" }, [
+				row.medium ? chip(row.medium.label, row.medium.kind) : null,
+				chip(row.billing.label, row.billing.kind),
+				row.source ? chip(row.source.label, row.source.kind, row.source.title) : null,
+				row.error ? chip(row.error.label, "error", row.error.title) : null
+			]),
 			el("div", { class: "nanovia-recent-numbers" }, [
 				el("span", { text: `${t("account.row.cost")}: ${row.cost}` }),
 				el("span", {
 					class: "nanovia-muted",
 					text: `${t("account.row.equivalent")}: ${row.equivalent}`
 				}),
-				el("span", {
+				row.units ? el("span", {
+					class: "nanovia-muted",
+					text: row.units
+				}) : null,
+				row.tokens ? el("span", {
 					class: "nanovia-muted",
 					text: row.tokens
-				}),
+				}) : null,
 				row.cached ? el("span", {
 					class: "nanovia-muted",
 					text: row.cached
@@ -8750,7 +10081,7 @@ function formatAge(at, now, t) {
 	return t("catalog.age.days", { n: Math.round(hours / 24) });
 }
 /** A number typed into a field ("1,5", " 20000 "); null when empty, not a number or negative. */
-function parseNumber(text) {
+function parseNumber$1(text) {
 	const cleaned = text.trim().replace(/\s+/g, "").replace(",", ".");
 	if (!cleaned) return null;
 	const value = Number(cleaned);
@@ -8933,7 +10264,7 @@ var KNOWN_ERRORS = [
 	"invalid_response",
 	"not_found"
 ];
-function errorText$1(code, t) {
+function errorText$2(code, t) {
 	if (KNOWN_ERRORS.includes(code)) return t(`catalog.error.${code}`);
 	const http = /^http_(\d+)$/.exec(code);
 	if (http) return t("catalog.error.http", { status: http[1] ?? "" });
@@ -8944,7 +10275,7 @@ function statusView(status, count, now, t) {
 		if (status.error) return {
 			kind: "error",
 			text: t("catalog.status.failed"),
-			notice: errorText$1(status.error, t)
+			notice: errorText$2(status.error, t)
 		};
 		return {
 			kind: "muted",
@@ -8962,7 +10293,7 @@ function statusView(status, count, now, t) {
 	if (status.source === "stale") return {
 		kind: "warn",
 		text,
-		notice: status.error ? t("catalog.status.staleError", { error: errorText$1(status.error, t) }) : t("catalog.status.stale")
+		notice: status.error ? t("catalog.status.staleError", { error: errorText$2(status.error, t) }) : t("catalog.status.stale")
 	};
 	return {
 		kind: "ok",
@@ -9002,14 +10333,14 @@ var DEFAULT_COST_INPUTS = {
 /** Reads the three fields of the estimate; an empty or wrong field keeps its default, the share is clamped to 0..100. */
 function parseCostInputs(prompt, completion, cached) {
 	const clampPercent = (value) => Math.min(100, Math.max(0, value));
-	const cachedValue = parseNumber(cached);
+	const cachedValue = parseNumber$1(cached);
 	return {
-		promptTokens: parseNumber(prompt) ?? DEFAULT_COST_INPUTS.promptTokens,
-		completionTokens: parseNumber(completion) ?? DEFAULT_COST_INPUTS.completionTokens,
+		promptTokens: parseNumber$1(prompt) ?? DEFAULT_COST_INPUTS.promptTokens,
+		completionTokens: parseNumber$1(completion) ?? DEFAULT_COST_INPUTS.completionTokens,
 		cachedPercent: cachedValue === null ? DEFAULT_COST_INPUTS.cachedPercent : clampPercent(cachedValue)
 	};
 }
-function costView(model, inputs, t) {
+function costView$1(model, inputs, t) {
 	const usage = {
 		promptTokens: inputs.promptTokens,
 		completionTokens: inputs.completionTokens,
@@ -9199,7 +10530,7 @@ function newConnectionPatch(model, hints, applied) {
 	return patch;
 }
 // src/features/catalog/session.ts
-function createSession() {
+function createSession$1() {
 	return {
 		filters: defaultFilters(),
 		shown: 50,
@@ -9733,7 +11064,7 @@ function actionsFor(entry, pluginUp, t) {
 	return actions;
 }
 /** What the plugin status chip says. `checked` is false until the plugin has been asked once. */
-function bannerFor$1(status, error, pluginUp, t, checked = true) {
+function bannerFor$2(status, error, pluginUp, t, checked = true) {
 	if (!checked && !pluginUp) return {
 		state: "checking",
 		up: false,
@@ -9768,7 +11099,7 @@ function bannerFor$1(status, error, pluginUp, t, checked = true) {
 	};
 }
 /** Text of an operation's error or warning. */
-function issueText$1(issue, t) {
+function issueText$2(issue, t) {
 	const params = {};
 	for (const [key, value] of Object.entries(issue.params ?? {})) params[key] = value;
 	if (issue.code === "invalid" && typeof params["field"] === "string") params["field"] = t(`connections.field.${params["field"]}`);
@@ -9848,7 +11179,7 @@ function renderDetail(host, deps) {
 	})];
 	function drawCost() {
 		clear(costResult);
-		const cost = costView(current, session.cost, t);
+		const cost = costView$1(current, session.cost, t);
 		append(costResult, [
 			kv(t("catalog.cost.turn"), cost.withoutCache ? `${cost.turn} (${t("catalog.cost.withoutCache")} ${cost.withoutCache})` : cost.turn),
 			kv(t("catalog.cost.hundred"), cost.hundredTurns),
@@ -9911,7 +11242,7 @@ function renderDetail(host, deps) {
 			label: t("catalog.hosts.maxPrompt"),
 			placeholder: t("catalog.filter.maxPricePlaceholder"),
 			onInput: (value) => {
-				session.hosts.maxPrompt = parseNumber(value);
+				session.hosts.maxPrompt = parseNumber$1(value);
 				drawTable(table);
 			}
 		});
@@ -9920,7 +11251,7 @@ function renderDetail(host, deps) {
 			label: t("catalog.hosts.maxCompletion"),
 			placeholder: t("catalog.filter.maxPricePlaceholder"),
 			onInput: (value) => {
-				session.hosts.maxCompletion = parseNumber(value);
+				session.hosts.maxCompletion = parseNumber$1(value);
 				drawTable(table);
 			}
 		});
@@ -10083,12 +11414,12 @@ function renderDetail(host, deps) {
 	}
 	function report(result, success) {
 		if (!result.ok) {
-			notify("error", issueText$1(result.error, t));
+			notify("error", issueText$2(result.error, t));
 			return;
 		}
 		const warnings = result.warnings;
 		if (warnings.length === 0) notify("ok", success);
-		else notify("warn", [success, ...warnings.map((warning) => issueText$1(warning, t))].join(" "));
+		else notify("warn", [success, ...warnings.map((warning) => issueText$2(warning, t))].join(" "));
 	}
 	function drawActions() {
 		clear(actionsHost);
@@ -10344,7 +11675,7 @@ function renderCatalogTab(root, ctx, session) {
 			placeholder: t("catalog.filter.maxPricePlaceholder"),
 			onInput: (value) => change({
 				...session.filters,
-				maxPromptPrice: parseNumber(value)
+				maxPromptPrice: parseNumber$1(value)
 			})
 		})), field(t("catalog.filter.sort"), select({
 			value: f.sort,
@@ -10543,7 +11874,7 @@ var catalogFeature = {
 	id: CATALOG_FEATURE_ID,
 	init(ctx) {
 		ctx.i18n.register(CATALOG_STRINGS);
-		const session = createSession();
+		const session = createSession$1();
 		const cancelIdle = scheduleIdle(() => void ctx.catalog.refresh());
 		const removeTab = ctx.panel.registerTab({
 			id: CATALOG_TAB_ID,
@@ -11256,18 +12587,18 @@ function renderConnectionsTab(root, ctx) {
 	/** Shows the outcome of an operation: its error, or its success text followed by any warnings. */
 	function report(result, success) {
 		if (!result.ok) {
-			notify("error", issueText$1(result.error, t));
+			notify("error", issueText$2(result.error, t));
 			return false;
 		}
 		const warnings = result.warnings;
 		if (warnings.length === 0) notify("ok", success);
-		else notify("warn", [success, ...warnings.map((warning) => issueText$1(warning, t))].join(" "));
+		else notify("warn", [success, ...warnings.map((warning) => issueText$2(warning, t))].join(" "));
 		return true;
 	}
 	function drawBanner() {
 		clear(bannerHost);
 		const up = ctx.connections.pluginUp();
-		const banner = bannerFor$1(ctx.connections.pluginStatus(), ctx.connections.pluginError(), up, t, ctx.connections.checked());
+		const banner = bannerFor$2(ctx.connections.pluginStatus(), ctx.connections.pluginError(), up, t, ctx.connections.checked());
 		const header = el("div", { class: "nanovia-row" }, [
 			chip(banner.title, banner.state === "up" ? "ok" : banner.state === "down" ? "error" : "muted"),
 			banner.detail ? el("span", {
@@ -11401,7 +12732,7 @@ function renderConnectionsTab(root, ctx) {
 		};
 		const first = validateForm(form, formCtx)[0];
 		if (first) {
-			notify("error", issueText$1(formIssue$2(first), t));
+			notify("error", issueText$2(formIssue$2(first), t));
 			return;
 		}
 		if (report(await ctx.connections.save({
@@ -11417,7 +12748,7 @@ function renderConnectionsTab(root, ctx) {
 	async function addKey(label, value) {
 		const result = await ctx.plugin.addKey(label, value);
 		if (!result.ok) {
-			notify("error", issueText$1({
+			notify("error", issueText$2({
 				code: "plugin_error",
 				params: { message: result.error.message }
 			}, t));
@@ -12443,6 +13774,3970 @@ var keysFeature = {
 			titleKey: "keys.tab",
 			order: 300,
 			render: (root, tabCtx) => renderKeysTab(root, tabCtx)
+		});
+	}
+};
+// src/features/media/param-form.ts
+/** NanoGPT accepts uploads up to 4 MB; a data URL is measured after encoding (base64 is a third larger than the file). */
+var MAX_UPLOAD_BYTES = 4194304;
+var SIZE_KEYS = [
+	"size",
+	"resolution",
+	"resolutions",
+	"image_size"
+];
+var ASPECT_KEYS = ["aspect_ratio", "aspectRatio"];
+var NEGATIVE_KEYS = ["negative_prompt", "negativePrompt"];
+var SEED_KEYS = ["seed"];
+var STEPS_KEYS = [
+	"steps",
+	"num_steps",
+	"num_inference_steps"
+];
+var GUIDANCE_KEYS = [
+	"guidance",
+	"guidance_scale",
+	"cfg_scale"
+];
+var COUNT_KEYS = [
+	"n",
+	"num_images",
+	"max_images",
+	"max_output_images"
+];
+var DURATION_KEYS = ["duration", "seconds"];
+var SPEED_KEYS = ["speed"];
+var INSTRUCTIONS_KEYS = ["instructions"];
+/** The first of `keys` the model lists (case-insensitive), null when none. */
+function findParam(model, keys) {
+	for (const key of keys) {
+		const found = model.params.find((spec) => spec.key.toLowerCase() === key.toLowerCase());
+		if (found) return found;
+	}
+	return null;
+}
+/**
+* What a user typed into a number field: '' = null ("no value"), a decimal number (a comma works as the decimal mark,
+* spaces inside are grouping) = the number, anything else = undefined (not a number).
+*/
+function parseNumber(text) {
+	const trimmed = text.trim();
+	if (!trimmed) return null;
+	const compact = trimmed.replace(/\s/g, "").replace(",", ".");
+	if (!/^[+-]?\d+(?:\.\d+)?$/.test(compact)) return void 0;
+	const value = Number(compact);
+	return Number.isFinite(value) ? value : void 0;
+}
+/** `1024x1024`, `1024 x 1024`, `1024*1024` or `1024×1024` as numbers; null for anything else (and for a zero side). */
+function parseSize(text) {
+	const match = /^\s*(\d{2,5})\s*[x×*]\s*(\d{2,5})\s*$/i.exec(text);
+	if (!match) return null;
+	const width = Number(match[1]);
+	const height = Number(match[2]);
+	return width > 0 && height > 0 ? {
+		width,
+		height
+	} : null;
+}
+/** The leading number of a duration word: `5` -> 5, `"8s"` -> 8, `"12 s"` -> 12; null when there is none. */
+function parseDuration(text) {
+	const match = /^\s*(\d+(?:[.,]\d+)?)/.exec(text);
+	if (!match) return null;
+	const value = Number((match[1] ?? "").replace(",", "."));
+	return Number.isFinite(value) && value > 0 ? value : null;
+}
+/** Size in bytes of an encoded data URL (the measure NanoGPT's 4 MB applies to); an empty string is 0. */
+function dataUrlBytes(dataUrl) {
+	return dataUrl.length;
+}
+/** Is this a data URL of an image the plugin can forward, within the 4 MB ceiling? */
+function checkImageDataUrl(dataUrl) {
+	if (!/^data:image\/[a-z0-9.+-]+;base64,/i.test(dataUrl)) return "not_image";
+	return dataUrlBytes(dataUrl) > 4194304 ? "too_large" : "ok";
+}
+/** Is a recording or an audio file within the 4 MB ceiling? `bytes` is the file's own size. */
+function checkAudioBytes(bytes) {
+	if (!(bytes > 0)) return "empty";
+	return bytes > 4194304 ? "too_large" : "ok";
+}
+/** The data URL's payload without its prefix (the plugin's STT route wants plain base64). */
+function stripDataUrl(dataUrl) {
+	const comma = dataUrl.indexOf(",");
+	return dataUrl.startsWith("data:") && comma >= 0 ? dataUrl.slice(comma + 1) : dataUrl;
+}
+var EXTENSIONS = {
+	"audio/mpeg": "mp3",
+	"audio/mp3": "mp3",
+	"audio/wav": "wav",
+	"audio/x-wav": "wav",
+	"audio/wave": "wav",
+	"audio/ogg": "ogg",
+	"audio/opus": "opus",
+	"audio/flac": "flac",
+	"audio/aac": "aac",
+	"audio/mp4": "m4a",
+	"audio/x-m4a": "m4a",
+	"audio/webm": "webm",
+	"video/mp4": "mp4",
+	"video/webm": "webm",
+	"image/png": "png",
+	"image/jpeg": "jpg",
+	"image/jpg": "jpg",
+	"image/webp": "webp",
+	"image/gif": "gif"
+};
+/** The file extension for a content type, as the response said it (`audio/x-wav` -> `wav`); `bin` when unknown. */
+function extensionOf(mime) {
+	const base = (mime.split(";")[0] ?? "").trim().toLowerCase();
+	const known = EXTENSIONS[base];
+	if (known) return known;
+	const subtype = base.split("/")[1] ?? "";
+	return /^[a-z0-9]{2,5}$/.test(subtype) ? subtype : "bin";
+}
+/** `nanovia-<model>-<n>.<ext>` with the model id made safe for a file name. */
+function downloadName(model, index, mime) {
+	return `nanovia-${model.replace(/[^a-z0-9._-]+/gi, "-").replace(/^-+|-+$/g, "") || "media"}-${index + 1}.${extensionOf(mime)}`;
+}
+function choiceField(spec, freeText) {
+	if (!spec) return null;
+	if (spec.type === "enum" && spec.values && spec.values.length > 0) {
+		const wanted = typeof spec.default === "string" || typeof spec.default === "number" ? String(spec.default) : "";
+		return {
+			kind: "enum",
+			key: spec.key,
+			values: spec.values,
+			default: spec.values.includes(wanted) ? wanted : spec.values[0] ?? ""
+		};
+	}
+	if (freeText && (spec.type === "text" || spec.type === "unknown")) return {
+		kind: "free",
+		key: spec.key,
+		default: typeof spec.default === "string" ? spec.default : ""
+	};
+	return null;
+}
+function numberField$1(spec) {
+	if (!spec) return null;
+	if (spec.type !== "range" && spec.type !== "integer" && spec.type !== "number" && spec.type !== "unknown") return null;
+	const fallback = typeof spec.default === "number" ? spec.default : null;
+	return {
+		key: spec.key,
+		min: spec.min ?? null,
+		max: spec.max ?? null,
+		step: spec.step ?? null,
+		default: fallback,
+		integer: spec.type === "integer"
+	};
+}
+/** True for a flag-like param (`negative_prompt: true`) or any param that is simply listed. */
+function listed(spec) {
+	return spec !== null;
+}
+function imageForm(model) {
+	const count = findParam(model, COUNT_KEYS);
+	const countMax = count?.max ?? (count?.values ? Math.max(...count.values.map(Number).filter(Number.isFinite), 1) : null);
+	const takesInput = model.maxInputImages > 0 || model.capabilities.imageToImage === true;
+	return {
+		size: choiceField(findParam(model, SIZE_KEYS), true),
+		aspect: choiceField(findParam(model, ASPECT_KEYS), false),
+		negative: listed(findParam(model, NEGATIVE_KEYS)),
+		count: { max: Math.max(1, Math.floor(countMax ?? 4)) },
+		seed: numberField$1(findParam(model, SEED_KEYS)),
+		steps: numberField$1(findParam(model, STEPS_KEYS)),
+		guidance: numberField$1(findParam(model, GUIDANCE_KEYS)),
+		references: takesInput ? { max: Math.max(1, model.maxInputImages || 1) } : null
+	};
+}
+function videoForm(model) {
+	const durationSpec = findParam(model, DURATION_KEYS);
+	let duration = null;
+	if (durationSpec) {
+		const choice = choiceField(durationSpec, false);
+		if (choice && choice.kind === "enum") duration = {
+			kind: "enum",
+			values: choice.values,
+			default: choice.default
+		};
+		else {
+			const field = numberField$1(durationSpec);
+			if (field) duration = {
+				kind: "number",
+				field
+			};
+		}
+	}
+	return {
+		duration,
+		aspect: choiceField(findParam(model, ASPECT_KEYS), false),
+		resolution: choiceField(findParam(model, ["resolution", "resolutions"]), false),
+		seed: numberField$1(findParam(model, SEED_KEYS)),
+		startImage: model.capabilities.imageToVideo === true || model.maxInputImages > 0
+	};
+}
+function ttsForm(model) {
+	const spec = findParam(model, SPEED_KEYS);
+	return {
+		voices: model.voices,
+		speed: {
+			min: spec?.min ?? .25,
+			max: spec?.max ?? 4,
+			step: spec?.step ?? .05,
+			listed: spec !== null
+		},
+		instructions: findParam(model, INSTRUCTIONS_KEYS) !== null
+	};
+}
+function sttForm(model) {
+	return { diarize: model.capabilities.diarization === true || findParam(model, ["diarize"]) !== null };
+}
+function emptyImageDraft() {
+	return {
+		model: null,
+		prompt: "",
+		negative: "",
+		size: "",
+		aspect: "",
+		count: "1",
+		seed: "",
+		steps: "",
+		guidance: "",
+		references: []
+	};
+}
+function emptyTtsDraft() {
+	return {
+		model: null,
+		voice: "",
+		text: "",
+		speed: "1",
+		instructions: ""
+	};
+}
+function emptySttDraft() {
+	return {
+		model: null,
+		language: "",
+		diarize: false
+	};
+}
+function emptyVideoDraft() {
+	return {
+		model: null,
+		prompt: "",
+		duration: "",
+		aspect: "",
+		resolution: "",
+		seed: "",
+		startImage: null
+	};
+}
+/** The value a choice field starts with for a model: what the draft has if the model still offers it, else the default. */
+function choiceValue(field, current) {
+	if (!field) return "";
+	if (field.kind === "free") return current || field.default;
+	return field.values.includes(current) ? current : field.default;
+}
+function readNumber(text, field, issues, name) {
+	const value = parseNumber(text);
+	if (value === void 0) {
+		issues.push({
+			code: "number_invalid",
+			field: name
+		});
+		return;
+	}
+	if (value === null) return void 0;
+	if (field.integer && !Number.isInteger(value)) {
+		issues.push({
+			code: "number_invalid",
+			field: name
+		});
+		return;
+	}
+	if (field.min !== null && value < field.min || field.max !== null && value > field.max) {
+		issues.push({
+			code: "number_range",
+			field: name,
+			detail: field.min !== null ? field.min : field.max ?? 0
+		});
+		return;
+	}
+	return value;
+}
+function checkReferences(references, max, issues, field) {
+	if (references.length > max) issues.push({
+		code: "too_many_references",
+		field,
+		detail: max
+	});
+	references.forEach((reference, index) => {
+		const verdict = checkImageDataUrl(reference.dataUrl);
+		if (verdict === "not_image") issues.push({
+			code: "reference_not_image",
+			field,
+			detail: index + 1
+		});
+		else if (verdict === "too_large") issues.push({
+			code: "reference_too_large",
+			field,
+			detail: index + 1
+		});
+	});
+}
+/** What the plugin receives for an image call; issues otherwise. Fields the model does not list are never sent. */
+function buildImageRequest(model, draft) {
+	const spec = imageForm(model);
+	const issues = [];
+	const prompt = draft.prompt.trim();
+	if (!prompt) issues.push({
+		code: "prompt_empty",
+		field: "prompt"
+	});
+	const request = {
+		model: model.id,
+		prompt
+	};
+	if (spec.negative && draft.negative.trim()) request.negativePrompt = draft.negative.trim();
+	const count = parseNumber(draft.count);
+	if (count === void 0 || count !== null && (!Number.isInteger(count) || count < 1 || count > spec.count.max)) issues.push({
+		code: "count_range",
+		field: "count",
+		detail: spec.count.max
+	});
+	else if (count !== null && count > 1) request.n = count;
+	if (spec.size) {
+		const size = choiceValue(spec.size, draft.size).trim();
+		if (spec.size.kind === "free" && size && !parseSize(size)) issues.push({
+			code: "size_invalid",
+			field: "size"
+		});
+		else if (size) request.size = size;
+	}
+	if (spec.aspect) {
+		const aspect = choiceValue(spec.aspect, draft.aspect);
+		if (aspect) request.aspectRatio = aspect;
+	}
+	if (spec.seed) {
+		const seed = readNumber(draft.seed, spec.seed, issues, "seed");
+		if (seed !== void 0) request.seed = Math.trunc(seed);
+	}
+	if (spec.steps) {
+		const steps = readNumber(draft.steps, spec.steps, issues, "steps");
+		if (steps !== void 0) request.steps = Math.trunc(steps);
+	}
+	if (spec.guidance) {
+		const guidance = readNumber(draft.guidance, spec.guidance, issues, "guidance");
+		if (guidance !== void 0) request.guidance = guidance;
+	}
+	if (spec.references && draft.references.length > 0) {
+		checkReferences(draft.references, spec.references.max, issues, "references");
+		request.inputImages = draft.references.map((reference) => reference.dataUrl);
+	}
+	return issues.length > 0 ? {
+		ok: false,
+		issues
+	} : {
+		ok: true,
+		request
+	};
+}
+function buildTtsRequest(model, draft) {
+	const spec = ttsForm(model);
+	const issues = [];
+	const input = draft.text.trim();
+	if (!input) issues.push({
+		code: "text_empty",
+		field: "text"
+	});
+	const request = {
+		model: model.id,
+		input
+	};
+	const voice = draft.voice.trim() || spec.voices[0] || "";
+	if (voice) request.voice = voice;
+	const speed = parseNumber(draft.speed);
+	if (speed === void 0 || speed !== null && (speed < spec.speed.min || speed > spec.speed.max)) issues.push({
+		code: speed === void 0 ? "number_invalid" : "number_range",
+		field: "speed",
+		detail: spec.speed.min
+	});
+	else if (speed !== null && speed !== 1) request.speed = speed;
+	if (spec.instructions && draft.instructions.trim()) request.instructions = draft.instructions.trim();
+	return issues.length > 0 ? {
+		ok: false,
+		issues
+	} : {
+		ok: true,
+		request
+	};
+}
+function buildSttRequest(model, draft, audio) {
+	const spec = sttForm(model);
+	const issues = [];
+	if (!audio) issues.push({
+		code: "audio_missing",
+		field: "audio"
+	});
+	else if (checkAudioBytes(audio.bytes) === "empty") issues.push({
+		code: "audio_missing",
+		field: "audio"
+	});
+	else if (checkAudioBytes(audio.bytes) === "too_large") issues.push({
+		code: "audio_too_large",
+		field: "audio"
+	});
+	if (issues.length > 0 || !audio) return {
+		ok: false,
+		issues
+	};
+	const request = {
+		model: model.id,
+		audioBase64: audio.base64,
+		filename: audio.filename,
+		mime: audio.mime
+	};
+	const language = draft.language.trim();
+	if (language) request.language = language;
+	if (spec.diarize && draft.diarize) request.diarize = true;
+	return {
+		ok: true,
+		request
+	};
+}
+/** The duration the form holds, in seconds, for the estimate; null when the model lists none or the field is not a valid number. */
+function videoDurationOf(model, draft) {
+	const spec = videoForm(model).duration;
+	if (!spec) return null;
+	if (spec.kind === "enum") return parseDuration(spec.values.includes(draft.duration) ? draft.duration : spec.default);
+	const value = parseNumber(draft.duration);
+	return typeof value === "number" && value > 0 ? value : null;
+}
+function buildVideoRequest(model, draft) {
+	const spec = videoForm(model);
+	const issues = [];
+	const prompt = draft.prompt.trim();
+	if (!prompt) issues.push({
+		code: "prompt_empty",
+		field: "prompt"
+	});
+	const request = {
+		model: model.id,
+		prompt
+	};
+	if (spec.duration) {
+		const seconds = spec.duration.kind === "enum" ? parseDuration(spec.duration.values.includes(draft.duration) ? draft.duration : spec.duration.default) : readNumber(draft.duration, spec.duration.field, issues, "duration") ?? null;
+		if (seconds !== null) request.duration = seconds;
+	}
+	if (spec.aspect) {
+		const aspect = choiceValue(spec.aspect, draft.aspect);
+		if (aspect) request.aspectRatio = aspect;
+	}
+	if (spec.resolution) {
+		const resolution = choiceValue(spec.resolution, draft.resolution);
+		if (resolution) request.resolution = resolution;
+	}
+	if (spec.seed) {
+		const seed = readNumber(draft.seed, spec.seed, issues, "seed");
+		if (seed !== void 0) request.seed = Math.trunc(seed);
+	}
+	if (spec.startImage && draft.startImage) {
+		checkReferences([draft.startImage], 1, issues, "startImage");
+		request.imageUrl = draft.startImage.dataUrl;
+	}
+	return issues.length > 0 ? {
+		ok: false,
+		issues
+	} : {
+		ok: true,
+		request
+	};
+}
+// src/features/media/session.ts
+var MEDIA_SECTIONS = [
+	"catalog",
+	"image",
+	"tts",
+	"stt",
+	"video"
+];
+/** The studio each medium's models are used in. */
+var STUDIO_OF = {
+	image: "image",
+	tts: "tts",
+	stt: "stt",
+	video: "video"
+};
+function createSession() {
+	let integration = {
+		status: "pending",
+		message: null
+	};
+	const listeners = /* @__PURE__ */ new Set();
+	const session = {
+		section: "catalog",
+		filters: {
+			medium: "image",
+			search: "",
+			uncensored: false,
+			sort: "name",
+			ttsKind: "speech",
+			shown: 50
+		},
+		image: emptyImageDraft(),
+		tts: emptyTtsDraft(),
+		stt: emptySttDraft(),
+		video: emptyVideoDraft(),
+		integration: () => integration,
+		setIntegration(status, message = null) {
+			integration = {
+				status,
+				message
+			};
+			for (const listener of [...listeners]) listener();
+		},
+		onIntegration(listener) {
+			listeners.add(listener);
+			return () => void listeners.delete(listener);
+		},
+		pickModel(medium, id) {
+			if (medium === "image") session.image.model = id;
+			else if (medium === "tts") session.tts.model = id;
+			else if (medium === "stt") session.stt.model = id;
+			else session.video.model = id;
+			session.section = STUDIO_OF[medium];
+		}
+	};
+	return session;
+}
+// src/features/media/strings.ts
+var MEDIA_STRINGS = {
+	en: {
+		"media.tab": "Media",
+		"media.title": "NanoGPT media",
+		"media.intro": "Images, speech, transcription and video from NanoGPT, called through the Nanovia plugin: it holds the key, writes the usage log and keeps the video jobs.",
+		"media.refresh": "Refresh",
+		"media.nav": "Sections",
+		"media.copy": "Copy",
+		"media.copied": "Copied",
+		"media.section.catalog": "Catalog",
+		"media.section.image": "Image",
+		"media.section.tts": "Speech",
+		"media.section.stt": "Transcription",
+		"media.section.video": "Video",
+		"media.medium.image": "Image",
+		"media.medium.video": "Video",
+		"media.medium.tts": "Speech",
+		"media.medium.stt": "Transcription",
+		"media.banner.needsPlugin.title": "Needs the plugin",
+		"media.banner.needsPlugin": "Media is called by the Nanovia server plugin (it holds the NanoGPT key and keeps the video jobs). The plugin is not installed or not enabled: install it (see the README), restart SillyTavern and reload the page. The studios stay off until then.",
+		"media.banner.outdated.title": "The plugin is too old",
+		"media.banner.outdated": "The Nanovia plugin answers, but it does not know the media routes. Update the plugin (server/index.js), restart SillyTavern and reload the page.",
+		"media.banner.down.title": "The plugin is not answering",
+		"media.banner.noKey.title": "No NanoGPT key",
+		"media.banner.keys": "Open the Keys tab",
+		"media.integration.pending": "ST integration",
+		"media.integration.pending.text": "Checking whether ST’s TTS extension takes the «Nanovia» provider…",
+		"media.integration.active": "ST integration active",
+		"media.integration.active.text": "The «Nanovia» provider is registered: choose it in the provider list of ST’s TTS extension (Extensions → TTS).",
+		"media.integration.unavailable": "ST integration off",
+		"media.integration.failed": "ST integration failed",
+		"media.integration.off": "ST’s TTS extension is switched off, so the «Nanovia» provider was not registered.",
+		"media.integration.noModule": "ST’s TTS extension could not be loaded (another ST version, or the extension is missing), so the «Nanovia» provider was not registered.",
+		"media.integration.noExport": "This ST version has no provider registration in its TTS extension, so the «Nanovia» provider was not registered.",
+		"media.integration.duplicate": "A «Nanovia» provider is already registered in this page (the extension was started twice): reload the page.",
+		"media.picker.model": "Model",
+		"media.picker.search": "Search models",
+		"media.picker.count": "{shown} of {total} models",
+		"media.picker.empty": "This list has no models.",
+		"media.picker.noMatch": "No model matches the filters.",
+		"media.filter.uncensored": "Adult-capable only",
+		"media.filter.uncensored.hint": "Only models the list flags as adult-capable (NSFW).",
+		"media.filter.sort": "Sort",
+		"media.filter.ttsKind": "Kind",
+		"media.filter.ttsKind.speech": "Speech",
+		"media.filter.ttsKind.music": "Music",
+		"media.filter.ttsKind.all": "Speech and music",
+		"media.sort.name": "By name",
+		"media.sort.price": "Cheapest first",
+		"media.catalog.medium": "Medium",
+		"media.catalog.loading": "Loading the model list…",
+		"media.catalog.empty": "NanoGPT’s list is empty.",
+		"media.catalog.retry": "Try again",
+		"media.catalog.refresh": "Reload list",
+		"media.catalog.count": "{shown} of {total} models",
+		"media.catalog.more": "Show {count} more",
+		"media.catalog.use": "Use",
+		"media.catalog.use.hint": "Open the {section} studio with this model",
+		"media.catalog.source.stale": "an older copy: NanoGPT could not be reached",
+		"media.catalog.source.cache": "from the plugin’s cache",
+		"media.price.unknown": "price unknown",
+		"media.unit.image": "image",
+		"media.unit.megapixel": "megapixel",
+		"media.unit.second": "second",
+		"media.unit.minute": "minute",
+		"media.unit.thousandChars": "1K characters",
+		"media.unit.thousandBytes": "1K bytes",
+		"media.unit.millionTokens": "1M tokens",
+		"media.unit.request": "request",
+		"media.unit.unknown": "unit unknown",
+		"media.cap.img2img": "img2img",
+		"media.cap.refs": "up to {count} reference images",
+		"media.cap.inpainting": "inpainting",
+		"media.cap.textToVideo": "text to video",
+		"media.cap.imageToVideo": "image to video",
+		"media.cap.videoToVideo": "video to video",
+		"media.cap.audioInput": "takes audio",
+		"media.cap.music": "music",
+		"media.cap.music.hint": "Makes music from a prompt, not speech from a text.",
+		"media.cap.voiceCloning": "voice cloning",
+		"media.cap.streaming": "streaming",
+		"media.cap.diarization": "speakers",
+		"media.cap.nsfw": "NSFW",
+		"media.cap.subscription": "in subscription",
+		"media.cap.notSubscription": "not in subscription",
+		"media.cap.approx": "approximate price",
+		"media.cap.approx.hint": "The price depends on length and resolution; the figure shown is an approximation.",
+		"media.field.prompt": "Prompt",
+		"media.field.negative": "Negative prompt",
+		"media.field.size": "Size",
+		"media.field.aspect": "Aspect ratio",
+		"media.field.count": "Images",
+		"media.field.seed": "Seed",
+		"media.field.steps": "Steps",
+		"media.field.guidance": "Guidance",
+		"media.field.voice": "Voice",
+		"media.field.text": "Text",
+		"media.field.speed": "Speed",
+		"media.field.instructions": "Style instructions",
+		"media.field.duration": "Duration (s)",
+		"media.field.resolution": "Resolution",
+		"media.field.language": "Language",
+		"media.field.references": "Reference images",
+		"media.field.audio": "Audio",
+		"media.field.startImage": "Start image",
+		"media.field.range": "from {min} to {max}",
+		"media.issue.prompt_empty": "Write a prompt first.",
+		"media.issue.text_empty": "Type the text to speak first.",
+		"media.issue.size_invalid": "The size must look like 1024x1024.",
+		"media.issue.count_range": "The number of images must be a whole number from 1 to {detail}.",
+		"media.issue.number_invalid": "{field}: a number is expected.",
+		"media.issue.number_range": "{field} is outside the range this model accepts.",
+		"media.issue.too_many_references": "This model takes at most {detail} reference images.",
+		"media.issue.reference_not_image": "Reference {detail} is not an image.",
+		"media.issue.reference_too_large": "Reference {detail} is over 4 MB after encoding.",
+		"media.issue.audio_missing": "Record or choose some audio first.",
+		"media.issue.audio_too_large": "The audio is over 4 MB, which NanoGPT does not accept.",
+		"media.issue.no_model": "Choose a model first.",
+		"media.estimate.value": "Estimated cost: {cost}",
+		"media.estimate.approx": "Estimated cost: about {cost} (approximate)",
+		"media.estimate.unknown": "The cost cannot be estimated for this model: see its price above.",
+		"media.estimate.subscription": "The list says the subscription includes this model; the subscription’s quota may cover it instead of money.",
+		"media.cost.billed": "Cost",
+		"media.cost.estimated": "Estimated before the call: {cost}",
+		"media.cost.paymentSource": "Paid from",
+		"media.cost.source.response": "NanoGPT’s figure",
+		"media.cost.source.lookup": "billed (confirmed)",
+		"media.cost.source.estimate": "estimate",
+		"media.cost.source.unknown": "unknown",
+		"media.cost.note.responseImage": "This is the list-price figure NanoGPT put in its answer. The real charge can be higher (it has been seen at 1.5 times the list price). A few seconds after the call the plugin asks NanoGPT’s billing record, and the source here becomes «billed (confirmed)».",
+		"media.cost.note.response": "The figure NanoGPT’s answer carried.",
+		"media.cost.note.lookup": "Confirmed by NanoGPT’s own billing record of this request.",
+		"media.cost.note.estimate": "Computed from the catalog price: NanoGPT sends no figure for this kind of call. It matched the charge in the checks made so far.",
+		"media.cost.note.unknown": "NanoGPT gave no figure for this call; the Account tab shows what the balance did.",
+		"media.result.title": "Result",
+		"media.result.clear": "Clear",
+		"media.result.download": "Download",
+		"media.result.open": "Open",
+		"media.result.latency": "took {seconds} s",
+		"media.result.requestId": "Request id",
+		"media.error.pluginDown": "The Nanovia plugin is not answering.",
+		"media.error.notInstalled": "The Nanovia plugin is not installed, or it is too old for media. Update it (server/index.js), restart SillyTavern and reload the page.",
+		"media.error.forbidden": "SillyTavern refused the request (the session or the CSRF check). Reload the page.",
+		"media.error.noKey": "The plugin has no NanoGPT key to call with. Add one in the Keys tab.",
+		"media.error.invalidRequest": "The request was refused: {message}",
+		"media.error.tooLarge": "An input is over the 4 MB NanoGPT accepts. Use a smaller image or a shorter recording.",
+		"media.error.rateLimited": "NanoGPT is limiting requests. Try again in a minute.",
+		"media.error.unavailable": "The model list cannot be had: NanoGPT is not reachable and the plugin has no stored copy.",
+		"media.error.upstream": "NanoGPT refused or failed the call: {message}",
+		"media.error.timeout": "No answer in time.",
+		"media.error.timeout.charged": "The call may still have been completed and charged on NanoGPT’s side: check the Account tab before trying again.",
+		"media.error.balance": "The NanoGPT balance is too low for this call.",
+		"media.error.balanceAmount": "The NanoGPT balance is too low for this call: it needs {amount}.",
+		"media.error.contentPolicy": "NanoGPT blocked the prompt (content policy). The request is not charged.",
+		"media.error.notFound": "The plugin does not know this video job any more.",
+		"media.error.invalidResponse": "The plugin’s answer was not what was expected.",
+		"media.error.other": "The call failed ({code}).",
+		"media.image.generate": "Generate",
+		"media.image.busy": "Generating… a few seconds to a minute.",
+		"media.image.prompt.placeholder": "Describe the picture",
+		"media.image.size.placeholder": "1024x1024",
+		"media.image.size.hint": "Width x height in pixels, for example 1024x1024; empty = the model’s own size.",
+		"media.image.count.hint": "From 1 to {max} images in one call.",
+		"media.image.refs.title": "Reference images",
+		"media.image.refs.add": "Add reference images",
+		"media.image.refs.hint": "Up to {max} images, each up to {size} after encoding (about three quarters of that as a file).",
+		"media.image.refs.remove": "Remove",
+		"media.image.refs.notImage": "{name} is not an image.",
+		"media.image.refs.tooLarge": "{name} is over 4 MB after encoding: use a smaller image.",
+		"media.image.refs.unreadable": "{name} could not be read.",
+		"media.image.alt": "Generated image {n}",
+		"media.image.noData": "This output has no image data.",
+		"media.tts.speak": "Speak",
+		"media.tts.busy": "Speaking… a few seconds.",
+		"media.tts.text.placeholder": "The text to speak",
+		"media.tts.chars": "{count} characters",
+		"media.tts.voice.free": "voice name",
+		"media.tts.voice.freeHint": "This model’s list names no voices: type one, or leave it empty for the model’s default.",
+		"media.tts.speed.unlisted": "This model’s list does not mention speed; it may be ignored. 1 is sent as no change.",
+		"media.tts.instructions.placeholder": "For example: calm, whispering, with a smile",
+		"media.tts.mime": "Content type of the answer",
+		"media.tts.noData": "This result has no audio data.",
+		"media.tts.billedChars": "{count} characters billed",
+		"media.tts.endpoint.title": "Use with ST’s «OpenAI Compatible» provider (second option)",
+		"media.tts.endpoint.intro": "The Nanovia proxy also speaks the OpenAI speech route, so ST’s own «OpenAI Compatible» TTS provider can point at a connection. The registered «Nanovia» provider is the recommended way: it lists the voices, takes the model and speed and keeps the real content type.",
+		"media.tts.endpoint.none": "No connection has a proxy URL yet: create a connection in plugin mode first.",
+		"media.tts.endpoint.connection": "Connection",
+		"media.tts.endpoint.url": "Provider endpoint",
+		"media.tts.endpoint.token": "ST asks for an API key in that provider: it must be the connection’s own token. Nanovia cannot show it (it is write-only in ST’s secret store), so you would copy it from where you created it or rotate the connection’s token. ST also forces audio/mpeg on the answer and forwards only a few fields.",
+		"media.stt.transcribe": "Transcribe",
+		"media.stt.busy": "Transcribing…",
+		"media.stt.source.title": "Audio",
+		"media.stt.limits": "Up to {size} and {time} per recording.",
+		"media.stt.rec.start": "Record",
+		"media.stt.rec.stop": "Stop",
+		"media.stt.rec.meter": "Recording {elapsed} of {max}, {size} of {limit}",
+		"media.stt.rec.empty": "The recording came out empty.",
+		"media.stt.rec.limitBytes": "The recording stopped at the size limit.",
+		"media.stt.rec.limitTime": "The recording stopped at the time limit.",
+		"media.stt.rec.insecure": "The browser records only on a secure page (https, or localhost). Open ST over https, or choose a file instead.",
+		"media.stt.rec.unsupported": "This browser cannot record from the microphone. Choose a file instead.",
+		"media.stt.rec.error.unsupported": "This browser cannot record from the microphone.",
+		"media.stt.rec.error.insecure": "The browser records only on a secure page (https, or localhost).",
+		"media.stt.rec.error.denied": "The microphone is blocked: allow it for this page in the browser’s site settings, then try again.",
+		"media.stt.rec.error.no_device": "No microphone was found.",
+		"media.stt.rec.error.busy": "The microphone is busy or could not be opened.",
+		"media.stt.rec.error.failed": "The recording could not be started.",
+		"media.stt.file.choose": "Choose an audio file",
+		"media.stt.file.empty": "The file is empty.",
+		"media.stt.file.tooLarge": "The file is over {size}, which NanoGPT does not accept.",
+		"media.stt.file.unreadable": "The audio could not be read.",
+		"media.stt.discard": "Discard",
+		"media.stt.length": "Length",
+		"media.stt.language": "Language",
+		"media.stt.language.placeholder": "auto",
+		"media.stt.language.hint": "ISO code such as en or ru; empty lets the model detect it.",
+		"media.stt.diarize": "Label speakers",
+		"media.stt.diarize.hint": "The model returns who said what.",
+		"media.stt.estimate.needsAudio": "Record or choose audio to see the estimate.",
+		"media.stt.estimate.noLength": "The length of this file is unknown, so the cost cannot be estimated.",
+		"media.stt.text": "Transcript",
+		"media.stt.noSpeech": "(no speech found)",
+		"media.stt.segments": "Segments",
+		"media.video.submit": "Start video",
+		"media.video.busy": "Submitting the job…",
+		"media.video.submitted": "The job was submitted. It appears below and updates by itself while this section is open.",
+		"media.video.prompt.placeholder": "Describe the scene and the motion",
+		"media.video.startImage.title": "Start image",
+		"media.video.startImage.add": "Choose a start image",
+		"media.video.startImage.hint": "Optional, for image-to-video. Up to {size} after encoding.",
+		"media.video.estimate.approxHint": "The price depends on duration and resolution and could not be reduced to one figure: treat the number as approximate.",
+		"media.video.estimate.final": "The final cost is known when the video is done.",
+		"media.video.noCancel": "NanoGPT has no cancel: a submitted job runs to the end and is billed. A job that fails is refunded by NanoGPT; deleting a job here only forgets it.",
+		"media.video.jobs.title": "Video jobs",
+		"media.video.jobs.empty": "No video jobs yet.",
+		"media.video.jobs.stale": "The list may be out of date: {reason}",
+		"media.video.delete": "Delete",
+		"media.video.delete.title": "Delete video job",
+		"media.video.delete.confirm": "Forget this job and delete its saved file? A job that is still running keeps running and billing at NanoGPT; there is no cancel.",
+		"media.job.status.queued": "queued",
+		"media.job.status.running": "running",
+		"media.job.status.completed": "done",
+		"media.job.status.failed": "failed",
+		"media.job.status.expired": "expired",
+		"media.job.progress": "{percent}%",
+		"media.job.cost.pre": "Pre-charge: {cost}",
+		"media.job.cost.final": "Cost: {cost}",
+		"media.job.cost.unknown": "Cost not known yet",
+		"media.job.error.unknown": "NanoGPT gave no reason.",
+		"media.job.noLocalCopy": "The plugin has no saved copy of this video. NanoGPT’s own link works for about a day:",
+		"media.job.openUpstream": "Open at NanoGPT",
+		"media.provider.model": "Model",
+		"media.provider.voice": "Default voice",
+		"media.provider.speed": "Speed",
+		"media.provider.defaultVoice": "default",
+		"media.provider.noModels": "NanoGPT’s speech model list is empty.",
+		"media.provider.previewText": "The quick brown fox jumps over the lazy dog."
+	},
+	ru: {
+		"media.tab": "Медиа",
+		"media.title": "Медиа NanoGPT",
+		"media.intro": "Картинки, озвучка, распознавание речи и видео от NanoGPT через плагин Nanovia: он держит ключ, пишет журнал расходов и хранит задачи на видео.",
+		"media.refresh": "Обновить",
+		"media.nav": "Разделы",
+		"media.copy": "Копировать",
+		"media.copied": "Скопировано",
+		"media.section.catalog": "Каталог",
+		"media.section.image": "Картинки",
+		"media.section.tts": "Озвучка",
+		"media.section.stt": "Распознавание",
+		"media.section.video": "Видео",
+		"media.medium.image": "Картинки",
+		"media.medium.video": "Видео",
+		"media.medium.tts": "Озвучка",
+		"media.medium.stt": "Распознавание",
+		"media.banner.needsPlugin.title": "Нужен плагин",
+		"media.banner.needsPlugin": "Медиа вызывает серверный плагин Nanovia (у него ключ NanoGPT и задачи на видео). Плагин не установлен или не включён: установите его (см. README), перезапустите SillyTavern и обновите страницу. Пока студии выключены.",
+		"media.banner.outdated.title": "Плагин устарел",
+		"media.banner.outdated": "Плагин Nanovia отвечает, но не знает маршрутов медиа. Обновите плагин (server/index.js), перезапустите SillyTavern и обновите страницу.",
+		"media.banner.down.title": "Плагин не отвечает",
+		"media.banner.noKey.title": "Нет ключа NanoGPT",
+		"media.banner.keys": "Открыть вкладку «Ключи»",
+		"media.integration.pending": "Связка с ST",
+		"media.integration.pending.text": "Проверяю, принимает ли расширение TTS в ST провайдер «Nanovia»…",
+		"media.integration.active": "Связка с ST работает",
+		"media.integration.active.text": "Провайдер «Nanovia» зарегистрирован: выберите его в списке провайдеров расширения TTS в ST (Расширения → TTS).",
+		"media.integration.unavailable": "Связка с ST выключена",
+		"media.integration.failed": "Связка с ST не удалась",
+		"media.integration.off": "Расширение TTS в ST выключено, поэтому провайдер «Nanovia» не зарегистрирован.",
+		"media.integration.noModule": "Расширение TTS в ST не загрузилось (другая версия ST или расширения нет), поэтому провайдер «Nanovia» не зарегистрирован.",
+		"media.integration.noExport": "В этой версии ST у расширения TTS нет регистрации провайдеров, поэтому провайдер «Nanovia» не зарегистрирован.",
+		"media.integration.duplicate": "Провайдер «Nanovia» уже зарегистрирован на этой странице (расширение запущено дважды): обновите страницу.",
+		"media.picker.model": "Модель",
+		"media.picker.search": "Поиск моделей",
+		"media.picker.count": "{shown} из {total} моделей",
+		"media.picker.empty": "В этом списке нет моделей.",
+		"media.picker.noMatch": "Ни одна модель не подходит под фильтры.",
+		"media.filter.uncensored": "Только без цензуры",
+		"media.filter.uncensored.hint": "Только модели, которые список помечает как допускающие взрослый контент (NSFW).",
+		"media.filter.sort": "Сортировка",
+		"media.filter.ttsKind": "Вид",
+		"media.filter.ttsKind.speech": "Речь",
+		"media.filter.ttsKind.music": "Музыка",
+		"media.filter.ttsKind.all": "Речь и музыка",
+		"media.sort.name": "По названию",
+		"media.sort.price": "Сначала дешёвые",
+		"media.catalog.medium": "Вид медиа",
+		"media.catalog.loading": "Загружаю список моделей…",
+		"media.catalog.empty": "Список NanoGPT пуст.",
+		"media.catalog.retry": "Повторить",
+		"media.catalog.refresh": "Обновить список",
+		"media.catalog.count": "{shown} из {total} моделей",
+		"media.catalog.more": "Показать ещё {count}",
+		"media.catalog.use": "Использовать",
+		"media.catalog.use.hint": "Открыть студию «{section}» с этой моделью",
+		"media.catalog.source.stale": "устаревшая копия: NanoGPT недоступен",
+		"media.catalog.source.cache": "из кэша плагина",
+		"media.price.unknown": "цена неизвестна",
+		"media.unit.image": "картинка",
+		"media.unit.megapixel": "мегапиксель",
+		"media.unit.second": "секунда",
+		"media.unit.minute": "минута",
+		"media.unit.thousandChars": "1К символов",
+		"media.unit.thousandBytes": "1К байт",
+		"media.unit.millionTokens": "1М токенов",
+		"media.unit.request": "запрос",
+		"media.unit.unknown": "единица неизвестна",
+		"media.cap.img2img": "img2img",
+		"media.cap.refs": "до {count} референсов",
+		"media.cap.inpainting": "inpainting",
+		"media.cap.textToVideo": "текст в видео",
+		"media.cap.imageToVideo": "картинка в видео",
+		"media.cap.videoToVideo": "видео в видео",
+		"media.cap.audioInput": "принимает звук",
+		"media.cap.music": "музыка",
+		"media.cap.music.hint": "Делает музыку по описанию, а не речь по тексту.",
+		"media.cap.voiceCloning": "клонирование голоса",
+		"media.cap.streaming": "потоковая",
+		"media.cap.diarization": "разметка говорящих",
+		"media.cap.nsfw": "NSFW",
+		"media.cap.subscription": "входит в подписку",
+		"media.cap.notSubscription": "не входит в подписку",
+		"media.cap.approx": "цена примерная",
+		"media.cap.approx.hint": "Цена зависит от длины и разрешения; показанное число приблизительное.",
+		"media.field.prompt": "Промпт",
+		"media.field.negative": "Негативный промпт",
+		"media.field.size": "Размер",
+		"media.field.aspect": "Соотношение сторон",
+		"media.field.count": "Картинок",
+		"media.field.seed": "Seed",
+		"media.field.steps": "Шаги",
+		"media.field.guidance": "Guidance",
+		"media.field.voice": "Голос",
+		"media.field.text": "Текст",
+		"media.field.speed": "Скорость",
+		"media.field.instructions": "Указания по стилю",
+		"media.field.duration": "Длительность (с)",
+		"media.field.resolution": "Разрешение",
+		"media.field.language": "Язык",
+		"media.field.references": "Референсы",
+		"media.field.audio": "Звук",
+		"media.field.startImage": "Стартовая картинка",
+		"media.field.range": "от {min} до {max}",
+		"media.issue.prompt_empty": "Сначала напишите промпт.",
+		"media.issue.text_empty": "Сначала введите текст для озвучки.",
+		"media.issue.size_invalid": "Размер должен выглядеть как 1024x1024.",
+		"media.issue.count_range": "Число картинок — целое от 1 до {detail}.",
+		"media.issue.number_invalid": "{field}: нужно число.",
+		"media.issue.number_range": "{field} вне диапазона, который принимает модель.",
+		"media.issue.too_many_references": "Эта модель принимает не больше {detail} референсов.",
+		"media.issue.reference_not_image": "Референс {detail} — не картинка.",
+		"media.issue.reference_too_large": "Референс {detail} после кодирования больше 4 МБ.",
+		"media.issue.audio_missing": "Сначала запишите звук или выберите файл.",
+		"media.issue.audio_too_large": "Звук больше 4 МБ, NanoGPT такое не принимает.",
+		"media.issue.no_model": "Сначала выберите модель.",
+		"media.estimate.value": "Оценка стоимости: {cost}",
+		"media.estimate.approx": "Оценка стоимости: примерно {cost} (приблизительно)",
+		"media.estimate.unknown": "Для этой модели стоимость не оценить: смотрите цену выше.",
+		"media.estimate.subscription": "Список говорит, что подписка включает эту модель: вместо денег может сработать квота подписки.",
+		"media.cost.billed": "Стоимость",
+		"media.cost.estimated": "Оценка до вызова: {cost}",
+		"media.cost.paymentSource": "Оплачено из",
+		"media.cost.source.response": "цифра NanoGPT",
+		"media.cost.source.lookup": "списано (подтверждено)",
+		"media.cost.source.estimate": "оценка",
+		"media.cost.source.unknown": "неизвестно",
+		"media.cost.note.responseImage": "Это цифра по прайс-листу, которую NanoGPT положил в ответ. Реальное списание может быть выше (видели в 1,5 раза выше прайса). Через несколько секунд после вызова плагин спросит биллинг NanoGPT, и источник здесь станет «списано (подтверждено)».",
+		"media.cost.note.response": "Цифра, которая была в ответе NanoGPT.",
+		"media.cost.note.lookup": "Подтверждено собственной записью биллинга NanoGPT об этом запросе.",
+		"media.cost.note.estimate": "Посчитано по цене из каталога: для такого вызова NanoGPT цифру не присылает. В проверках, сделанных до сих пор, она совпадала со списанием.",
+		"media.cost.note.unknown": "NanoGPT не дал цифры для этого вызова; вкладка «Аккаунт» покажет, как изменился баланс.",
+		"media.result.title": "Результат",
+		"media.result.clear": "Убрать",
+		"media.result.download": "Скачать",
+		"media.result.open": "Открыть",
+		"media.result.latency": "заняло {seconds} с",
+		"media.result.requestId": "Id запроса",
+		"media.error.pluginDown": "Плагин Nanovia не отвечает.",
+		"media.error.notInstalled": "Плагин Nanovia не установлен или слишком старый для медиа. Обновите его (server/index.js), перезапустите SillyTavern и обновите страницу.",
+		"media.error.forbidden": "SillyTavern отклонил запрос (сессия или проверка CSRF). Обновите страницу.",
+		"media.error.noKey": "У плагина нет ключа NanoGPT для вызова. Добавьте его на вкладке «Ключи».",
+		"media.error.invalidRequest": "Запрос отклонён: {message}",
+		"media.error.tooLarge": "Один из входов больше 4 МБ, которые принимает NanoGPT. Возьмите картинку поменьше или запись покороче.",
+		"media.error.rateLimited": "NanoGPT ограничивает запросы. Повторите через минуту.",
+		"media.error.unavailable": "Список моделей недоступен: NanoGPT не отвечает, а сохранённой копии у плагина нет.",
+		"media.error.upstream": "NanoGPT отказал или не справился с вызовом: {message}",
+		"media.error.timeout": "Ответ не пришёл вовремя.",
+		"media.error.timeout.charged": "Вызов мог всё же выполниться и быть списан на стороне NanoGPT: загляните на вкладку «Аккаунт», прежде чем повторять.",
+		"media.error.balance": "На балансе NanoGPT не хватает денег для этого вызова.",
+		"media.error.balanceAmount": "На балансе NanoGPT не хватает денег для этого вызова: нужно {amount}.",
+		"media.error.contentPolicy": "NanoGPT заблокировал промпт (правила содержания). Деньги за запрос не списываются.",
+		"media.error.notFound": "Плагин больше не знает эту задачу на видео.",
+		"media.error.invalidResponse": "Ответ плагина оказался не таким, как ожидалось.",
+		"media.error.other": "Вызов не удался ({code}).",
+		"media.image.generate": "Сгенерировать",
+		"media.image.busy": "Генерирую… от нескольких секунд до минуты.",
+		"media.image.prompt.placeholder": "Опишите картинку",
+		"media.image.size.placeholder": "1024x1024",
+		"media.image.size.hint": "Ширина x высота в пикселях, например 1024x1024; пусто — размер по умолчанию у модели.",
+		"media.image.count.hint": "От 1 до {max} картинок за вызов.",
+		"media.image.refs.title": "Референсы",
+		"media.image.refs.add": "Добавить референсы",
+		"media.image.refs.hint": "До {max} картинок, каждая до {size} после кодирования (файлом это около трёх четвертей).",
+		"media.image.refs.remove": "Убрать",
+		"media.image.refs.notImage": "{name} — не картинка.",
+		"media.image.refs.tooLarge": "{name} после кодирования больше 4 МБ: возьмите картинку поменьше.",
+		"media.image.refs.unreadable": "{name} не удалось прочитать.",
+		"media.image.alt": "Сгенерированная картинка {n}",
+		"media.image.noData": "В этом выводе нет данных картинки.",
+		"media.tts.speak": "Озвучить",
+		"media.tts.busy": "Озвучиваю… несколько секунд.",
+		"media.tts.text.placeholder": "Текст для озвучки",
+		"media.tts.chars": "{count} символов",
+		"media.tts.voice.free": "имя голоса",
+		"media.tts.voice.freeHint": "В списке этой модели голосов нет: введите имя или оставьте пусто — будет голос модели по умолчанию.",
+		"media.tts.speed.unlisted": "Список этой модели про скорость молчит; её могут проигнорировать. 1 отправляется как «без изменений».",
+		"media.tts.instructions.placeholder": "Например: спокойно, шёпотом, с улыбкой",
+		"media.tts.mime": "Тип содержимого ответа",
+		"media.tts.noData": "В этом результате нет звука.",
+		"media.tts.billedChars": "Оплачено символов: {count}",
+		"media.tts.endpoint.title": "Для провайдера «OpenAI Compatible» в ST (второй вариант)",
+		"media.tts.endpoint.intro": "Прокси Nanovia понимает и OpenAI-маршрут озвучки, так что встроенный провайдер TTS «OpenAI Compatible» в ST можно направить на подключение. Рекомендуемый путь — зарегистрированный провайдер «Nanovia»: он показывает голоса, берёт модель и скорость и сохраняет настоящий тип содержимого.",
+		"media.tts.endpoint.none": "Ни у одного подключения пока нет адреса прокси: сначала создайте подключение в режиме плагина.",
+		"media.tts.endpoint.connection": "Подключение",
+		"media.tts.endpoint.url": "Адрес провайдера",
+		"media.tts.endpoint.token": "Этот провайдер в ST просит ключ API: это должен быть собственный токен подключения. Nanovia показать его не может (в хранилище секретов ST он только для записи), так что токен придётся взять оттуда, где вы его создавали, или перевыпустить токен подключения. Ещё ST принудительно ставит ответу audio/mpeg и пересылает лишь несколько полей.",
+		"media.stt.transcribe": "Распознать",
+		"media.stt.busy": "Распознаю…",
+		"media.stt.source.title": "Звук",
+		"media.stt.limits": "До {size} и {time} на запись.",
+		"media.stt.rec.start": "Записать",
+		"media.stt.rec.stop": "Стоп",
+		"media.stt.rec.meter": "Запись {elapsed} из {max}, {size} из {limit}",
+		"media.stt.rec.empty": "Запись получилась пустой.",
+		"media.stt.rec.limitBytes": "Запись остановилась на пределе по размеру.",
+		"media.stt.rec.limitTime": "Запись остановилась на пределе по времени.",
+		"media.stt.rec.insecure": "Браузер записывает только на защищённой странице (https или localhost). Откройте ST по https или выберите файл.",
+		"media.stt.rec.unsupported": "Этот браузер не умеет записывать с микрофона. Выберите файл.",
+		"media.stt.rec.error.unsupported": "Этот браузер не умеет записывать с микрофона.",
+		"media.stt.rec.error.insecure": "Браузер записывает только на защищённой странице (https или localhost).",
+		"media.stt.rec.error.denied": "Микрофон заблокирован: разрешите его для этой страницы в настройках сайта в браузере и повторите.",
+		"media.stt.rec.error.no_device": "Микрофон не найден.",
+		"media.stt.rec.error.busy": "Микрофон занят или не открылся.",
+		"media.stt.rec.error.failed": "Не удалось начать запись.",
+		"media.stt.file.choose": "Выберите аудиофайл",
+		"media.stt.file.empty": "Файл пустой.",
+		"media.stt.file.tooLarge": "Файл больше {size}, NanoGPT такое не принимает.",
+		"media.stt.file.unreadable": "Звук не удалось прочитать.",
+		"media.stt.discard": "Сбросить",
+		"media.stt.length": "Длина",
+		"media.stt.language": "Язык",
+		"media.stt.language.placeholder": "авто",
+		"media.stt.language.hint": "Код ISO вроде en или ru; пусто — модель определит сама.",
+		"media.stt.diarize": "Размечать говорящих",
+		"media.stt.diarize.hint": "Модель вернёт, кто что сказал.",
+		"media.stt.estimate.needsAudio": "Запишите звук или выберите файл, чтобы увидеть оценку.",
+		"media.stt.estimate.noLength": "Длина этого файла неизвестна, поэтому стоимость не оценить.",
+		"media.stt.text": "Расшифровка",
+		"media.stt.noSpeech": "(речь не найдена)",
+		"media.stt.segments": "Фрагменты",
+		"media.video.submit": "Запустить видео",
+		"media.video.busy": "Отправляю задачу…",
+		"media.video.submitted": "Задача отправлена. Она появится ниже и будет обновляться сама, пока открыт этот раздел.",
+		"media.video.prompt.placeholder": "Опишите сцену и движение",
+		"media.video.startImage.title": "Стартовая картинка",
+		"media.video.startImage.add": "Выберите стартовую картинку",
+		"media.video.startImage.hint": "Не обязательно, для режима «картинка в видео». До {size} после кодирования.",
+		"media.video.estimate.approxHint": "Цена зависит от длительности и разрешения и не свелась к одной цифре: считайте число приблизительным.",
+		"media.video.estimate.final": "Итоговая стоимость станет известна, когда видео будет готово.",
+		"media.video.noCancel": "У NanoGPT нет отмены: отправленная задача идёт до конца и оплачивается. Если задача провалилась, NanoGPT возвращает деньги; удаление задачи здесь лишь забывает её.",
+		"media.video.jobs.title": "Задачи на видео",
+		"media.video.jobs.empty": "Задач на видео пока нет.",
+		"media.video.jobs.stale": "Список мог устареть: {reason}",
+		"media.video.delete": "Удалить",
+		"media.video.delete.title": "Удалить задачу на видео",
+		"media.video.delete.confirm": "Забыть эту задачу и удалить сохранённый файл? Задача, которая ещё идёт, продолжит идти и списываться у NanoGPT: отмены нет.",
+		"media.job.status.queued": "в очереди",
+		"media.job.status.running": "идёт",
+		"media.job.status.completed": "готово",
+		"media.job.status.failed": "не удалось",
+		"media.job.status.expired": "истекло",
+		"media.job.progress": "{percent}%",
+		"media.job.cost.pre": "Предоплата: {cost}",
+		"media.job.cost.final": "Стоимость: {cost}",
+		"media.job.cost.unknown": "Стоимость пока неизвестна",
+		"media.job.error.unknown": "NanoGPT не назвал причину.",
+		"media.job.noLocalCopy": "У плагина нет сохранённой копии этого видео. Ссылка NanoGPT работает около суток:",
+		"media.job.openUpstream": "Открыть у NanoGPT",
+		"media.provider.model": "Модель",
+		"media.provider.voice": "Голос по умолчанию",
+		"media.provider.speed": "Скорость",
+		"media.provider.defaultVoice": "по умолчанию",
+		"media.provider.noModels": "Список моделей озвучки у NanoGPT пуст.",
+		"media.provider.previewText": "В чащах юга жил бы цитрус? Да, но фальшивый экземпляр!"
+	}
+};
+// src/domain/media.ts
+/** USD for `n` images of `size` (`WxH` or a size token the price list names); null when not computable. */
+function estimateImageCost(_model, _request) {
+	return null;
+}
+/** USD for a video of `duration` seconds at `resolution`; null when not computable (the price is approximate or missing). */
+function estimateVideoCost(_model, _request) {
+	return null;
+}
+/** USD for `chars` characters of speech; null when not computable. */
+function estimateTtsCost(_model, _chars) {
+	return null;
+}
+/** USD for `seconds` of audio to transcribe; null when not computable. */
+function estimateSttCost(_model, _seconds) {
+	return null;
+}
+// src/features/media/view-model.ts
+var DASH = "—";
+/**
+* USD with three significant digits and no exponent, at least two decimals: $12.40, $0.0017, $0.00000666. Media prices
+* and costs are tiny (a second of transcription is millionths of a dollar), so the six-decimal floor of the Account tab
+* would round them to zero. null -> a dash.
+*/
+function formatUsdAmount(value) {
+	if (value === null || !Number.isFinite(value)) return DASH;
+	if (value === 0) return "$0";
+	const rounded = Number(Math.abs(value).toPrecision(3));
+	const decimals = rounded >= 100 ? 0 : Math.min(10, Math.max(2, 2 - Math.floor(Math.log10(rounded))));
+	const fixed = rounded.toFixed(decimals);
+	const text = rounded >= 1 ? fixed : trimZeros(fixed).padEnd(fixed.indexOf(".") + 3, "0");
+	return `${value < 0 ? "-" : ""}$${text}`;
+}
+var UNIT_KEYS = {
+	image: "media.unit.image",
+	megapixel: "media.unit.megapixel",
+	second: "media.unit.second",
+	minute: "media.unit.minute",
+	thousand_chars: "media.unit.thousandChars",
+	thousand_bytes: "media.unit.thousandBytes",
+	million_tokens: "media.unit.millionTokens",
+	request: "media.unit.request",
+	unknown: "media.unit.unknown"
+};
+/** A price as the list shows it: `$0.0017 / image`, `$0.0017–$0.0051 / image`; a shape nobody understood as its own text. */
+function priceText(price, t) {
+	if (price.unit === "unknown") {
+		if (price.from === null && typeof price.raw === "string" && price.raw) return price.raw;
+		if (price.from === null) return t("media.price.unknown");
+	}
+	if (price.from === null) return t("media.price.unknown");
+	const range = price.to !== null && price.to !== price.from ? `${formatUsdAmount(price.from)}–${formatUsdAmount(price.to)}` : formatUsdAmount(price.from);
+	return price.unit === "unknown" ? range : `${range} / ${t(UNIT_KEYS[price.unit])}`;
+}
+/** The named prices of a model (`1024x1024: $0.0034`), for a tooltip; undefined when there are none. */
+function priceTitle(price) {
+	const entries = Object.entries(price.byKey);
+	if (entries.length === 0) return void 0;
+	return entries.map(([key, value]) => `${key}: ${formatUsdAmount(value)}`).join("\n");
+}
+/** An option of a model select: `Name · $0.0017 / image`. */
+function modelLabel(model, t) {
+	return `${model.name} · ${priceText(model.price, t)}`;
+}
+function mediumLabel(medium, t) {
+	return t(`media.medium.${medium}`);
+}
+/** What a model can do and how it is billed, as chips: only what the list states (an absent flag says nothing). */
+function capabilityChips(model, t) {
+	const c = model.capabilities;
+	const chips = [];
+	const add = (on, key, kind = "info", title) => {
+		if (on === true) chips.push({
+			label: t(`media.cap.${key}`),
+			kind,
+			...title ? { title } : {}
+		});
+	};
+	switch (model.medium) {
+		case "image":
+			add(c.imageToImage, "img2img", "info", model.maxInputImages > 0 ? t("media.cap.refs", { count: model.maxInputImages }) : void 0);
+			add(c.inpainting, "inpainting");
+			break;
+		case "video":
+			add(c.textToVideo, "textToVideo");
+			add(c.imageToVideo, "imageToVideo");
+			add(c.videoToVideo, "videoToVideo");
+			add(c.audioInput, "audioInput");
+			break;
+		case "tts":
+			add(c.music, "music", "warn", t("media.cap.music.hint"));
+			add(c.voiceCloning, "voiceCloning");
+			add(c.streaming, "streaming");
+			break;
+		case "stt":
+			add(c.diarization, "diarization");
+			add(c.streaming, "streaming");
+	}
+	add(c.nsfw, "nsfw", "muted");
+	if (model.subscriptionIncluded === true) chips.push({
+		label: t("media.cap.subscription"),
+		kind: "ok"
+	});
+	else if (model.subscriptionIncluded === false) chips.push({
+		label: t("media.cap.notSubscription"),
+		kind: "muted"
+	});
+	if (model.priceIsApproximate) chips.push({
+		label: t("media.cap.approx"),
+		kind: "warn",
+		title: t("media.cap.approx.hint")
+	});
+	return chips;
+}
+/** The studios work only through a plugin that answers; a missing key is fixable but does not block the page. */
+function actionsEnabled$1(state) {
+	return state !== "needs_plugin" && state !== "plugin_outdated" && state !== "plugin_down";
+}
+/** The banner under the head for the states where media cannot work; null otherwise. */
+function bannerFor$1(state, problem, t) {
+	switch (state) {
+		case "needs_plugin": return {
+			kind: "warn",
+			title: t("media.banner.needsPlugin.title"),
+			text: t("media.banner.needsPlugin"),
+			action: null
+		};
+		case "plugin_outdated": return {
+			kind: "warn",
+			title: t("media.banner.outdated.title"),
+			text: t("media.banner.outdated"),
+			action: null
+		};
+		case "plugin_down": return {
+			kind: "error",
+			title: t("media.banner.down.title"),
+			text: problem ? errorText$1(problem, t) : t("media.error.pluginDown"),
+			action: null
+		};
+		case "no_key": return {
+			kind: "warn",
+			title: t("media.banner.noKey.title"),
+			text: t("media.error.noKey"),
+			action: "keys"
+		};
+		default: return null;
+	}
+}
+/** What an error says to the user, in the interface language. Never includes a key (the plugin never sends one). */
+function errorText$1(error, t) {
+	switch (error.kind) {
+		case "plugin_down": return t("media.error.pluginDown");
+		case "not_installed": return t("media.error.notInstalled");
+		case "forbidden": return t("media.error.forbidden");
+		case "no_key": return t("media.error.noKey");
+		case "invalid_request": return t("media.error.invalidRequest", { message: error.message });
+		case "too_large": return t("media.error.tooLarge");
+		case "rate_limited": return t("media.error.rateLimited");
+		case "unavailable": return t("media.error.unavailable");
+		case "upstream": return t("media.error.upstream", { message: error.message });
+		case "timeout": return t("media.error.timeout");
+		case "insufficient_balance": return error.requiredUsd === void 0 ? t("media.error.balance") : t("media.error.balanceAmount", { amount: formatUsdAmount(error.requiredUsd) });
+		case "content_policy": return t("media.error.contentPolicy");
+		case "not_found": return t("media.error.notFound");
+		case "invalid_response": return t("media.error.invalidResponse");
+		default: return t("media.error.other", { code: error.code });
+	}
+}
+/** Errors that mean NanoGPT may have done (and billed) the work although no answer arrived. */
+function mayHaveBeenCharged(error) {
+	return error.kind === "timeout";
+}
+var ESTIMATORS = {
+	image: estimateImageCost,
+	video: estimateVideoCost,
+	tts: estimateTtsCost,
+	stt: estimateSttCost
+};
+/** Runs an estimator; a thrown error (it must not) is "cannot estimate". */
+function safely(run) {
+	try {
+		const value = run();
+		return value !== null && Number.isFinite(value) && value >= 0 ? value : null;
+	} catch {
+		return null;
+	}
+}
+function imageEstimate(model, draft, estimators = ESTIMATORS) {
+	const spec = imageForm(model);
+	const parsed = parseNumber(draft.count);
+	const n = typeof parsed === "number" && Number.isInteger(parsed) && parsed >= 1 ? parsed : 1;
+	const size = spec.size ? choiceValue(spec.size, draft.size).trim() : "";
+	return safely(() => estimators.image(model, {
+		n,
+		...size ? { size } : {}
+	}));
+}
+function videoEstimate(model, draft, estimators = ESTIMATORS) {
+	const spec = videoForm(model);
+	const resolution = spec.resolution ? choiceValue(spec.resolution, draft.resolution) : "";
+	const duration = videoDurationOf(model, draft);
+	return safely(() => estimators.video(model, {
+		...duration !== null ? { duration } : {},
+		...resolution ? { resolution } : {}
+	}));
+}
+function ttsEstimate(model, draft, estimators = ESTIMATORS) {
+	const chars = draft.text.trim().length;
+	if (chars === 0) return null;
+	return safely(() => estimators.tts(model, chars));
+}
+function sttEstimate(model, seconds, estimators = ESTIMATORS) {
+	if (seconds === null || !(seconds > 0)) return null;
+	return safely(() => estimators.stt(model, seconds));
+}
+/** The "before you press the button" line. `approximate` is the video price that depends on length and resolution. */
+function estimateView(estimate, approximate, t) {
+	if (estimate === null) return {
+		text: t("media.estimate.unknown"),
+		unknown: true
+	};
+	const cost = formatUsdAmount(estimate);
+	return {
+		text: approximate ? t("media.estimate.approx", { cost }) : t("media.estimate.value", { cost }),
+		unknown: false
+	};
+}
+/**
+* The cost line after a call. The figure NanoGPT's response carries for an image is the list price and can understate the
+* real charge (live: 0.0017 in the body, 0.00255 billed), so a `response` figure is shown as exactly that, with the
+* explanation, until the plugin's billing lookup turns it into a `lookup` one.
+*/
+function costView(cost, medium, t) {
+	const billed = formatUsdAmount(cost.usd);
+	let source;
+	let note;
+	switch (cost.source) {
+		case "lookup":
+			source = {
+				label: t("media.cost.source.lookup"),
+				kind: "ok"
+			};
+			note = t("media.cost.note.lookup");
+			break;
+		case "response":
+			source = {
+				label: t("media.cost.source.response"),
+				kind: medium === "image" ? "warn" : "info"
+			};
+			note = medium === "image" ? t("media.cost.note.responseImage") : t("media.cost.note.response");
+			break;
+		case "estimate":
+			source = {
+				label: t("media.cost.source.estimate"),
+				kind: "info"
+			};
+			note = t("media.cost.note.estimate");
+			break;
+		default:
+			source = {
+				label: t("media.cost.source.unknown"),
+				kind: "muted"
+			};
+			note = t("media.cost.note.unknown");
+	}
+	return {
+		billed,
+		source,
+		note,
+		estimated: cost.estimateUsd === null ? null : formatUsdAmount(cost.estimateUsd),
+		paymentSource: cost.paymentSource
+	};
+}
+/** The `src` of an output: its inline bytes as a data URL, or its https URL; null when it has neither. */
+function outputSrc(output) {
+	if (output.dataBase64) return `data:${output.mime};base64,${output.dataBase64}`;
+	if (output.url && /^https?:\/\//i.test(output.url)) return output.url;
+	return null;
+}
+var STATUS_KIND = {
+	queued: "muted",
+	running: "info",
+	completed: "ok",
+	failed: "error",
+	expired: "warn"
+};
+function pad(n) {
+	return String(n).padStart(2, "0");
+}
+/** HH:MM for today, DD.MM HH:MM for another day (the browser's time zone). */
+function formatMoment(at, now) {
+	const d = new Date(at);
+	const n = new Date(now);
+	const clock = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+	return d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth() && d.getDate() === n.getDate() ? clock : `${pad(d.getDate())}.${pad(d.getMonth() + 1)} ${clock}`;
+}
+/** Seconds as `m:ss` (a recording's length): 75 -> "1:15". */
+function formatClock(seconds) {
+	const whole = Math.max(0, Math.floor(seconds));
+	return `${Math.floor(whole / 60)}:${pad(whole % 60)}`;
+}
+/** Bytes as KB or MB for the size meters. */
+function formatBytes(bytes) {
+	if (bytes < 1024) return `${bytes} B`;
+	if (bytes < 1048576) return `${trimZeros((bytes / 1024).toFixed(1))} KB`;
+	return `${trimZeros((bytes / 1048576).toFixed(2))} MB`;
+}
+function jobView(job, now, t) {
+	const terminal = job.status === "completed" || job.status === "failed" || job.status === "expired";
+	const file = job.output?.file;
+	return {
+		id: job.id,
+		statusLabel: t(`media.job.status.${job.status}`),
+		statusKind: STATUS_KIND[job.status],
+		percent: job.progress === null || terminal ? null : Math.round(job.progress * 100),
+		terminal,
+		cost: job.cost.usd === null ? t("media.job.cost.unknown") : terminal ? t("media.job.cost.final", { cost: formatUsdAmount(job.cost.usd) }) : t("media.job.cost.pre", { cost: formatUsdAmount(job.cost.usd) }),
+		created: formatMoment(job.createdAt, now),
+		fileUrl: job.status === "completed" && file ? mediaFileUrl(file) : null,
+		upstreamUrl: job.status === "completed" && !file && job.output?.url && /^https?:\/\//i.test(job.output.url) ? job.output.url : null,
+		error: job.status === "failed" || job.status === "expired" ? job.error ?? t("media.job.error.unknown") : null
+	};
+}
+/** What a form issue says (the field it is about is named in the message where it matters). */
+function issueText$1(issue, t) {
+	const params = {
+		field: t(`media.field.${issue.field}`),
+		detail: issue.detail === void 0 ? "" : issue.detail
+	};
+	return t(`media.issue.${issue.code}`, params);
+}
+/** The voices select of a model with the voice a draft has kept when the model still lists it. */
+function voiceChoice(model, current) {
+	const spec = ttsForm(model);
+	if (spec.voices.length === 0) return current;
+	return spec.voices.includes(current) ? current : spec.voices[0] ?? "";
+}
+/** `<proxy base>/audio/speech`: the OpenAI-shaped speech route of a connection's proxy. */
+function speechEndpointOf(proxyUrl) {
+	return `${proxyUrl.replace(/\/+$/, "")}/audio/speech`;
+}
+/** The connections that have a proxy URL (plugin mode), with the endpoint each would give ST's provider. */
+function speechEndpoints(entries) {
+	const out = [];
+	for (const entry of entries) {
+		if (!entry.view?.proxyUrl) continue;
+		out.push({
+			connectionId: entry.config.id,
+			name: entry.config.name,
+			url: speechEndpointOf(entry.view.proxyUrl)
+		});
+	}
+	return out;
+}
+// src/features/media/tts-provider.ts
+var TTS_PROVIDER_NAME = "Nanovia";
+/** ST's TTS module, as ST itself loads it (the same URL gives the same module instance). */
+var TTS_MODULE_PATH = "/scripts/extensions/tts/index.js";
+var DEFAULT_SETTINGS = {
+	voiceMap: {},
+	model: "",
+	defaultVoice: "",
+	speed: 1
+};
+var SPEED_MIN = .25;
+var SPEED_MAX = 4;
+function escapeHtml(text) {
+	return text.replace(/[&<>"']/g, (char) => `&#${char.charCodeAt(0)};`);
+}
+/** A Response ST can read: the audio bytes in a blob typed with the response's own content type (audio/* only). */
+async function audioResponse(audio, fetchImpl = (input, init) => fetch(input, init)) {
+	const mime = /^audio\//i.test(audio.mime) ? audio.mime : "audio/mpeg";
+	let blob;
+	if (audio.dataBase64) {
+		const binary = atob(audio.dataBase64);
+		const bytes = new Uint8Array(binary.length);
+		for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+		blob = new Blob([bytes], { type: mime });
+	} else if (audio.url) {
+		const fetched = await fetchImpl(audio.url);
+		if (!fetched.ok) throw new Error(`HTTP ${fetched.status}`);
+		blob = new Blob([await fetched.arrayBuffer()], { type: mime });
+	} else throw new Error("the speech result has no audio");
+	return new Response(blob, {
+		status: 200,
+		headers: { "Content-Type": mime }
+	});
+}
+/** The provider class ST instantiates. Built per registration so it closes over the feature context. */
+function createNanoviaTtsProvider(ctx, module) {
+	const t = ctx.t;
+	return class NanoviaTtsProvider {
+		settings = {
+			...DEFAULT_SETTINGS,
+			voiceMap: {}
+		};
+		voices = [];
+		audioElement = document.createElement("audio");
+		offStore = null;
+		get settingsHtml() {
+			return `
+        <div id="nanovia_tts_settings">
+            <label for="nanovia_tts_model">${escapeHtml(t("media.provider.model"))}</label>
+            <select id="nanovia_tts_model" class="text_pole"></select>
+            <div id="nanovia_tts_price" class="nanovia-muted"></div>
+            <label for="nanovia_tts_voice">${escapeHtml(t("media.provider.voice"))}</label>
+            <select id="nanovia_tts_voice" class="text_pole"></select>
+            <input id="nanovia_tts_voice_free" type="text" class="text_pole" maxlength="120" style="display:none" placeholder="${escapeHtml(t("media.tts.voice.free"))}" />
+            <label for="nanovia_tts_speed">${escapeHtml(t("media.provider.speed"))}: <span id="nanovia_tts_speed_output"></span></label>
+            <input id="nanovia_tts_speed" type="range" min="${SPEED_MIN}" max="${SPEED_MAX}" step="0.05" value="1" />
+            <div id="nanovia_tts_status" class="nanovia-muted"></div>
+        </div>`;
+		}
+		/** The speech models of the catalog (music models are left out). */
+		models() {
+			return ctx.media.select("tts", {
+				sort: "name",
+				ttsKind: "speech"
+			});
+		}
+		currentModel() {
+			return ctx.media.model("tts", this.settings.model) ?? null;
+		}
+		element(id) {
+			return document.getElementById(id);
+		}
+		/** Fills the model and voice controls from the catalog; picks a model when none is chosen yet. */
+		populate() {
+			const select = this.element("nanovia_tts_model");
+			const status = this.element("nanovia_tts_status");
+			const price = this.element("nanovia_tts_price");
+			if (!select) return;
+			const models = this.models();
+			if (!models.some((model) => model.id === this.settings.model)) {
+				const picked = defaultModel(models, { preferred: "Kokoro-82m" });
+				this.settings.model = picked?.id ?? "";
+				if (picked) this.settings.defaultVoice = picked.voices.includes(this.settings.defaultVoice) ? this.settings.defaultVoice : picked.voices[0] ?? "";
+			}
+			select.textContent = "";
+			for (const model of models) {
+				const option = document.createElement("option");
+				option.value = model.id;
+				option.textContent = modelLabel(model, t);
+				select.appendChild(option);
+			}
+			select.value = this.settings.model;
+			const model = this.currentModel();
+			if (price) price.textContent = model ? priceText(model.price, t) : "";
+			if (status) {
+				const view = ctx.media.catalogView("tts");
+				status.textContent = models.length > 0 ? "" : view.status === "failed" && view.error ? errorText$1(view.error, t) : view.status === "ready" ? t("media.provider.noModels") : t("media.catalog.loading");
+			}
+			this.populateVoices(model);
+		}
+		populateVoices(model) {
+			const voiceSelect = this.element("nanovia_tts_voice");
+			const voiceFree = this.element("nanovia_tts_voice_free");
+			if (!voiceSelect || !voiceFree) return;
+			const voices = model?.voices ?? [];
+			const useList = voices.length > 0;
+			voiceSelect.style.display = useList ? "" : "none";
+			voiceFree.style.display = useList ? "none" : "";
+			voiceSelect.textContent = "";
+			for (const voice of voices) {
+				const option = document.createElement("option");
+				option.value = voice;
+				option.textContent = voice;
+				voiceSelect.appendChild(option);
+			}
+			if (useList) {
+				if (!voices.includes(this.settings.defaultVoice)) this.settings.defaultVoice = voices[0] ?? "";
+				voiceSelect.value = this.settings.defaultVoice;
+			} else voiceFree.value = this.settings.defaultVoice;
+		}
+		async loadSettings(settings) {
+			const given = settings && typeof settings === "object" ? settings : {};
+			const speed = Number(given.speed);
+			this.settings = {
+				...DEFAULT_SETTINGS,
+				...given,
+				voiceMap: given.voiceMap && typeof given.voiceMap === "object" ? given.voiceMap : {},
+				model: typeof given.model === "string" ? given.model : "",
+				defaultVoice: typeof given.defaultVoice === "string" ? given.defaultVoice : "",
+				speed: Number.isFinite(speed) && speed >= SPEED_MIN && speed <= SPEED_MAX ? speed : 1
+			};
+			await ctx.media.ensure("tts");
+			this.populate();
+			this.bind();
+			this.offStore?.();
+			this.offStore = ctx.media.onChange(() => this.populate());
+		}
+		bind() {
+			const model = this.element("nanovia_tts_model");
+			const voice = this.element("nanovia_tts_voice");
+			const free = this.element("nanovia_tts_voice_free");
+			const speed = this.element("nanovia_tts_speed");
+			const output = this.element("nanovia_tts_speed_output");
+			const showSpeed = () => {
+				if (output) output.textContent = String(this.settings.speed);
+			};
+			model?.addEventListener("change", () => {
+				this.settings.model = model.value;
+				this.settings.defaultVoice = "";
+				this.populate();
+				this.onSettingsChange();
+			});
+			voice?.addEventListener("change", () => {
+				this.settings.defaultVoice = voice.value;
+				this.onSettingsChange();
+			});
+			free?.addEventListener("input", () => {
+				this.settings.defaultVoice = free.value.trim();
+				this.onSettingsChange();
+			});
+			if (speed) {
+				speed.value = String(this.settings.speed);
+				speed.addEventListener("input", () => {
+					const value = Number(speed.value);
+					this.settings.speed = Number.isFinite(value) ? value : 1;
+					showSpeed();
+					this.onSettingsChange();
+				});
+			}
+			showSpeed();
+		}
+		/** Persists the settings through ST's own saver (it also rebuilds the voice map), or through the settings object. */
+		onSettingsChange() {
+			const save = module["saveTtsProviderSettings"];
+			try {
+				if (typeof save === "function") {
+					save();
+					return;
+				}
+				const host = ctx.host.ctx();
+				const tts = host.extensionSettings["tts"] ?? {};
+				tts[TTS_PROVIDER_NAME] = this.settings;
+				host.extensionSettings["tts"] = tts;
+				host.saveSettingsDebounced();
+			} catch (error) {
+				ctx.log.warn("could not save the TTS provider settings", error);
+			}
+		}
+		/** Voices of the chosen model; a model with no list gets one entry for the default voice. */
+		async fetchTtsVoiceObjects() {
+			await ctx.media.ensure("tts");
+			const names = (this.currentModel() ?? this.models()[0] ?? null)?.voices ?? [];
+			this.voices = names.length > 0 ? names.map((name) => ({
+				name,
+				voice_id: name
+			})) : [{
+				name: this.settings.defaultVoice || t("media.provider.defaultVoice"),
+				voice_id: this.settings.defaultVoice
+			}];
+			return this.voices;
+		}
+		async getVoice(voiceName) {
+			if (this.voices.length === 0) await this.fetchTtsVoiceObjects();
+			const match = this.voices.find((voice) => voice.name === voiceName);
+			if (!match) throw new Error(`TTS voice ${voiceName} not found`);
+			return match;
+		}
+		async onRefreshClick() {
+			const result = await ctx.media.ensure("tts", { refresh: true });
+			if (!result.ok) throw new Error(errorText$1(result.error, t));
+			this.populate();
+		}
+		/** Not ready = the plugin is not answering, has no key, or has no speech model: ST shows the reason in its panel. */
+		async checkReady() {
+			const result = await ctx.media.ensure("tts");
+			if (!result.ok) throw new Error(errorText$1(result.error, t));
+			if (this.models().length === 0) throw new Error(t("media.provider.noModels"));
+			this.voices = await this.fetchTtsVoiceObjects();
+		}
+		async generateTts(text, voiceId) {
+			const model = this.currentModel() ?? defaultModel(this.models(), { preferred: "Kokoro-82m" });
+			if (!model) throw new Error(t("media.provider.noModels"));
+			const voices = model.voices;
+			const voice = (voiceId && (voices.length === 0 || voices.includes(voiceId)) ? voiceId : "") || this.settings.defaultVoice || voices[0] || "";
+			const request = {
+				model: model.id,
+				input: text
+			};
+			if (voice) request.voice = voice;
+			if (this.settings.speed !== 1) request.speed = this.settings.speed;
+			const result = await ctx.media.speak(request, { remember: false });
+			if (!result.ok) throw new Error(errorText$1(result.error, t));
+			return audioResponse(result.data.audio);
+		}
+		async previewTtsVoice(voiceId) {
+			try {
+				this.audioElement.pause();
+				const blob = await (await this.generateTts(t("media.provider.previewText"), voiceId)).blob();
+				const url = URL.createObjectURL(blob);
+				this.audioElement.src = url;
+				this.audioElement.onended = () => URL.revokeObjectURL(url);
+				await this.audioElement.play();
+			} catch (error) {
+				ctx.host.notify("error", error instanceof Error ? error.message : String(error));
+			}
+		}
+		dispose() {
+			this.offStore?.();
+			this.offStore = null;
+			this.audioElement.pause();
+		}
+	};
+}
+/**
+* Registers the «Nanovia» provider with ST's TTS extension and tells the session how it went. Never throws: whatever goes
+* wrong (the extension switched off, another ST version, a module that cannot be imported) only leaves the integration
+* inactive, with the reason for the Media tab.
+*/
+async function registerNanoviaTts(ctx, session) {
+	const t = ctx.t;
+	let disabled;
+	try {
+		disabled = ctx.host.ctx().extensionSettings.disabledExtensions;
+	} catch {
+		disabled = void 0;
+	}
+	if (Array.isArray(disabled) && disabled.includes("tts")) {
+		session.setIntegration("unavailable", t("media.integration.off"));
+		return "unavailable";
+	}
+	let module;
+	try {
+		module = await ctx.host.modules.load(TTS_MODULE_PATH);
+	} catch (error) {
+		ctx.log.debug("ST TTS module not available", error);
+		session.setIntegration("unavailable", t("media.integration.noModule"));
+		return "unavailable";
+	}
+	const register = module["registerTtsProvider"];
+	if (typeof register !== "function") {
+		session.setIntegration("unavailable", t("media.integration.noExport"));
+		return "unavailable";
+	}
+	try {
+		register(TTS_PROVIDER_NAME, createNanoviaTtsProvider(ctx, module));
+		session.setIntegration("active");
+		return "active";
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		ctx.log.warn("could not register the TTS provider", error);
+		session.setIntegration("failed", /already registered/i.test(message) ? t("media.integration.duplicate") : message);
+		return "failed";
+	}
+}
+// src/features/media/catalog-view.ts
+function createCatalogSection(deps) {
+	const { ctx, session, go } = deps;
+	const t = ctx.t;
+	const filters = session.filters;
+	let disposed = false;
+	const switcherHost = el("div", {
+		class: "nanovia-row nanovia-media-switcher",
+		attrs: {
+			role: "group",
+			"aria-label": t("media.catalog.medium")
+		}
+	});
+	const controlsHost = el("div", { class: "nanovia-media-catalog-controls" });
+	const statusHost = el("div", {
+		class: "nanovia-media-catalog-status",
+		attrs: { "aria-live": "polite" }
+	});
+	const listHost = el("div", { class: "nanovia-cards nanovia-media-models" });
+	const moreHost = el("div", { class: "nanovia-row" });
+	const root = el("div", { class: "nanovia-media-catalog" }, [
+		switcherHost,
+		controlsHost,
+		statusHost,
+		listHost,
+		moreHost
+	]);
+	function drawSwitcher() {
+		clear(switcherHost);
+		for (const medium of MEDIA_MEDIA) {
+			const active = filters.medium === medium;
+			switcherHost.appendChild(el("button", {
+				class: [
+					"nanovia-chip",
+					"nanovia-chip-toggle",
+					active && "nanovia-chip-active"
+				],
+				text: mediumLabel(medium, t),
+				data: { medium },
+				attrs: {
+					type: "button",
+					"aria-pressed": String(active)
+				},
+				on: { click: () => {
+					filters.medium = medium;
+					filters.shown = 50;
+					drawSwitcher();
+					drawControls();
+					ctx.media.ensure(medium);
+					drawList();
+				} }
+			}));
+		}
+	}
+	function drawControls() {
+		clear(controlsHost);
+		const row = el("div", { class: "nanovia-row nanovia-media-picker-controls" }, [
+			toggle({
+				label: t("media.filter.uncensored"),
+				checked: filters.uncensored,
+				hint: t("media.filter.uncensored.hint"),
+				onChange: (on) => {
+					filters.uncensored = on;
+					filters.shown = 50;
+					drawList();
+				}
+			}),
+			select({
+				value: filters.sort,
+				label: t("media.filter.sort"),
+				options: [{
+					value: "name",
+					label: t("media.sort.name")
+				}, {
+					value: "price",
+					label: t("media.sort.price")
+				}],
+				onChange: (value) => {
+					filters.sort = value;
+					drawList();
+				}
+			}),
+			filters.medium === "tts" ? select({
+				value: filters.ttsKind,
+				label: t("media.filter.ttsKind"),
+				options: [
+					{
+						value: "speech",
+						label: t("media.filter.ttsKind.speech")
+					},
+					{
+						value: "music",
+						label: t("media.filter.ttsKind.music")
+					},
+					{
+						value: "all",
+						label: t("media.filter.ttsKind.all")
+					}
+				],
+				onChange: (value) => {
+					filters.ttsKind = value;
+					drawList();
+				}
+			}) : null,
+			button({
+				label: t("media.catalog.refresh"),
+				icon: "rotate",
+				kind: "ghost",
+				onClick: async () => {
+					await ctx.media.ensure(filters.medium, { refresh: true });
+				}
+			})
+		]);
+		controlsHost.append(textInput({
+			value: filters.search,
+			label: t("media.picker.search"),
+			placeholder: t("media.picker.search"),
+			onInput: (value) => {
+				filters.search = value;
+				filters.shown = 50;
+				drawList();
+			}
+		}), row);
+	}
+	function modelCard(model) {
+		const title = priceTitle(model.price);
+		return el("div", {
+			class: "nanovia-card nanovia-media-model",
+			data: { model: model.id }
+		}, [
+			el("div", { class: "nanovia-row nanovia-media-model-head" }, [
+				el("b", {
+					class: "nanovia-media-model-name",
+					text: model.name
+				}),
+				model.owner ? el("span", {
+					class: "nanovia-muted",
+					text: model.owner
+				}) : null,
+				model.category ? chip(model.category, "muted") : null
+			]),
+			el("div", { class: "nanovia-muted nanovia-media-model-id" }, [el("code", { text: model.id })]),
+			el("div", { class: "nanovia-row" }, [el("span", {
+				class: "nanovia-media-money",
+				text: priceText(model.price, t),
+				...title ? { title } : {}
+			}), ...capabilityChips(model, t).map((spec) => chip(spec.label, spec.kind, spec.title))]),
+			model.description ? el("div", {
+				class: "nanovia-field-hint nanovia-media-description",
+				text: model.description
+			}) : null,
+			el("div", { class: "nanovia-row" }, [button({
+				label: t("media.catalog.use"),
+				icon: "arrow-right",
+				kind: "primary",
+				title: t("media.catalog.use.hint", { section: t(`media.section.${filters.medium}`) }),
+				onClick: () => {
+					session.pickModel(model.medium, model.id);
+					go(session.section);
+				}
+			})])
+		]);
+	}
+	function drawList() {
+		if (disposed) return;
+		const view = ctx.media.catalogView(filters.medium);
+		clear(statusHost);
+		clear(listHost);
+		clear(moreHost);
+		const source = view.source === "stale" ? t("media.catalog.source.stale") : view.source === "cache" ? t("media.catalog.source.cache") : null;
+		if (view.models.length === 0) {
+			if (view.status === "failed" && view.error) statusHost.append(el("div", {
+				class: "nanovia-error-text",
+				text: errorText$1(view.error, t)
+			}), button({
+				label: t("media.catalog.retry"),
+				icon: "rotate",
+				kind: "ghost",
+				onClick: async () => {
+					await ctx.media.ensure(filters.medium, { refresh: true });
+				}
+			}));
+			else statusHost.appendChild(el("div", {
+				class: "nanovia-muted",
+				text: view.status === "ready" ? t("media.catalog.empty") : t("media.catalog.loading")
+			}));
+			return;
+		}
+		const found = ctx.media.select(filters.medium, {
+			search: filters.search,
+			uncensored: filters.uncensored,
+			sort: filters.sort,
+			ttsKind: filters.ttsKind
+		});
+		statusHost.appendChild(el("div", { class: "nanovia-muted" }, [t("media.catalog.count", {
+			shown: found.length,
+			total: view.models.length
+		}), source ? ` · ${source}` : null]));
+		if (view.status === "failed" && view.error) statusHost.appendChild(el("div", {
+			class: "nanovia-error-text",
+			text: errorText$1(view.error, t)
+		}));
+		if (found.length === 0) {
+			statusHost.appendChild(el("div", {
+				class: "nanovia-muted",
+				text: t("media.picker.noMatch")
+			}));
+			return;
+		}
+		for (const model of found.slice(0, filters.shown)) listHost.appendChild(modelCard(model));
+		if (found.length > filters.shown) moreHost.appendChild(button({
+			label: t("media.catalog.more", { count: Math.min(50, found.length - filters.shown) }),
+			kind: "ghost",
+			onClick: () => {
+				filters.shown += 50;
+				drawList();
+			}
+		}));
+	}
+	drawSwitcher();
+	drawControls();
+	drawList();
+	ctx.media.ensure(filters.medium);
+	return {
+		el: root,
+		update: drawList,
+		dispose() {
+			disposed = true;
+		}
+	};
+}
+// src/features/media/controls.ts
+/** A coloured notice line. */
+function noticeBox$1(kind, text) {
+	return el("div", {
+		class: ["nanovia-notice", `nanovia-notice-${kind}`],
+		attrs: { role: kind === "error" ? "alert" : "status" }
+	}, [el("div", { text })]);
+}
+/** A text field for a number: the value stays text until the form model parses it (so "0,5" or "" are the user's to type). */
+function numberInput(options) {
+	const input = textInput({
+		value: options.value,
+		label: options.label,
+		disabled: options.disabled === true,
+		...options.placeholder !== void 0 ? { placeholder: options.placeholder } : {},
+		onInput: options.onInput
+	});
+	input.setAttribute("inputmode", "decimal");
+	if (options.invalid) input.setAttribute("aria-invalid", "true");
+	return input;
+}
+/** A file read into a data URL (`data:image/png;base64,…`); rejects when the browser cannot read it. */
+function readAsDataUrl(file) {
+	return new Promise((resolve, reject) => {
+		const reader = new FileReader();
+		reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
+		reader.onerror = () => reject(reader.error ?? /* @__PURE__ */ new Error("the file could not be read"));
+		reader.readAsDataURL(file);
+	});
+}
+/** Puts text on the clipboard; the old textarea trick where the async API is missing (a page without a secure context). */
+async function copyText(text) {
+	try {
+		if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+			await navigator.clipboard.writeText(text);
+			return true;
+		}
+	} catch {}
+	try {
+		const area = document.createElement("textarea");
+		area.value = text;
+		area.setAttribute("readonly", "");
+		area.style.position = "fixed";
+		area.style.opacity = "0";
+		document.body.appendChild(area);
+		area.select();
+		const done = typeof document.execCommand === "function" ? document.execCommand("copy") : false;
+		area.remove();
+		return done;
+	} catch {
+		return false;
+	}
+}
+/** The cost of a finished call: what was billed, where the figure comes from, what was estimated, and what that means. */
+function costBlock(cost, medium, t) {
+	const view = costView(cost, medium, t);
+	return el("div", {
+		class: "nanovia-media-cost",
+		data: { source: cost.source }
+	}, [
+		el("div", { class: "nanovia-row" }, [
+			el("b", { text: t("media.cost.billed") }),
+			el("span", {
+				class: "nanovia-media-money",
+				text: view.billed
+			}),
+			chip(view.source.label, view.source.kind),
+			view.paymentSource ? chip(view.paymentSource, "muted", t("media.cost.paymentSource")) : null
+		]),
+		view.estimated ? el("div", {
+			class: "nanovia-muted",
+			text: t("media.cost.estimated", { cost: view.estimated })
+		}) : null,
+		el("div", {
+			class: "nanovia-field-hint",
+			text: view.note
+		})
+	]);
+}
+/** The line under a button: nothing, "working…", or why the call failed (with the warning when it may have been charged). */
+function statusLine(host, t, state) {
+	clear(host);
+	if (state.busy) {
+		host.appendChild(el("div", {
+			class: "nanovia-muted nanovia-media-busy",
+			text: state.busy,
+			attrs: { role: "status" }
+		}));
+		return;
+	}
+	if (!state.error) return;
+	host.appendChild(noticeBox$1("error", errorText$1(state.error, t)));
+	if (mayHaveBeenCharged(state.error)) host.appendChild(noticeBox$1("warn", t("media.error.timeout.charged")));
+}
+/** A «copy» button that says it worked. */
+function copyButton(label, doneLabel, text) {
+	const node = button({
+		label,
+		icon: "copy",
+		kind: "ghost",
+		onClick: async () => {
+			const done = await copyText(text());
+			const span = node.querySelector("span");
+			if (!done || !span) return;
+			span.textContent = doneLabel;
+			setTimeout(() => {
+				span.textContent = label;
+			}, 1500);
+		}
+	});
+	return node;
+}
+// src/features/media/picker.ts
+function createPicker(options) {
+	const { ctx, medium } = options;
+	const t = ctx.t;
+	let search = "";
+	let uncensored = false;
+	let sort = "name";
+	let chosen = null;
+	const statusHost = el("div", { class: "nanovia-media-picker-status" });
+	const selectHost = el("div", { class: "nanovia-media-picker-select" });
+	const cardHost = el("div", { class: "nanovia-media-model-card" });
+	const searchInput = textInput({
+		value: "",
+		label: t("media.picker.search"),
+		placeholder: t("media.picker.search"),
+		onInput: (value) => {
+			search = value;
+			draw();
+		}
+	});
+	const controls = el("div", { class: "nanovia-row nanovia-media-picker-controls" }, [toggle({
+		label: t("media.filter.uncensored"),
+		checked: false,
+		hint: t("media.filter.uncensored.hint"),
+		onChange: (on) => {
+			uncensored = on;
+			draw();
+		}
+	}), select({
+		value: sort,
+		label: t("media.filter.sort"),
+		options: [{
+			value: "name",
+			label: t("media.sort.name")
+		}, {
+			value: "price",
+			label: t("media.sort.price")
+		}],
+		onChange: (value) => {
+			sort = value;
+			draw();
+		}
+	})]);
+	const root = el("div", { class: "nanovia-media-picker" }, [
+		field(t("media.picker.model"), selectHost),
+		searchInput,
+		controls,
+		statusHost,
+		cardHost
+	]);
+	function drawCard(model) {
+		clear(cardHost);
+		if (!model) return;
+		const title = priceTitle(model.price);
+		append(cardHost, [
+			el("div", { class: "nanovia-row" }, [
+				el("b", { text: model.name }),
+				model.owner ? el("span", {
+					class: "nanovia-muted",
+					text: model.owner
+				}) : null,
+				model.category ? chip(model.category, "muted") : null
+			]),
+			el("div", { class: "nanovia-row" }, [el("span", {
+				class: "nanovia-media-money",
+				text: priceText(model.price, t),
+				...title ? { title } : {}
+			}), ...capabilityChips(model, t).map((spec) => chip(spec.label, spec.kind, spec.title))]),
+			model.description ? el("div", {
+				class: "nanovia-field-hint nanovia-media-description",
+				text: model.description
+			}) : null
+		]);
+	}
+	function draw() {
+		const view = ctx.media.catalogView(medium);
+		clear(statusHost);
+		clear(selectHost);
+		if (view.models.length === 0) {
+			chosen = null;
+			if (view.status === "failed" && view.error) statusHost.append(el("div", {
+				class: "nanovia-error-text",
+				text: errorText$1(view.error, t)
+			}), button({
+				label: t("media.catalog.retry"),
+				icon: "rotate",
+				kind: "ghost",
+				onClick: async () => {
+					await ctx.media.ensure(medium, { refresh: true });
+				}
+			}));
+			else statusHost.appendChild(el("div", {
+				class: "nanovia-muted",
+				text: view.status === "ready" ? t("media.picker.empty") : t("media.catalog.loading")
+			}));
+			drawCard(null);
+			return;
+		}
+		const found = ctx.media.select(medium, {
+			search,
+			uncensored,
+			sort,
+			ttsKind: "speech"
+		});
+		const currentId = options.value();
+		const current = currentId ? view.models.find((model) => model.id === currentId) ?? null : null;
+		const listed = current && !found.some((model) => model.id === current.id) ? [current, ...found] : found;
+		if (listed.length === 0) {
+			chosen = null;
+			statusHost.appendChild(el("div", {
+				class: "nanovia-muted",
+				text: t("media.picker.noMatch")
+			}));
+			drawCard(null);
+			return;
+		}
+		const target = current ?? defaultModel(listed, { ...options.preferred ? { preferred: options.preferred } : {} });
+		const selectEl = select({
+			value: target?.id ?? "",
+			label: t("media.picker.model"),
+			options: listed.map((model) => ({
+				value: model.id,
+				label: modelLabel(model, t)
+			})),
+			onChange: (id) => {
+				const model = view.models.find((item) => item.id === id) ?? null;
+				chosen = model;
+				drawCard(model);
+				options.onPick(model);
+			}
+		});
+		selectHost.appendChild(selectEl);
+		statusHost.appendChild(el("div", {
+			class: "nanovia-muted",
+			text: t("media.picker.count", {
+				shown: listed.length,
+				total: view.models.length
+			})
+		}));
+		const changed = target?.id !== chosen?.id;
+		chosen = target;
+		drawCard(target);
+		if (changed && target && target.id !== currentId) options.onPick(target);
+	}
+	ctx.media.ensure(medium);
+	return {
+		el: root,
+		update: draw,
+		model: () => chosen
+	};
+}
+// src/features/media/image-view.ts
+/** A hint for a number field: its bounds, when the model lists them. */
+function boundsHint(field, t) {
+	if (field.min !== null && field.max !== null) return t("media.field.range", {
+		min: field.min,
+		max: field.max
+	});
+	return "";
+}
+function createImageStudio(deps) {
+	const { ctx, session } = deps;
+	const t = ctx.t;
+	const draft = session.image;
+	let disposed = false;
+	let busy = false;
+	let error = null;
+	let issues = [];
+	let builtFor = null;
+	let shownOutputs = null;
+	let shownCost = null;
+	let referenceNotice = null;
+	const formHost = el("div", { class: "nanovia-media-form" });
+	const estimateHost = el("div", {
+		class: "nanovia-media-estimate",
+		attrs: { "aria-live": "polite" }
+	});
+	const issuesHost = el("div", { class: "nanovia-media-issues" });
+	const actionsHost = el("div", { class: "nanovia-row" });
+	const statusHost = el("div", {
+		class: "nanovia-media-status",
+		attrs: { "aria-live": "polite" }
+	});
+	const gridHost = el("div", { class: "nanovia-media-grid" });
+	const costHost = el("div", { class: "nanovia-media-result-cost" });
+	const metaHost = el("div", { class: "nanovia-muted nanovia-media-meta" });
+	const resultHead = el("div", { class: "nanovia-row nanovia-media-result-head" });
+	const resultHost = el("section", {
+		class: "nanovia-media-result",
+		attrs: { hidden: true }
+	}, [
+		resultHead,
+		gridHost,
+		costHost,
+		metaHost
+	]);
+	let generateButton = null;
+	const picker = createPicker({
+		ctx,
+		medium: "image",
+		value: () => draft.model,
+		onPick: (model) => {
+			draft.model = model?.id ?? null;
+			buildForm();
+		}
+	});
+	const root = el("div", { class: "nanovia-media-studio" }, [
+		picker.el,
+		formHost,
+		estimateHost,
+		issuesHost,
+		actionsHost,
+		statusHost,
+		resultHost
+	]);
+	const model = () => picker.model();
+	function drawEstimate() {
+		clear(estimateHost);
+		const current = model();
+		if (!current) return;
+		const view = estimateView(imageEstimate(current, draft), false, t);
+		estimateHost.appendChild(el("div", {
+			class: ["nanovia-media-estimate-line", view.unknown ? "nanovia-muted" : ""],
+			text: view.text
+		}));
+		if (current.subscriptionIncluded === true) estimateHost.appendChild(el("div", {
+			class: "nanovia-field-hint",
+			text: t("media.estimate.subscription")
+		}));
+	}
+	function choiceControl(spec, value, label, set) {
+		if (spec.kind === "enum") return select({
+			value,
+			label,
+			options: spec.values.map((item) => ({
+				value: item,
+				label: item
+			})),
+			onChange: (next) => {
+				set(next);
+				drawEstimate();
+			}
+		});
+		return textInput({
+			value,
+			label,
+			placeholder: t("media.image.size.placeholder"),
+			onInput: (next) => {
+				set(next);
+				drawEstimate();
+			}
+		});
+	}
+	function drawReferences(host, max) {
+		clear(host);
+		for (const [index, reference] of draft.references.entries()) host.appendChild(el("div", {
+			class: "nanovia-media-ref",
+			data: { ref: index }
+		}, [
+			el("img", {
+				class: "nanovia-media-thumb",
+				attrs: {
+					src: reference.dataUrl,
+					alt: reference.name
+				}
+			}),
+			el("div", { class: "nanovia-media-ref-info" }, [el("div", {
+				class: "nanovia-media-ref-name",
+				text: reference.name
+			}), el("div", {
+				class: "nanovia-muted",
+				text: formatBytes(reference.bytes)
+			})]),
+			button({
+				icon: "xmark",
+				title: t("media.image.refs.remove"),
+				kind: "ghost",
+				onClick: () => {
+					draft.references.splice(index, 1);
+					drawReferences(host, max);
+				}
+			})
+		]));
+		if (referenceNotice) host.appendChild(noticeBox$1("error", referenceNotice));
+	}
+	async function addReferences(files, host, max) {
+		referenceNotice = null;
+		for (const file of Array.from(files ?? [])) {
+			if (draft.references.length >= max) {
+				referenceNotice = t("media.issue.too_many_references", { detail: max });
+				break;
+			}
+			let dataUrl;
+			try {
+				dataUrl = await readAsDataUrl(file);
+			} catch {
+				referenceNotice = t("media.image.refs.unreadable", { name: file.name });
+				continue;
+			}
+			const verdict = checkImageDataUrl(dataUrl);
+			if (verdict === "not_image") {
+				referenceNotice = t("media.image.refs.notImage", { name: file.name });
+				continue;
+			}
+			if (verdict === "too_large") {
+				referenceNotice = t("media.image.refs.tooLarge", { name: file.name });
+				continue;
+			}
+			draft.references.push({
+				name: file.name,
+				dataUrl,
+				bytes: dataUrlBytes(dataUrl)
+			});
+		}
+		if (!disposed) drawReferences(host, max);
+	}
+	function buildForm() {
+		clear(formHost);
+		clear(actionsHost);
+		generateButton = null;
+		const current = model();
+		builtFor = current?.id ?? null;
+		if (!current) {
+			drawEstimate();
+			return;
+		}
+		const spec = imageForm(current);
+		draft.size = choiceValue(spec.size, draft.size);
+		draft.aspect = choiceValue(spec.aspect, draft.aspect);
+		if (!spec.references) draft.references = [];
+		else if (draft.references.length > spec.references.max) draft.references = draft.references.slice(0, spec.references.max);
+		if (spec.count.max < (Number(draft.count) || 1)) draft.count = String(spec.count.max);
+		const bad = (name) => issues.some((issue) => issue.field === name);
+		const numeric = (name, numberSpec) => {
+			const hint = boundsHint(numberSpec, t);
+			return field(t(`media.field.${name}`), numberInput({
+				value: draft[name],
+				label: t(`media.field.${name}`),
+				placeholder: numberSpec.default !== null ? String(numberSpec.default) : "",
+				invalid: bad(name),
+				onInput: (value) => {
+					draft[name] = value;
+				}
+			}), hint || void 0);
+		};
+		formHost.appendChild(field(t("media.field.prompt"), textArea({
+			value: draft.prompt,
+			rows: 4,
+			label: t("media.field.prompt"),
+			placeholder: t("media.image.prompt.placeholder"),
+			onInput: (value) => {
+				draft.prompt = value;
+			}
+		})));
+		if (spec.negative) formHost.appendChild(field(t("media.field.negative"), textArea({
+			value: draft.negative,
+			rows: 2,
+			label: t("media.field.negative"),
+			onInput: (value) => {
+				draft.negative = value;
+			}
+		})));
+		if (spec.size) formHost.appendChild(field(t("media.field.size"), choiceControl(spec.size, draft.size, t("media.field.size"), (value) => {
+			draft.size = value;
+		}), spec.size.kind === "free" ? t("media.image.size.hint") : void 0));
+		if (spec.aspect) formHost.appendChild(field(t("media.field.aspect"), choiceControl(spec.aspect, draft.aspect, t("media.field.aspect"), (value) => {
+			draft.aspect = value;
+		})));
+		formHost.appendChild(field(t("media.field.count"), numberInput({
+			value: draft.count,
+			label: t("media.field.count"),
+			invalid: bad("count"),
+			onInput: (value) => {
+				draft.count = value;
+				drawEstimate();
+			}
+		}), t("media.image.count.hint", { max: spec.count.max })));
+		if (spec.seed) formHost.appendChild(numeric("seed", spec.seed));
+		if (spec.steps) formHost.appendChild(numeric("steps", spec.steps));
+		if (spec.guidance) formHost.appendChild(numeric("guidance", spec.guidance));
+		if (spec.references) {
+			const max = spec.references.max;
+			const list = el("div", { class: "nanovia-media-refs" });
+			const input = el("input", {
+				attrs: {
+					type: "file",
+					accept: "image/*",
+					multiple: max > 1,
+					"aria-label": t("media.image.refs.add")
+				},
+				class: "nanovia-media-file"
+			});
+			input.addEventListener("change", () => {
+				addReferences(input.files, list, max).then(() => {
+					input.value = "";
+				});
+			});
+			formHost.appendChild(field(t("media.image.refs.title"), el("div", { class: "nanovia-media-refs-block" }, [input, list]), t("media.image.refs.hint", {
+				max,
+				size: formatBytes(MAX_UPLOAD_BYTES)
+			})));
+			drawReferences(list, max);
+		}
+		generateButton = button({
+			label: t("media.image.generate"),
+			icon: "wand-magic-sparkles",
+			kind: "primary",
+			onClick: () => {
+				generate();
+			}
+		});
+		actionsHost.append(generateButton);
+		drawEstimate();
+		syncButtons();
+	}
+	function syncButtons() {
+		if (generateButton) generateButton.disabled = busy || !actionsEnabled$1(ctx.media.state()) || !model();
+	}
+	function drawIssues() {
+		clear(issuesHost);
+		for (const issue of issues) issuesHost.appendChild(noticeBox$1("error", issueText$1(issue, t)));
+	}
+	async function generate() {
+		const current = model();
+		if (!current || busy) return;
+		const built = buildImageRequest(current, draft);
+		if (!built.ok) {
+			issues = built.issues;
+			error = null;
+			drawIssues();
+			statusLine(statusHost, t, {
+				busy: null,
+				error: null
+			});
+			buildForm();
+			return;
+		}
+		issues = [];
+		drawIssues();
+		busy = true;
+		error = null;
+		statusLine(statusHost, t, {
+			busy: t("media.image.busy"),
+			error: null
+		});
+		syncButtons();
+		const result = await ctx.media.generateImage(built.request);
+		busy = false;
+		if (disposed) return;
+		error = result.ok ? null : result.error;
+		statusLine(statusHost, t, {
+			busy: null,
+			error
+		});
+		syncButtons();
+		drawResult();
+	}
+	function drawResult() {
+		const result = ctx.media.last().image;
+		if (!result) {
+			shownOutputs = null;
+			shownCost = null;
+			for (const host of [
+				resultHead,
+				gridHost,
+				costHost,
+				metaHost
+			]) clear(host);
+			resultHost.hidden = true;
+			return;
+		}
+		resultHost.hidden = false;
+		if (result.outputs !== shownOutputs) {
+			shownOutputs = result.outputs;
+			clear(resultHead);
+			clear(gridHost);
+			clear(metaHost);
+			resultHead.append(el("b", { text: t("media.result.title") }), el("span", {
+				class: "nanovia-muted",
+				text: result.model
+			}), button({
+				label: t("media.result.clear"),
+				icon: "trash",
+				kind: "ghost",
+				onClick: () => ctx.media.clearLast("image")
+			}));
+			result.outputs.forEach((output, index) => {
+				const src = outputSrc(output);
+				const card = el("figure", {
+					class: "nanovia-media-figure",
+					data: { output: index }
+				});
+				if (src) {
+					card.appendChild(el("img", {
+						class: "nanovia-media-image",
+						attrs: {
+							src,
+							alt: t("media.image.alt", { n: index + 1 }),
+							referrerpolicy: "no-referrer"
+						}
+					}));
+					card.appendChild(el("figcaption", { class: "nanovia-row" }, [el("a", {
+						class: "menu_button nanovia-btn",
+						attrs: {
+							href: src,
+							download: downloadName(result.model, index, output.mime),
+							target: output.dataBase64 ? void 0 : "_blank",
+							rel: "noopener noreferrer"
+						},
+						text: output.dataBase64 ? t("media.result.download") : t("media.result.open")
+					}), output.bytes ? el("span", {
+						class: "nanovia-muted",
+						text: formatBytes(output.bytes)
+					}) : null]));
+				} else card.appendChild(el("div", {
+					class: "nanovia-error-text",
+					text: t("media.image.noData")
+				}));
+				gridHost.appendChild(card);
+			});
+			append(metaHost, [el("span", { text: t("media.result.latency", { seconds: (result.latencyMs / 1e3).toFixed(1) }) }), result.requestId ? chip(result.requestId, "muted", t("media.result.requestId")) : null]);
+		}
+		if (result.cost !== shownCost) {
+			shownCost = result.cost;
+			clear(costHost);
+			costHost.appendChild(costBlock(result.cost, "image", t));
+		}
+	}
+	picker.update();
+	if ((picker.model()?.id ?? null) !== builtFor) buildForm();
+	drawResult();
+	return {
+		el: root,
+		update() {
+			if (disposed) return;
+			picker.update();
+			if ((picker.model()?.id ?? null) !== builtFor) buildForm();
+			syncButtons();
+			drawResult();
+		},
+		dispose() {
+			disposed = true;
+		}
+	};
+}
+// src/features/media/stt-view.ts
+/** The duration of an audio file from its metadata; null when the browser cannot tell within a moment. */
+function audioDuration(file) {
+	return new Promise((resolve) => {
+		if (typeof Audio === "undefined" || typeof URL === "undefined" || typeof URL.createObjectURL !== "function") {
+			resolve(null);
+			return;
+		}
+		let url = "";
+		const finish = (value) => {
+			clearTimeout(timer);
+			if (url) URL.revokeObjectURL(url);
+			resolve(value);
+		};
+		const timer = setTimeout(() => finish(null), 3e3);
+		try {
+			url = URL.createObjectURL(file);
+			const audio = new Audio();
+			audio.preload = "metadata";
+			audio.onloadedmetadata = () => finish(Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : null);
+			audio.onerror = () => finish(null);
+			audio.src = url;
+		} catch {
+			finish(null);
+		}
+	});
+}
+function createSttStudio(deps, hooks = {}) {
+	const { ctx, session } = deps;
+	const t = ctx.t;
+	const draft = session.stt;
+	const support = hooks.recorderSupport ?? recorderSupport;
+	const start = hooks.startRecording ?? startRecording;
+	const measure = hooks.audioDuration ?? audioDuration;
+	let disposed = false;
+	let busy = false;
+	let error = null;
+	let issues = [];
+	let builtFor = null;
+	let shownResult = null;
+	let shownCost = null;
+	let transcribeButton = null;
+	/** The audio ready to send, and what it came from. */
+	let audio = null;
+	let playbackUrl = null;
+	let recorder = null;
+	let ticker = null;
+	let recordingError = null;
+	let audioNotice = null;
+	const formHost = el("div", { class: "nanovia-media-form" });
+	const sourceHost = el("div", { class: "nanovia-media-source" });
+	const estimateHost = el("div", {
+		class: "nanovia-media-estimate",
+		attrs: { "aria-live": "polite" }
+	});
+	const issuesHost = el("div", { class: "nanovia-media-issues" });
+	const actionsHost = el("div", { class: "nanovia-row" });
+	const statusHost = el("div", {
+		class: "nanovia-media-status",
+		attrs: { "aria-live": "polite" }
+	});
+	const textHost = el("div", {
+		class: "nanovia-media-transcript",
+		attrs: { "aria-label": t("media.stt.text") }
+	});
+	const segmentsHost = el("div", { class: "nanovia-media-segments" });
+	const costHost = el("div", { class: "nanovia-media-result-cost" });
+	const metaHost = el("div", { class: "nanovia-row nanovia-media-meta" });
+	const resultHead = el("div", { class: "nanovia-row nanovia-media-result-head" });
+	const resultHost = el("section", {
+		class: "nanovia-media-result",
+		attrs: { hidden: true }
+	}, [
+		resultHead,
+		textHost,
+		segmentsHost,
+		metaHost,
+		costHost
+	]);
+	const picker = createPicker({
+		ctx,
+		medium: "stt",
+		value: () => draft.model,
+		onPick: (model) => {
+			draft.model = model?.id ?? null;
+			buildForm();
+		}
+	});
+	const root = el("div", { class: "nanovia-media-studio" }, [
+		picker.el,
+		sourceHost,
+		formHost,
+		estimateHost,
+		issuesHost,
+		actionsHost,
+		statusHost,
+		resultHost
+	]);
+	const model = () => picker.model();
+	function syncButtons() {
+		if (transcribeButton) transcribeButton.disabled = busy || !actionsEnabled$1(ctx.media.state()) || !model() || recorder !== null;
+	}
+	function drawEstimate() {
+		clear(estimateHost);
+		const current = model();
+		if (!current) return;
+		const seconds = audio?.durationSec ?? null;
+		if (audio && seconds === null) {
+			estimateHost.appendChild(el("div", {
+				class: "nanovia-muted",
+				text: t("media.stt.estimate.noLength")
+			}));
+			return;
+		}
+		const view = estimateView(sttEstimate(current, seconds), false, t);
+		estimateHost.appendChild(el("div", {
+			class: ["nanovia-media-estimate-line", view.unknown ? "nanovia-muted" : ""],
+			text: audio ? view.text : t("media.stt.estimate.needsAudio")
+		}));
+	}
+	function releasePlayback() {
+		if (playbackUrl && typeof URL !== "undefined" && typeof URL.revokeObjectURL === "function") URL.revokeObjectURL(playbackUrl);
+		playbackUrl = null;
+	}
+	function stopTicker() {
+		if (ticker !== null) clearInterval(ticker);
+		ticker = null;
+	}
+	function setAudio(next, blob) {
+		releasePlayback();
+		audio = next;
+		if (blob && typeof URL !== "undefined" && typeof URL.createObjectURL === "function") try {
+			playbackUrl = URL.createObjectURL(blob);
+		} catch {
+			playbackUrl = null;
+		}
+		drawSource();
+		drawEstimate();
+		syncButtons();
+	}
+	async function finishRecording(taken) {
+		if (recorder === null) return;
+		recorder = null;
+		stopTicker();
+		if (checkAudioBytes(taken.bytes) === "empty") {
+			audioNotice = t("media.stt.rec.empty");
+			drawSource();
+			syncButtons();
+			return;
+		}
+		const dataUrl = await readAsDataUrl(taken.blob).catch(() => "");
+		if (disposed) return;
+		if (!dataUrl) {
+			audioNotice = t("media.stt.file.unreadable");
+			drawSource();
+			syncButtons();
+			return;
+		}
+		audioNotice = taken.reason === "max_bytes" ? t("media.stt.rec.limitBytes") : taken.reason === "max_time" ? t("media.stt.rec.limitTime") : null;
+		setAudio({
+			base64: stripDataUrl(dataUrl),
+			mime: taken.mime,
+			filename: `recording.${extensionOf(taken.mime)}`,
+			bytes: taken.bytes,
+			durationSec: taken.durationMs / 1e3
+		}, taken.blob);
+	}
+	async function toggleRecording() {
+		if (recorder) {
+			await finishRecording(await recorder.stop());
+			return;
+		}
+		recordingError = null;
+		audioNotice = null;
+		const result = await start({
+			maxBytes: MAX_UPLOAD_BYTES - 65536,
+			maxMs: 3e5,
+			onLimit: () => {
+				const handle = recorder;
+				if (handle) handle.stop().then(finishRecording);
+			}
+		});
+		if (disposed) {
+			if (result.ok) result.handle.cancel();
+			return;
+		}
+		if (!result.ok) {
+			recordingError = result.error;
+			drawSource();
+			return;
+		}
+		releasePlayback();
+		audio = null;
+		recorder = result.handle;
+		ticker = setInterval(() => drawMeter(), 250);
+		drawSource();
+		drawEstimate();
+		syncButtons();
+	}
+	async function chooseFile(files) {
+		const file = files?.[0];
+		if (!file) return;
+		audioNotice = null;
+		recordingError = null;
+		const verdict = checkAudioBytes(file.size);
+		if (verdict !== "ok") {
+			audioNotice = verdict === "too_large" ? t("media.stt.file.tooLarge", { size: formatBytes(MAX_UPLOAD_BYTES) }) : t("media.stt.file.empty");
+			drawSource();
+			return;
+		}
+		let dataUrl;
+		try {
+			dataUrl = await readAsDataUrl(file);
+		} catch {
+			audioNotice = t("media.stt.file.unreadable");
+			drawSource();
+			return;
+		}
+		const seconds = await measure(file);
+		if (disposed) return;
+		setAudio({
+			base64: stripDataUrl(dataUrl),
+			mime: file.type || "audio/mpeg",
+			filename: file.name || "audio",
+			bytes: file.size,
+			durationSec: seconds
+		}, file);
+	}
+	const meter = el("div", {
+		class: "nanovia-muted nanovia-media-meter",
+		attrs: { "aria-live": "off" }
+	});
+	function drawMeter() {
+		if (!recorder) return;
+		meter.textContent = t("media.stt.rec.meter", {
+			elapsed: formatClock(recorder.elapsedMs() / 1e3),
+			max: formatClock(300),
+			size: formatBytes(recorder.bytes()),
+			limit: formatBytes(MAX_UPLOAD_BYTES)
+		});
+	}
+	function drawSource() {
+		clear(sourceHost);
+		const supported = support();
+		const recording = recorder !== null;
+		const controls = el("div", { class: "nanovia-row" });
+		if (supported.supported) controls.appendChild(button({
+			label: recording ? t("media.stt.rec.stop") : t("media.stt.rec.start"),
+			icon: recording ? "stop" : "microphone",
+			kind: recording ? "danger" : "primary",
+			disabled: busy,
+			onClick: () => {
+				toggleRecording();
+			}
+		}));
+		const fileInput = el("input", {
+			class: "nanovia-media-file",
+			attrs: {
+				type: "file",
+				accept: "audio/*",
+				"aria-label": t("media.stt.file.choose"),
+				disabled: recording || busy
+			}
+		});
+		fileInput.addEventListener("change", () => {
+			chooseFile(fileInput.files).then(() => {
+				fileInput.value = "";
+			});
+		});
+		controls.appendChild(fileInput);
+		const blocks = [
+			el("b", { text: t("media.stt.source.title") }),
+			controls,
+			el("div", {
+				class: "nanovia-field-hint",
+				text: t("media.stt.limits", {
+					size: formatBytes(MAX_UPLOAD_BYTES),
+					time: formatClock(300)
+				})
+			}),
+			supported.supported ? null : noticeBox$1("warn", supported.reason === "insecure" ? t("media.stt.rec.insecure") : t("media.stt.rec.unsupported")),
+			recordingError ? noticeBox$1("error", t(`media.stt.rec.error.${recordingError.kind}`)) : null,
+			recording ? meter : null,
+			audioNotice ? noticeBox$1("warn", audioNotice) : null
+		];
+		for (const block of blocks) if (block) sourceHost.appendChild(block);
+		if (recording) drawMeter();
+		if (audio) sourceHost.appendChild(el("div", { class: "nanovia-media-recorded" }, [playbackUrl ? el("audio", {
+			class: "nanovia-media-audio",
+			attrs: {
+				controls: true,
+				src: playbackUrl
+			}
+		}) : null, el("div", { class: "nanovia-row" }, [
+			el("span", { text: audio.filename }),
+			chip(formatBytes(audio.bytes), "muted"),
+			audio.durationSec !== null ? chip(formatClock(audio.durationSec), "muted", t("media.stt.length")) : null,
+			button({
+				label: t("media.stt.discard"),
+				icon: "trash",
+				kind: "ghost",
+				disabled: busy,
+				onClick: () => {
+					audioNotice = null;
+					setAudio(null, null);
+				}
+			})
+		])]));
+	}
+	function buildForm() {
+		clear(formHost);
+		clear(actionsHost);
+		transcribeButton = null;
+		const current = model();
+		builtFor = current?.id ?? null;
+		if (!current) {
+			drawEstimate();
+			return;
+		}
+		const spec = sttForm(current);
+		formHost.appendChild(field(t("media.field.language"), textInput({
+			value: draft.language,
+			label: t("media.field.language"),
+			placeholder: t("media.stt.language.placeholder"),
+			maxLength: 12,
+			onInput: (value) => {
+				draft.language = value;
+			}
+		}), t("media.stt.language.hint")));
+		if (spec.diarize) formHost.appendChild(toggle({
+			label: t("media.stt.diarize"),
+			checked: draft.diarize,
+			hint: t("media.stt.diarize.hint"),
+			onChange: (on) => {
+				draft.diarize = on;
+			}
+		}));
+		transcribeButton = button({
+			label: t("media.stt.transcribe"),
+			icon: "file-lines",
+			kind: "primary",
+			onClick: () => {
+				transcribe();
+			}
+		});
+		actionsHost.append(transcribeButton);
+		drawEstimate();
+		syncButtons();
+	}
+	function drawIssues() {
+		clear(issuesHost);
+		for (const issue of issues) issuesHost.appendChild(noticeBox$1("error", issueText$1(issue, t)));
+	}
+	async function transcribe() {
+		const current = model();
+		if (!current || busy) return;
+		const built = buildSttRequest(current, draft, audio);
+		if (!built.ok) {
+			issues = built.issues;
+			error = null;
+			drawIssues();
+			statusLine(statusHost, t, {
+				busy: null,
+				error: null
+			});
+			return;
+		}
+		issues = [];
+		drawIssues();
+		busy = true;
+		error = null;
+		statusLine(statusHost, t, {
+			busy: t("media.stt.busy"),
+			error: null
+		});
+		syncButtons();
+		const result = await ctx.media.transcribe(built.request);
+		busy = false;
+		if (disposed) return;
+		error = result.ok ? null : result.error;
+		statusLine(statusHost, t, {
+			busy: null,
+			error
+		});
+		syncButtons();
+		drawResult();
+	}
+	function segmentLine(segment) {
+		const span = segment.start !== null ? `${formatClock(segment.start)}${segment.end !== null ? `–${formatClock(segment.end)}` : ""}` : "";
+		return el("div", { class: "nanovia-media-segment" }, [
+			span ? el("span", {
+				class: "nanovia-muted nanovia-media-segment-time",
+				text: span
+			}) : null,
+			segment.speaker ? chip(segment.speaker, "info") : null,
+			el("span", { text: segment.text })
+		]);
+	}
+	function drawResult() {
+		const result = ctx.media.last().stt;
+		if (!result) {
+			shownResult = null;
+			shownCost = null;
+			for (const host of [
+				resultHead,
+				segmentsHost,
+				costHost,
+				metaHost
+			]) clear(host);
+			textHost.textContent = "";
+			resultHost.hidden = true;
+			return;
+		}
+		resultHost.hidden = false;
+		if (result !== shownResult) {
+			shownResult = result;
+			clear(resultHead);
+			clear(segmentsHost);
+			clear(metaHost);
+			resultHead.append(el("b", { text: t("media.stt.text") }), el("span", {
+				class: "nanovia-muted",
+				text: result.model
+			}), copyButton(t("media.copy"), t("media.copied"), () => result.text), button({
+				label: t("media.result.clear"),
+				icon: "trash",
+				kind: "ghost",
+				onClick: () => ctx.media.clearLast("stt")
+			}));
+			textHost.textContent = result.text || t("media.stt.noSpeech");
+			if (result.segments.length > 0) {
+				segmentsHost.appendChild(el("b", { text: t("media.stt.segments") }));
+				for (const segment of result.segments) segmentsHost.appendChild(segmentLine(segment));
+			}
+			append(metaHost, [
+				result.language ? chip(result.language, "muted", t("media.stt.language")) : null,
+				result.durationSec !== null ? chip(formatClock(result.durationSec), "muted", t("media.stt.length")) : null,
+				el("span", {
+					class: "nanovia-muted",
+					text: t("media.result.latency", { seconds: (result.latencyMs / 1e3).toFixed(1) })
+				})
+			]);
+		}
+		if (result.cost !== shownCost) {
+			shownCost = result.cost;
+			clear(costHost);
+			costHost.appendChild(costBlock(result.cost, "stt", t));
+		}
+	}
+	picker.update();
+	if ((picker.model()?.id ?? null) !== builtFor) buildForm();
+	drawSource();
+	drawResult();
+	return {
+		el: root,
+		update() {
+			if (disposed) return;
+			picker.update();
+			if ((picker.model()?.id ?? null) !== builtFor) buildForm();
+			syncButtons();
+			drawResult();
+		},
+		dispose() {
+			disposed = true;
+			stopTicker();
+			releasePlayback();
+			recorder?.cancel();
+			recorder = null;
+		}
+	};
+}
+// src/features/media/tts-view.ts
+function createTtsStudio(deps) {
+	const { ctx, session } = deps;
+	const t = ctx.t;
+	const draft = session.tts;
+	let disposed = false;
+	let busy = false;
+	let error = null;
+	let issues = [];
+	let builtFor = null;
+	let shownAudio = null;
+	let shownCost = null;
+	let speakButton = null;
+	let selectedConnection = "";
+	const formHost = el("div", { class: "nanovia-media-form" });
+	const estimateHost = el("div", {
+		class: "nanovia-media-estimate",
+		attrs: { "aria-live": "polite" }
+	});
+	const issuesHost = el("div", { class: "nanovia-media-issues" });
+	const actionsHost = el("div", { class: "nanovia-row" });
+	const statusHost = el("div", {
+		class: "nanovia-media-status",
+		attrs: { "aria-live": "polite" }
+	});
+	const playerHost = el("div", { class: "nanovia-media-player" });
+	const costHost = el("div", { class: "nanovia-media-result-cost" });
+	const metaHost = el("div", { class: "nanovia-muted nanovia-media-meta" });
+	const resultHead = el("div", { class: "nanovia-row nanovia-media-result-head" });
+	const resultHost = el("section", {
+		class: "nanovia-media-result",
+		attrs: { hidden: true }
+	}, [
+		resultHead,
+		playerHost,
+		costHost,
+		metaHost
+	]);
+	const endpointHost = el("details", { class: "nanovia-details nanovia-media-endpoint" });
+	const picker = createPicker({
+		ctx,
+		medium: "tts",
+		value: () => draft.model,
+		preferred: "Kokoro-82m",
+		onPick: (model) => {
+			draft.model = model?.id ?? null;
+			buildForm();
+		}
+	});
+	const root = el("div", { class: "nanovia-media-studio" }, [
+		picker.el,
+		formHost,
+		estimateHost,
+		issuesHost,
+		actionsHost,
+		statusHost,
+		resultHost,
+		endpointHost
+	]);
+	const model = () => picker.model();
+	function drawEstimate() {
+		clear(estimateHost);
+		const current = model();
+		if (!current) return;
+		const view = estimateView(ttsEstimate(current, draft), false, t);
+		estimateHost.appendChild(el("div", {
+			class: ["nanovia-media-estimate-line", view.unknown ? "nanovia-muted" : ""],
+			text: view.text
+		}));
+		if (current.subscriptionIncluded === true) estimateHost.appendChild(el("div", {
+			class: "nanovia-field-hint",
+			text: t("media.estimate.subscription")
+		}));
+	}
+	function syncButtons() {
+		if (speakButton) speakButton.disabled = busy || !actionsEnabled$1(ctx.media.state()) || !model();
+	}
+	function buildForm() {
+		clear(formHost);
+		clear(actionsHost);
+		speakButton = null;
+		const current = model();
+		builtFor = current?.id ?? null;
+		if (!current) {
+			drawEstimate();
+			return;
+		}
+		const spec = ttsForm(current);
+		draft.voice = voiceChoice(current, draft.voice);
+		const bad = (name) => issues.some((issue) => issue.field === name);
+		formHost.appendChild(field(t("media.field.voice"), spec.voices.length > 0 ? select({
+			value: draft.voice,
+			label: t("media.field.voice"),
+			options: spec.voices.map((voice) => ({
+				value: voice,
+				label: voice
+			})),
+			onChange: (value) => {
+				draft.voice = value;
+			}
+		}) : textInput({
+			value: draft.voice,
+			label: t("media.field.voice"),
+			placeholder: t("media.tts.voice.free"),
+			onInput: (value) => {
+				draft.voice = value;
+			}
+		}), spec.voices.length > 0 ? void 0 : t("media.tts.voice.freeHint")));
+		const counter = el("span", { class: "nanovia-muted nanovia-media-counter" });
+		const drawCounter = () => {
+			counter.textContent = t("media.tts.chars", { count: draft.text.trim().length });
+		};
+		formHost.appendChild(field(t("media.field.text"), el("div", {}, [textArea({
+			value: draft.text,
+			rows: 5,
+			label: t("media.field.text"),
+			placeholder: t("media.tts.text.placeholder"),
+			onInput: (value) => {
+				draft.text = value;
+				drawCounter();
+				drawEstimate();
+			}
+		}), counter])));
+		drawCounter();
+		formHost.appendChild(field(t("media.field.speed"), numberInput({
+			value: draft.speed,
+			label: t("media.field.speed"),
+			invalid: bad("speed"),
+			onInput: (value) => {
+				draft.speed = value;
+			}
+		}), spec.speed.listed ? t("media.field.range", {
+			min: spec.speed.min,
+			max: spec.speed.max
+		}) : t("media.tts.speed.unlisted")));
+		if (spec.instructions) formHost.appendChild(field(t("media.field.instructions"), textArea({
+			value: draft.instructions,
+			rows: 2,
+			label: t("media.field.instructions"),
+			placeholder: t("media.tts.instructions.placeholder"),
+			onInput: (value) => {
+				draft.instructions = value;
+			}
+		})));
+		speakButton = button({
+			label: t("media.tts.speak"),
+			icon: "volume-high",
+			kind: "primary",
+			onClick: () => {
+				speak();
+			}
+		});
+		actionsHost.append(speakButton);
+		drawEstimate();
+		syncButtons();
+	}
+	function drawIssues() {
+		clear(issuesHost);
+		for (const issue of issues) issuesHost.appendChild(noticeBox$1("error", issueText$1(issue, t)));
+	}
+	async function speak() {
+		const current = model();
+		if (!current || busy) return;
+		const built = buildTtsRequest(current, draft);
+		if (!built.ok) {
+			issues = built.issues;
+			error = null;
+			drawIssues();
+			statusLine(statusHost, t, {
+				busy: null,
+				error: null
+			});
+			buildForm();
+			return;
+		}
+		issues = [];
+		drawIssues();
+		busy = true;
+		error = null;
+		statusLine(statusHost, t, {
+			busy: t("media.tts.busy"),
+			error: null
+		});
+		syncButtons();
+		const result = await ctx.media.speak(built.request);
+		busy = false;
+		if (disposed) return;
+		error = result.ok ? null : result.error;
+		statusLine(statusHost, t, {
+			busy: null,
+			error
+		});
+		syncButtons();
+		drawResult();
+	}
+	function drawResult() {
+		const result = ctx.media.last().tts;
+		if (!result) {
+			shownAudio = null;
+			shownCost = null;
+			for (const host of [
+				resultHead,
+				playerHost,
+				costHost,
+				metaHost
+			]) clear(host);
+			resultHost.hidden = true;
+			return;
+		}
+		resultHost.hidden = false;
+		if (result.audio !== shownAudio) {
+			shownAudio = result.audio;
+			clear(resultHead);
+			clear(playerHost);
+			clear(metaHost);
+			resultHead.append(el("b", { text: t("media.result.title") }), el("span", {
+				class: "nanovia-muted",
+				text: result.model
+			}), button({
+				label: t("media.result.clear"),
+				icon: "trash",
+				kind: "ghost",
+				onClick: () => ctx.media.clearLast("tts")
+			}));
+			const src = outputSrc(result.audio);
+			if (src) playerHost.append(el("audio", {
+				class: "nanovia-media-audio",
+				attrs: {
+					controls: true,
+					src,
+					preload: "auto"
+				}
+			}), el("div", { class: "nanovia-row" }, [
+				el("a", {
+					class: "menu_button nanovia-btn",
+					attrs: {
+						href: src,
+						download: downloadName(result.model, 0, result.audio.mime),
+						target: result.audio.dataBase64 ? void 0 : "_blank",
+						rel: "noopener noreferrer"
+					},
+					text: result.audio.dataBase64 ? t("media.result.download") : t("media.result.open")
+				}),
+				chip(result.audio.mime, "muted", t("media.tts.mime")),
+				result.audio.bytes ? el("span", {
+					class: "nanovia-muted",
+					text: formatBytes(result.audio.bytes)
+				}) : null
+			]));
+			else playerHost.appendChild(el("div", {
+				class: "nanovia-error-text",
+				text: t("media.tts.noData")
+			}));
+			metaHost.append(el("span", { text: t("media.tts.billedChars", { count: result.chars }) }), el("span", { text: t("media.result.latency", { seconds: (result.latencyMs / 1e3).toFixed(1) }) }));
+		}
+		if (result.cost !== shownCost) {
+			shownCost = result.cost;
+			clear(costHost);
+			costHost.appendChild(costBlock(result.cost, "tts", t));
+		}
+	}
+	function drawEndpoint() {
+		const wasOpen = endpointHost.open;
+		clear(endpointHost);
+		endpointHost.appendChild(el("summary", { text: t("media.tts.endpoint.title") }));
+		endpointHost.appendChild(el("div", {
+			class: "nanovia-field-hint",
+			text: t("media.tts.endpoint.intro")
+		}));
+		const endpoints = speechEndpoints(ctx.connections.list());
+		if (endpoints.length === 0) endpointHost.appendChild(el("div", {
+			class: "nanovia-muted",
+			text: t("media.tts.endpoint.none")
+		}));
+		else {
+			if (!endpoints.some((item) => item.connectionId === selectedConnection)) selectedConnection = endpoints[0]?.connectionId ?? "";
+			const chosen = endpoints.find((item) => item.connectionId === selectedConnection) ?? endpoints[0];
+			const urlBox = textInput({
+				value: chosen?.url ?? "",
+				label: t("media.tts.endpoint.url")
+			});
+			urlBox.readOnly = true;
+			endpointHost.append(field(t("media.tts.endpoint.connection"), select({
+				value: selectedConnection,
+				label: t("media.tts.endpoint.connection"),
+				options: endpoints.map((item) => ({
+					value: item.connectionId,
+					label: item.name
+				})),
+				onChange: (value) => {
+					selectedConnection = value;
+					drawEndpoint();
+				}
+			})), field(t("media.tts.endpoint.url"), el("div", { class: "nanovia-row" }, [urlBox, copyButton(t("media.copy"), t("media.copied"), () => chosen?.url ?? "")])));
+		}
+		endpointHost.appendChild(el("div", {
+			class: "nanovia-field-hint",
+			text: t("media.tts.endpoint.token")
+		}));
+		endpointHost.open = wasOpen;
+	}
+	picker.update();
+	if ((picker.model()?.id ?? null) !== builtFor) buildForm();
+	drawResult();
+	drawEndpoint();
+	const offConnections = ctx.connections.onChange(() => {
+		if (!disposed) drawEndpoint();
+	});
+	return {
+		el: root,
+		update() {
+			if (disposed) return;
+			picker.update();
+			if ((picker.model()?.id ?? null) !== builtFor) buildForm();
+			syncButtons();
+			drawResult();
+		},
+		dispose() {
+			disposed = true;
+			offConnections();
+		}
+	};
+}
+// src/features/media/video-view.ts
+function createVideoStudio(deps) {
+	const { ctx, session } = deps;
+	const t = ctx.t;
+	const draft = session.video;
+	let disposed = false;
+	let busy = false;
+	let error = null;
+	let issues = [];
+	let builtFor = null;
+	let submitButton = null;
+	let startNotice = null;
+	const cards = /* @__PURE__ */ new Map();
+	const formHost = el("div", { class: "nanovia-media-form" });
+	const estimateHost = el("div", {
+		class: "nanovia-media-estimate",
+		attrs: { "aria-live": "polite" }
+	});
+	const issuesHost = el("div", { class: "nanovia-media-issues" });
+	const actionsHost = el("div", { class: "nanovia-row" });
+	const statusHost = el("div", {
+		class: "nanovia-media-status",
+		attrs: { "aria-live": "polite" }
+	});
+	const jobsNotice = el("div", { class: "nanovia-media-jobs-notice" });
+	const jobsList = el("div", { class: "nanovia-cards nanovia-media-jobs" });
+	const jobsEmpty = el("div", {
+		class: "nanovia-muted nanovia-empty",
+		text: t("media.video.jobs.empty")
+	});
+	const jobsSection = el("section", { class: "nanovia-media-result" }, [
+		el("b", { text: t("media.video.jobs.title") }),
+		el("div", {
+			class: "nanovia-field-hint",
+			text: t("media.video.noCancel")
+		}),
+		jobsNotice,
+		jobsEmpty,
+		jobsList
+	]);
+	const picker = createPicker({
+		ctx,
+		medium: "video",
+		value: () => draft.model,
+		onPick: (model) => {
+			draft.model = model?.id ?? null;
+			buildForm();
+		}
+	});
+	const root = el("div", { class: "nanovia-media-studio" }, [
+		picker.el,
+		formHost,
+		estimateHost,
+		issuesHost,
+		actionsHost,
+		statusHost,
+		jobsSection
+	]);
+	const model = () => picker.model();
+	function drawEstimate() {
+		clear(estimateHost);
+		const current = model();
+		if (!current) return;
+		const view = estimateView(videoEstimate(current, draft), current.priceIsApproximate, t);
+		estimateHost.appendChild(el("div", {
+			class: ["nanovia-media-estimate-line", view.unknown ? "nanovia-muted" : ""],
+			text: view.text
+		}));
+		if (current.priceIsApproximate) estimateHost.appendChild(el("div", {
+			class: "nanovia-field-hint",
+			text: t("media.video.estimate.approxHint")
+		}));
+		estimateHost.appendChild(el("div", {
+			class: "nanovia-field-hint",
+			text: t("media.video.estimate.final")
+		}));
+	}
+	function syncButtons() {
+		if (submitButton) submitButton.disabled = busy || !actionsEnabled$1(ctx.media.state()) || !model();
+	}
+	function choice(spec, value, label, set) {
+		return select({
+			value,
+			label,
+			options: (spec.kind === "enum" ? spec.values : []).map((item) => ({
+				value: item,
+				label: item
+			})),
+			onChange: (next) => {
+				set(next);
+				drawEstimate();
+			}
+		});
+	}
+	function drawStartImage(host) {
+		clear(host);
+		if (draft.startImage) host.appendChild(el("div", { class: "nanovia-media-ref" }, [
+			el("img", {
+				class: "nanovia-media-thumb",
+				attrs: {
+					src: draft.startImage.dataUrl,
+					alt: draft.startImage.name
+				}
+			}),
+			el("div", { class: "nanovia-media-ref-info" }, [el("div", {
+				class: "nanovia-media-ref-name",
+				text: draft.startImage.name
+			}), el("div", {
+				class: "nanovia-muted",
+				text: formatBytes(draft.startImage.bytes)
+			})]),
+			button({
+				icon: "xmark",
+				title: t("media.image.refs.remove"),
+				kind: "ghost",
+				onClick: () => {
+					draft.startImage = null;
+					drawStartImage(host);
+				}
+			})
+		]));
+		if (startNotice) host.appendChild(noticeBox$1("error", startNotice));
+	}
+	async function chooseStartImage(files, host) {
+		const file = files?.[0];
+		if (!file) return;
+		startNotice = null;
+		let dataUrl = "";
+		try {
+			dataUrl = await readAsDataUrl(file);
+		} catch {
+			startNotice = t("media.image.refs.unreadable", { name: file.name });
+		}
+		if (dataUrl) {
+			const verdict = checkImageDataUrl(dataUrl);
+			if (verdict === "not_image") startNotice = t("media.image.refs.notImage", { name: file.name });
+			else if (verdict === "too_large") startNotice = t("media.image.refs.tooLarge", { name: file.name });
+			else draft.startImage = {
+				name: file.name,
+				dataUrl,
+				bytes: dataUrlBytes(dataUrl)
+			};
+		}
+		if (!disposed) drawStartImage(host);
+	}
+	function buildForm() {
+		clear(formHost);
+		clear(actionsHost);
+		submitButton = null;
+		const current = model();
+		builtFor = current?.id ?? null;
+		if (!current) {
+			drawEstimate();
+			return;
+		}
+		const spec = videoForm(current);
+		draft.aspect = choiceValue(spec.aspect, draft.aspect);
+		draft.resolution = choiceValue(spec.resolution, draft.resolution);
+		if (spec.duration?.kind === "enum" && !spec.duration.values.includes(draft.duration)) draft.duration = spec.duration.default;
+		if (!spec.startImage) draft.startImage = null;
+		const bad = (name) => issues.some((issue) => issue.field === name);
+		const numeric = (name, numberSpec) => field(t(`media.field.${name}`), numberInput({
+			value: draft[name],
+			label: t(`media.field.${name}`),
+			placeholder: numberSpec.default !== null ? String(numberSpec.default) : "",
+			invalid: bad(name),
+			onInput: (value) => {
+				draft[name] = value;
+			}
+		}));
+		formHost.appendChild(field(t("media.field.prompt"), textArea({
+			value: draft.prompt,
+			rows: 4,
+			label: t("media.field.prompt"),
+			placeholder: t("media.video.prompt.placeholder"),
+			onInput: (value) => {
+				draft.prompt = value;
+			}
+		})));
+		if (spec.startImage) {
+			const preview = el("div", { class: "nanovia-media-refs" });
+			const input = el("input", {
+				class: "nanovia-media-file",
+				attrs: {
+					type: "file",
+					accept: "image/*",
+					"aria-label": t("media.video.startImage.add")
+				}
+			});
+			input.addEventListener("change", () => {
+				chooseStartImage(input.files, preview).then(() => {
+					input.value = "";
+				});
+			});
+			formHost.appendChild(field(t("media.video.startImage.title"), el("div", { class: "nanovia-media-refs-block" }, [input, preview]), t("media.video.startImage.hint", { size: formatBytes(MAX_UPLOAD_BYTES) })));
+			drawStartImage(preview);
+		}
+		if (spec.duration) {
+			const duration = spec.duration;
+			formHost.appendChild(field(t("media.field.duration"), duration.kind === "enum" ? select({
+				value: draft.duration,
+				label: t("media.field.duration"),
+				options: duration.values.map((item) => ({
+					value: item,
+					label: item
+				})),
+				onChange: (value) => {
+					draft.duration = value;
+					drawEstimate();
+				}
+			}) : numberInput({
+				value: draft.duration,
+				label: t("media.field.duration"),
+				placeholder: duration.field.default !== null ? String(duration.field.default) : "",
+				invalid: bad("duration"),
+				onInput: (value) => {
+					draft.duration = value;
+					drawEstimate();
+				}
+			}), duration.kind === "number" && duration.field.min !== null && duration.field.max !== null ? t("media.field.range", {
+				min: duration.field.min,
+				max: duration.field.max
+			}) : void 0));
+		}
+		if (spec.aspect) formHost.appendChild(field(t("media.field.aspect"), choice(spec.aspect, draft.aspect, t("media.field.aspect"), (value) => {
+			draft.aspect = value;
+		})));
+		if (spec.resolution) formHost.appendChild(field(t("media.field.resolution"), choice(spec.resolution, draft.resolution, t("media.field.resolution"), (value) => {
+			draft.resolution = value;
+		})));
+		if (spec.seed) formHost.appendChild(numeric("seed", spec.seed));
+		submitButton = button({
+			label: t("media.video.submit"),
+			icon: "film",
+			kind: "primary",
+			onClick: () => {
+				submit();
+			}
+		});
+		actionsHost.append(submitButton);
+		drawEstimate();
+		syncButtons();
+	}
+	function drawIssues() {
+		clear(issuesHost);
+		for (const issue of issues) issuesHost.appendChild(noticeBox$1("error", issueText$1(issue, t)));
+	}
+	async function submit() {
+		const current = model();
+		if (!current || busy) return;
+		const built = buildVideoRequest(current, draft);
+		if (!built.ok) {
+			issues = built.issues;
+			error = null;
+			drawIssues();
+			statusLine(statusHost, t, {
+				busy: null,
+				error: null
+			});
+			buildForm();
+			return;
+		}
+		issues = [];
+		drawIssues();
+		busy = true;
+		error = null;
+		statusLine(statusHost, t, {
+			busy: t("media.video.busy"),
+			error: null
+		});
+		syncButtons();
+		const result = await ctx.media.startVideo(built.request);
+		busy = false;
+		if (disposed) return;
+		error = result.ok ? null : result.error;
+		statusLine(statusHost, t, {
+			busy: null,
+			error
+		});
+		if (result.ok) statusHost.appendChild(noticeBox$1("ok", t("media.video.submitted")));
+		syncButtons();
+		drawJobs();
+	}
+	function createCard(job) {
+		const head = el("div", { class: "nanovia-row nanovia-media-job-head" });
+		const promptLine = el("div", { class: "nanovia-media-job-prompt" });
+		const progress = el("div", {
+			class: "nanovia-bar",
+			attrs: {
+				role: "progressbar",
+				"aria-valuemin": 0,
+				"aria-valuemax": 100
+			}
+		});
+		const fill = el("div", { class: "nanovia-bar-fill nanovia-bar-ok" });
+		progress.appendChild(fill);
+		const numbers = el("div", { class: "nanovia-row nanovia-muted" });
+		const errorLine = el("div", { class: "nanovia-error-text" });
+		const mediaHost = el("div", { class: "nanovia-media-job-video" });
+		const actions = el("div", { class: "nanovia-row" });
+		let shownFile = null;
+		let shownLink = null;
+		actions.appendChild(button({
+			label: t("media.video.delete"),
+			icon: "trash",
+			kind: "danger",
+			onClick: async () => {
+				if (!await ctx.host.confirm(t("media.video.delete.confirm"), t("media.video.delete.title"))) return;
+				const result = await ctx.media.deleteVideo(job.id);
+				if (!result.ok) statusLine(statusHost, t, {
+					busy: null,
+					error: result.error
+				});
+			}
+		}));
+		return {
+			el: el("div", {
+				class: "nanovia-card nanovia-media-job",
+				data: { job: job.id }
+			}, [
+				head,
+				promptLine,
+				progress,
+				numbers,
+				errorLine,
+				mediaHost,
+				actions
+			]),
+			update(next, now) {
+				const view = jobView(next, now, t);
+				clear(head);
+				head.append(chip(view.statusLabel, view.statusKind), el("b", { text: next.model }), el("span", {
+					class: "nanovia-muted",
+					text: view.created
+				}));
+				promptLine.textContent = next.prompt;
+				progress.hidden = view.terminal || view.percent === null;
+				if (view.percent !== null) {
+					fill.style.width = `${view.percent}%`;
+					progress.setAttribute("aria-valuenow", String(view.percent));
+				}
+				clear(numbers);
+				append(numbers, [el("span", { text: view.cost }), view.percent !== null ? el("span", { text: t("media.job.progress", { percent: view.percent }) }) : null]);
+				errorLine.textContent = view.error ?? "";
+				errorLine.hidden = view.error === null;
+				if (view.fileUrl !== shownFile || view.upstreamUrl !== shownLink) {
+					shownFile = view.fileUrl;
+					shownLink = view.upstreamUrl;
+					clear(mediaHost);
+					if (view.fileUrl) mediaHost.appendChild(el("video", {
+						class: "nanovia-media-video",
+						attrs: {
+							controls: true,
+							preload: "metadata",
+							src: view.fileUrl
+						}
+					}));
+					else if (view.upstreamUrl) mediaHost.append(el("div", {
+						class: "nanovia-field-hint",
+						text: t("media.job.noLocalCopy")
+					}), el("a", {
+						class: "menu_button nanovia-btn",
+						attrs: {
+							href: view.upstreamUrl,
+							target: "_blank",
+							rel: "noopener noreferrer"
+						},
+						text: t("media.job.openUpstream")
+					}));
+				}
+			}
+		};
+	}
+	function drawJobs() {
+		const view = ctx.media.videos();
+		const now = Date.now();
+		clear(jobsNotice);
+		if (view.error) jobsNotice.appendChild(noticeBox$1("warn", t("media.video.jobs.stale", { reason: errorText$1(view.error, t) })));
+		jobsEmpty.hidden = view.jobs.length > 0 || !view.loaded;
+		const ids = new Set(view.jobs.map((job) => job.id));
+		for (const [id, card] of cards) if (!ids.has(id)) {
+			card.el.remove();
+			cards.delete(id);
+		}
+		view.jobs.forEach((job, index) => {
+			let card = cards.get(job.id);
+			if (!card) {
+				card = createCard(job);
+				cards.set(job.id, card);
+			}
+			card.update(job, now);
+			if (jobsList.children[index] !== card.el) jobsList.insertBefore(card.el, jobsList.children[index] ?? null);
+		});
+	}
+	const stopWatching = ctx.media.watchVideos();
+	picker.update();
+	if ((picker.model()?.id ?? null) !== builtFor) buildForm();
+	drawJobs();
+	return {
+		el: root,
+		update() {
+			if (disposed) return;
+			picker.update();
+			if ((picker.model()?.id ?? null) !== builtFor) buildForm();
+			syncButtons();
+			drawJobs();
+		},
+		dispose() {
+			disposed = true;
+			stopWatching();
+		}
+	};
+}
+// src/features/media/view.ts
+function renderMediaTab(root, ctx, session, hooks = {}) {
+	const t = ctx.t;
+	let disposed = false;
+	let studio = null;
+	const bannerHost = el("div", { class: "nanovia-banner-host" });
+	const integrationHost = el("div", { class: "nanovia-media-integration" });
+	const navHost = el("div", {
+		class: "nanovia-row nanovia-media-nav",
+		attrs: {
+			role: "group",
+			"aria-label": t("media.nav")
+		}
+	});
+	const body = el("div", { class: "nanovia-media-body" });
+	const head = el("div", { class: "nanovia-row nanovia-media-top" }, [el("b", { text: t("media.title") }), button({
+		label: t("media.refresh"),
+		icon: "rotate",
+		kind: "ghost",
+		onClick: async () => {
+			await ctx.connections.refresh();
+			await Promise.all([ctx.media.ensure(session.filters.medium, { refresh: true }), ctx.media.refreshVideos()]);
+		}
+	})]);
+	root.append(head, el("div", {
+		class: "nanovia-muted nanovia-media-intro",
+		text: t("media.intro")
+	}), bannerHost, integrationHost, navHost, body);
+	function drawBanner() {
+		clear(bannerHost);
+		const banner = bannerFor$1(ctx.media.state(), ctx.media.problem(), t);
+		if (!banner) return;
+		const box = el("div", { class: ["nanovia-banner", banner.kind === "error" ? "nanovia-banner-down" : "nanovia-banner-checking"] }, [el("div", { class: "nanovia-row" }, [chip(banner.title, banner.kind === "error" ? "error" : "warn")]), el("div", {
+			class: banner.kind === "error" ? "nanovia-error-text" : "",
+			text: banner.text
+		})]);
+		if (banner.action === "keys") box.appendChild(button({
+			label: t("media.banner.keys"),
+			kind: "ghost",
+			onClick: () => ctx.panel.open?.("keys")
+		}));
+		bannerHost.appendChild(box);
+	}
+	/** The Doctor-style note: is «Nanovia» in the provider list of ST's TTS extension? */
+	function drawIntegration() {
+		clear(integrationHost);
+		const state = session.integration();
+		const item = {
+			pending: {
+				kind: "muted",
+				label: t("media.integration.pending"),
+				text: t("media.integration.pending.text")
+			},
+			active: {
+				kind: "ok",
+				label: t("media.integration.active"),
+				text: t("media.integration.active.text")
+			},
+			unavailable: {
+				kind: "warn",
+				label: t("media.integration.unavailable"),
+				text: state.message ?? ""
+			},
+			failed: {
+				kind: "error",
+				label: t("media.integration.failed"),
+				text: state.message ?? ""
+			}
+		}[state.status];
+		integrationHost.appendChild(el("div", {
+			class: "nanovia-row nanovia-media-integration-row",
+			data: { integration: state.status }
+		}, [chip(item.label, item.kind), el("span", {
+			class: "nanovia-muted",
+			text: item.text
+		})]));
+	}
+	function factory(section, deps) {
+		switch (section) {
+			case "image": return createImageStudio(deps);
+			case "tts": return createTtsStudio(deps);
+			case "stt": return createSttStudio(deps, hooks);
+			case "video": return createVideoStudio(deps);
+			default: return createCatalogSection(deps);
+		}
+	}
+	function drawNav() {
+		clear(navHost);
+		for (const section of MEDIA_SECTIONS) {
+			const active = session.section === section;
+			navHost.appendChild(el("button", {
+				class: [
+					"nanovia-chip",
+					"nanovia-chip-toggle",
+					active && "nanovia-chip-active"
+				],
+				text: t(`media.section.${section}`),
+				data: { section },
+				attrs: {
+					type: "button",
+					"aria-pressed": String(active)
+				},
+				on: { click: () => go(section) }
+			}));
+		}
+	}
+	function showSection() {
+		studio?.dispose();
+		studio = null;
+		clear(body);
+		studio = factory(session.section, {
+			ctx,
+			session,
+			go
+		});
+		body.appendChild(studio.el);
+	}
+	function go(section) {
+		if (disposed) return;
+		session.section = section;
+		drawNav();
+		showSection();
+	}
+	function redraw() {
+		if (disposed) return;
+		drawBanner();
+		studio?.update();
+	}
+	const offs = [
+		ctx.media.onChange(redraw),
+		ctx.connections.onChange(() => {
+			if (!disposed) drawBanner();
+		}),
+		session.onIntegration(() => {
+			if (!disposed) drawIntegration();
+		})
+	];
+	drawBanner();
+	drawIntegration();
+	drawNav();
+	showSection();
+	return () => {
+		disposed = true;
+		for (const off of offs) off();
+		studio?.dispose();
+		studio = null;
+	};
+}
+// src/features/media/index.ts
+var MEDIA_FEATURE_ID = "media";
+var MEDIA_TAB_ID = "media";
+/**
+* Tab «Media»: the catalogs of NanoGPT's image, video, speech and transcription models and a studio for each, all through
+* the plugin; plus the «Nanovia» provider in ST's own TTS extension (registered at start, switched off quietly when ST
+* has no such extension).
+*/
+var mediaFeature = {
+	id: MEDIA_FEATURE_ID,
+	init(ctx) {
+		ctx.i18n.register(MEDIA_STRINGS);
+		const session = createSession();
+		registerNanoviaTts(ctx, session).catch((error) => {
+			ctx.log.error("TTS provider registration failed", error);
+			session.setIntegration("failed", error instanceof Error ? error.message : String(error));
+		});
+		return ctx.panel.registerTab({
+			id: MEDIA_TAB_ID,
+			titleKey: "media.tab",
+			order: 380,
+			render: (root, tabCtx) => renderMediaTab(root, tabCtx, session)
 		});
 	}
 };
@@ -15717,11 +21012,11 @@ function renderRoutingTab(root, ctx) {
 	}
 	function report(result, success) {
 		if (!result.ok) {
-			notify("error", issueText$1(result.error, t));
+			notify("error", issueText$2(result.error, t));
 			return false;
 		}
 		if (result.warnings.length === 0) notify("ok", success);
-		else notify("warn", [success, ...result.warnings.map((warning) => issueText$1(warning, t))].join(" "));
+		else notify("warn", [success, ...result.warnings.map((warning) => issueText$2(warning, t))].join(" "));
 		return true;
 	}
 	function compute(data) {
@@ -15913,6 +21208,7 @@ var FEATURES = [
 	},
 	keysFeature,
 	mgmtFeature,
+	mediaFeature,
 	accountFeature,
 	doctorFeature
 ];
@@ -15929,7 +21225,7 @@ function capabilitiesOf(model) {
 	};
 }
 function createApiPublisher(deps) {
-	const { connections, profiles, settings, catalog, usage, account, doctor, mgmt, panel, log } = deps;
+	const { connections, profiles, settings, catalog, usage, account, doctor, mgmt, media, panel, log } = deps;
 	const qvinkInstalled$1 = deps.qvinkInstalled ?? qvinkInstalled;
 	/** The connection a Connection Manager profile belongs to: by the id we stored, then by a proxy URL it carries. */
 	function connectionIdOf(profileId) {
@@ -15986,6 +21282,7 @@ function createApiPublisher(deps) {
 		if (usage) list.push("usage");
 		if (account) list.push("account");
 		if (mgmt) list.push("mgmt");
+		if (media) list.push("media");
 		list.push("advice");
 		if (doctor) list.push("doctor");
 		if (panel) list.push("panel");
@@ -16014,6 +21311,24 @@ function createApiPublisher(deps) {
 		mgmt.warm();
 		return mgmt.brief();
 	} };
+	if (media) {
+		const answer = (result) => result.ok ? result : {
+			ok: false,
+			error: {
+				code: result.error.code,
+				message: result.error.message
+			}
+		};
+		api.media = {
+			models: (medium) => media.models(medium),
+			catalog: async (medium, options) => answer(await media.ensure(medium, options)),
+			generateImage: async (request) => answer(await media.generateImage(request, { remember: false })),
+			speak: async (request) => answer(await media.speak(request, { remember: false })),
+			transcribe: async (request) => answer(await media.transcribe(request, { remember: false })),
+			startVideo: async (request) => answer(await media.startVideo(request)),
+			videoStatus: async (id) => answer(await media.videoStatus(id))
+		};
+	}
 	if (panel) api.openPanel = (tab) => {
 		try {
 			panel.open(typeof tab === "string" && tab ? tab : void 0);
@@ -16102,6 +21417,13 @@ async function startNanovia(options = {}) {
 		connections,
 		log: log.scope("mgmt")
 	});
+	const media = createMediaStore({
+		media: createPluginMedia({ client: plugin }),
+		usage,
+		account: pluginAccount,
+		connections,
+		log: log.scope("media")
+	});
 	const ctx = {};
 	const panel = new SettingsPanel({
 		i18n,
@@ -16135,6 +21457,7 @@ async function startNanovia(options = {}) {
 		account,
 		doctor,
 		mgmt,
+		media,
 		profiles,
 		secrets,
 		registerRequestHook: (hook) => requests.register(hook),
@@ -16157,6 +21480,7 @@ async function startNanovia(options = {}) {
 	});
 	const owned = [
 		() => usage.dispose(),
+		() => media.dispose(),
 		requests.register(directMode.hook),
 		requests.observe(directMode.observer)
 	];
@@ -16190,6 +21514,7 @@ async function startNanovia(options = {}) {
 		account,
 		doctor,
 		mgmt,
+		media,
 		panel: { open: (tab) => panel.open(tab) },
 		log: log.scope("api")
 	});

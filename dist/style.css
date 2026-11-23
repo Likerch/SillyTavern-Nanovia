@@ -951,6 +951,339 @@
     margin: 0;
     box-sizing: border-box;
 }
+/* Tab «Media». Shared pieces (cards, chips, notices, banners, bars, fields, details) live in ui/style.css and the other tabs. */
+
+.nanovia-media-top {
+    margin-bottom: var(--nanovia-gap-sm);
+    justify-content: space-between;
+}
+
+.nanovia-media-intro {
+    margin-bottom: var(--nanovia-gap-sm);
+}
+
+.nanovia-media-integration {
+    margin: var(--nanovia-gap-sm) 0;
+}
+
+.nanovia-media-integration-row {
+    align-items: flex-start;
+}
+
+.nanovia-media-nav,
+.nanovia-media-switcher {
+    margin: var(--nanovia-gap-sm) 0;
+}
+
+.nanovia-media-body {
+    min-width: 0;
+}
+
+.nanovia-media-studio,
+.nanovia-media-catalog {
+    display: flex;
+    flex-direction: column;
+    gap: var(--nanovia-gap-sm);
+    min-width: 0;
+}
+
+/* ------------------------------------------------------------------ model picker and catalog cards */
+
+.nanovia-media-picker {
+    display: flex;
+    flex-direction: column;
+    gap: var(--nanovia-gap-sm);
+    min-width: 0;
+}
+
+.nanovia-media-picker > input,
+.nanovia-media-catalog-controls > input {
+    width: 100%;
+    margin: 0;
+    box-sizing: border-box;
+}
+
+.nanovia-media-picker-controls > select {
+    margin: 0;
+    min-width: 0;
+}
+
+.nanovia-media-picker-select > select {
+    width: 100%;
+    margin: 0;
+    box-sizing: border-box;
+}
+
+.nanovia-media-model-card {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.nanovia-media-model-card:empty {
+    display: none;
+}
+
+.nanovia-media-catalog-controls {
+    display: flex;
+    flex-direction: column;
+    gap: var(--nanovia-gap-sm);
+}
+
+.nanovia-media-models {
+    margin-top: 0;
+}
+
+.nanovia-media-model-name,
+.nanovia-media-model-id {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.nanovia-media-money {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.nanovia-media-description {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* ------------------------------------------------------------------ forms */
+
+.nanovia-media-form {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.nanovia-media-form textarea {
+    width: 100%;
+    margin: 0;
+    box-sizing: border-box;
+}
+
+.nanovia-media-counter {
+    display: block;
+    text-align: right;
+}
+
+.nanovia-media-estimate {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.nanovia-media-estimate-line {
+    font-weight: bold;
+}
+
+.nanovia-media-issues {
+    display: flex;
+    flex-direction: column;
+    gap: var(--nanovia-gap-sm);
+}
+
+.nanovia-media-issues:empty,
+.nanovia-media-status:empty {
+    display: none;
+}
+
+.nanovia-media-refs-block {
+    display: flex;
+    flex-direction: column;
+    gap: var(--nanovia-gap-sm);
+    min-width: 0;
+}
+
+.nanovia-media-refs {
+    display: flex;
+    flex-direction: column;
+    gap: var(--nanovia-gap-sm);
+}
+
+.nanovia-media-ref {
+    display: flex;
+    align-items: center;
+    gap: var(--nanovia-gap-sm);
+    min-width: 0;
+}
+
+.nanovia-media-thumb {
+    width: 48px;
+    height: 48px;
+    object-fit: cover;
+    border: 1px solid var(--nanovia-border);
+    border-radius: var(--nanovia-radius-sm);
+}
+
+.nanovia-media-ref-info {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.nanovia-media-ref-name {
+    overflow-wrap: anywhere;
+}
+
+.nanovia-media-file {
+    max-width: 100%;
+}
+
+/* ------------------------------------------------------------------ results */
+
+.nanovia-media-result {
+    display: flex;
+    flex-direction: column;
+    gap: var(--nanovia-gap-sm);
+    margin-top: var(--nanovia-gap-sm);
+    padding-top: var(--nanovia-gap-sm);
+    border-top: 1px solid var(--nanovia-border);
+    min-width: 0;
+}
+
+.nanovia-media-result-head {
+    justify-content: space-between;
+}
+
+.nanovia-media-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: var(--nanovia-gap-sm);
+}
+
+.nanovia-media-figure {
+    display: flex;
+    flex-direction: column;
+    gap: var(--nanovia-gap-sm);
+    margin: 0;
+    min-width: 0;
+}
+
+.nanovia-media-image {
+    width: 100%;
+    height: auto;
+    border: 1px solid var(--nanovia-border);
+    border-radius: var(--nanovia-radius-sm);
+    background: var(--nanovia-raised);
+}
+
+.nanovia-media-cost {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px 8px;
+    border: 1px solid var(--nanovia-border);
+    border-radius: var(--nanovia-radius-sm);
+    background: var(--nanovia-raised);
+}
+
+.nanovia-media-player {
+    display: flex;
+    flex-direction: column;
+    gap: var(--nanovia-gap-sm);
+}
+
+.nanovia-media-audio {
+    width: 100%;
+}
+
+.nanovia-media-endpoint {
+    margin-top: var(--nanovia-gap);
+}
+
+.nanovia-media-endpoint input {
+    flex: 1 1 14em;
+    min-width: 0;
+    margin: 0;
+}
+
+/* ------------------------------------------------------------------ transcription */
+
+.nanovia-media-source {
+    display: flex;
+    flex-direction: column;
+    gap: var(--nanovia-gap-sm);
+    padding: 8px 10px;
+    border: 1px solid var(--nanovia-border);
+    border-radius: var(--nanovia-radius);
+    background: var(--nanovia-raised);
+}
+
+.nanovia-media-recorded {
+    display: flex;
+    flex-direction: column;
+    gap: var(--nanovia-gap-sm);
+}
+
+.nanovia-media-transcript {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    padding: 6px 8px;
+    border: 1px solid var(--nanovia-border);
+    border-radius: var(--nanovia-radius-sm);
+    user-select: text;
+}
+
+.nanovia-media-segments {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.nanovia-media-segments:empty {
+    display: none;
+}
+
+.nanovia-media-segment {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--nanovia-gap-sm);
+}
+
+.nanovia-media-segment-time {
+    font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------------ video jobs */
+
+.nanovia-media-jobs {
+    margin-top: 0;
+}
+
+.nanovia-media-job {
+    display: flex;
+    flex-direction: column;
+    gap: var(--nanovia-gap-sm);
+    min-width: 0;
+}
+
+.nanovia-media-job-prompt {
+    overflow-wrap: anywhere;
+}
+
+.nanovia-media-job-video:empty {
+    display: none;
+}
+
+.nanovia-media-video {
+    width: 100%;
+    max-height: 60vh;
+    border-radius: var(--nanovia-radius-sm);
+    background: #000;
+}
+
+@media (max-width: 767px) {
+    .nanovia-media-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
 /* Tab «Management». Shared pieces (cards, chips, notices, banners, tables, fields) live in ui/style.css and the other tabs. */
 
 .nanovia-mgmt-top {
