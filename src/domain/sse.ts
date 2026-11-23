@@ -80,7 +80,8 @@ export interface SseRewrite {
 }
 
 // [\s\S] rather than `.`: JSON.stringify leaves U+2028 and U+2029 unescaped and `.` would stop at them.
-const DATA_LINE = /^(﻿?data:)( ?)([\s\S]*)$/;
+const BOM = String.fromCharCode(0xfeff);
+const DATA_LINE = new RegExp(`^(${BOM}?data:)( ?)([\\s\\S]*)$`);
 
 /**
  * Rewrites one raw event (as the splitter returns it) when its `data` field is a JSON chunk with usage. Comments, `event:`,

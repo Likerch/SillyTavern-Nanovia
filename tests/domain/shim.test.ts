@@ -27,6 +27,15 @@ const MODEL: CatalogModel = {
 
 const CTX: ShimContext = { model: MODEL, billingModeForced: false, explicitRouting: false, requestId: 'hdr-1' };
 
+/** The shimmed `usage`: the keys the shim promises are typed, the rest stays open. */
+interface ShimmedUsage extends Record<string, unknown> {
+    nanovia: { billing: string; equivalent_usd: number | null; request_id: string | null };
+}
+
+function usageOf(out: Record<string, unknown>): ShimmedUsage {
+    return out['usage'] as ShimmedUsage;
+}
+
 function body(usage: unknown, extra: Record<string, unknown> = {}): Record<string, unknown> {
     return {
         id: 'chatcmpl-1',
@@ -113,7 +122,7 @@ describe('shimResponseBody', () => {
             }),
             CTX,
         );
-        const usage = out['usage'] as Record<string, any>;
+        const usage = usageOf(out);
         expect(usage['cost']).toBe(0.0031);
         expect(usage['total_tokens']).toBe(1300);
         expect(usage['completion_tokens_details']).toEqual({ reasoning_tokens: 120, audio_tokens: 0 });
@@ -138,7 +147,7 @@ describe('shimResponseBody', () => {
             body({ prompt_tokens: 10, completion_tokens: 1, cost: '0.0003', total_cost: 0.0003, currency: 'XNO' }),
             CTX,
         );
-        const usage = out['usage'] as Record<string, any>;
+        const usage = usageOf(out);
         expect(usage).not.toHaveProperty('cost');
         expect(usage).not.toHaveProperty('total_cost');
         expect(usage).not.toHaveProperty('currency');
@@ -154,7 +163,7 @@ describe('shimResponseBody', () => {
             ),
             { ...CTX, model: null, requestId: null },
         );
-        const usage = out['usage'] as Record<string, any>;
+        const usage = usageOf(out);
         expect(usage).not.toHaveProperty('cost');
         expect(usage['nanovia']).toEqual({ billing: 'unknown', equivalent_usd: 0.9, request_id: 'body-id' });
     });
@@ -164,7 +173,7 @@ describe('shimResponseBody', () => {
             body({ prompt_tokens: 5, completion_tokens: 5, cost: 0 }, { x_nanogpt_pricing: { requestId: 'body-id' } }),
             { ...CTX, model: null },
         );
-        expect((out['usage'] as any).nanovia).toEqual({
+        expect(usageOf(out).nanovia).toEqual({
             billing: 'unknown',
             equivalent_usd: null,
             request_id: 'hdr-1',
@@ -182,7 +191,7 @@ describe('shimResponseBody', () => {
             }),
             CTX,
         );
-        const usage = out['usage'] as Record<string, any>;
+        const usage = usageOf(out);
         expect(usage).toMatchObject({ prompt_tokens: 40, completion_tokens: 2, total_tokens: 42 });
         expect(usage['prompt_tokens_details']).toEqual({ audio_tokens: 3, cached_tokens: 0, cache_write_tokens: 10 });
     });
@@ -192,8 +201,8 @@ describe('shimResponseBody', () => {
             ...CTX,
             billingModeForced: true,
         });
-        expect((out['usage'] as any).nanovia.billing).toBe('paygo');
-        expect((out['usage'] as any).cost).toBe(0);
+        expect(usageOf(out).nanovia.billing).toBe('paygo');
+        expect(usageOf(out).cost).toBe(0);
     });
 
     it.each([

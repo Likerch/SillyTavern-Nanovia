@@ -21,6 +21,10 @@ const MODEL: CatalogModel = {
 const CTX: ShimContext = { model: MODEL, billingModeForced: false, explicitRouting: false, requestId: 'rid' };
 
 const enc = new TextEncoder();
+// Built from code points: these characters are invisible in an editor (and the linter bans them in source).
+const BOM = String.fromCharCode(0xfeff);
+const REPLACEMENT = String.fromCharCode(0xfffd);
+const LINE_SEPARATOR = String.fromCharCode(0x2028);
 
 /** Feeds `parts` to a splitter and returns every event, flush included. */
 function split(parts: Array<string | Uint8Array>): string[] {
@@ -107,12 +111,12 @@ describe('SseSplitter', () => {
     it('flushes an incomplete UTF-8 sequence as a replacement character and can be reused', () => {
         const splitter = new SseSplitter();
         splitter.feed(Uint8Array.of(0x64, 0xd0));
-        expect(splitter.flush()).toEqual(['d�']);
+        expect(splitter.flush()).toEqual([`d${REPLACEMENT}`]);
         expect(splitter.feed('data: 2\n\n')).toEqual(['data: 2\n\n']);
     });
 
     it('keeps a BOM as a character', () => {
-        expect(split([Uint8Array.of(0xef, 0xbb, 0xbf, 0x64, 0x3a, 0x0a, 0x0a)])).toEqual(['﻿d:\n\n']);
+        expect(split([Uint8Array.of(0xef, 0xbb, 0xbf, 0x64, 0x3a, 0x0a, 0x0a)])).toEqual([`${BOM}d:\n\n`]);
     });
 });
 
@@ -137,9 +141,9 @@ describe('rewriteSseEvent', () => {
     });
 
     it('keeps CRLF endings, the prefix spelling and a BOM', () => {
-        const raw = `﻿data:${JSON.stringify(final)}\r\n\r\n`;
+        const raw = `${BOM}data:${JSON.stringify(final)}\r\n\r\n`;
         const { text } = rewriteSseEvent(raw, CTX);
-        expect(text.startsWith('﻿data:{')).toBe(true);
+        expect(text.startsWith(`${BOM}data:{`)).toBe(true);
         expect(text.endsWith('}\r\n\r\n')).toBe(true);
     });
 
@@ -153,10 +157,10 @@ describe('rewriteSseEvent', () => {
     });
 
     it('survives U+2028 inside the JSON', () => {
-        const chunk = { ...final, choices: [{ delta: { content: 'a b' }, finish_reason: 'stop' }] };
+        const chunk = { ...final, choices: [{ delta: { content: `a${LINE_SEPARATOR}b` }, finish_reason: 'stop' }] };
         const { text, resolved } = rewriteSseEvent(`data: ${JSON.stringify(chunk)}\n\n`, CTX);
         expect(resolved).not.toBeNull();
-        expect(text).toContain('a b');
+        expect(text).toContain(`a${LINE_SEPARATOR}b`);
     });
 
     it('handles an event whose last line has no terminator', () => {
