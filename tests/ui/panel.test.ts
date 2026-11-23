@@ -217,6 +217,85 @@ describe('tabs', () => {
     });
 });
 
+describe('open()', () => {
+    let removeDelegated: () => void = () => {};
+    afterEach(() => removeDelegated());
+
+    /** What ST does on its own: a click on a drawer header flips the open state (classes and display). */
+    function installStDrawers(): { extensions: HTMLElement; extensionsClicks: () => number } {
+        document.body.insertAdjacentHTML(
+            'beforeend',
+            '<div id="extensions-settings-button" class="drawer"><div class="drawer-toggle"></div>' +
+                '<div id="rm_extensions_block" class="drawer-content closedDrawer"></div></div>',
+        );
+        const toggle = document.querySelector<HTMLElement>('#extensions-settings-button .drawer-toggle')!;
+        const block = document.getElementById('rm_extensions_block')!;
+        let clicks = 0;
+        toggle.addEventListener('click', () => {
+            clicks++;
+            block.classList.toggle('closedDrawer');
+            block.classList.toggle('openDrawer');
+        });
+        const delegated = (event: Event): void => {
+            const header = (event.target as HTMLElement).closest('.inline-drawer-toggle');
+            const icon = header?.querySelector('.inline-drawer-icon');
+            if (icon) {
+                icon.classList.toggle('down');
+                icon.classList.toggle('up');
+            }
+        };
+        document.addEventListener('click', delegated);
+        removeDelegated = () => document.removeEventListener('click', delegated);
+        return { extensions: toggle, extensionsClicks: () => clicks };
+    }
+
+    const drawerIcon = () => document.querySelector('.inline-drawer-icon')!;
+
+    it("opens ST's Extensions panel and the Nanovia drawer, and selects the tab", () => {
+        const { extensionsClicks } = installStDrawers();
+        panel.mount();
+        panel.registerTab(tab('a', 1));
+        panel.registerTab(tab('b', 2));
+        panel.open('b');
+        expect(extensionsClicks()).toBe(1);
+        expect(document.getElementById('rm_extensions_block')?.classList.contains('openDrawer')).toBe(true);
+        expect(drawerIcon().classList.contains('up')).toBe(true);
+        expect(panel.activeTab()).toBe('b');
+        expect(last).toBe('b');
+    });
+
+    it('does not close what is already open', () => {
+        const { extensionsClicks } = installStDrawers();
+        panel.mount();
+        panel.registerTab(tab('a', 1));
+        panel.open();
+        panel.open('a');
+        expect(extensionsClicks()).toBe(1);
+        expect(drawerIcon().classList.contains('up')).toBe(true);
+    });
+
+    it('ignores an unknown tab but still opens the drawer', () => {
+        installStDrawers();
+        panel.mount();
+        panel.registerTab(tab('a', 1));
+        panel.open('nope');
+        expect(panel.activeTab()).toBe('a');
+        expect(drawerIcon().classList.contains('up')).toBe(true);
+    });
+
+    it('mounts the drawer first when it is not in the page yet, and does nothing without the Extensions panel', () => {
+        installStDrawers();
+        panel.registerTab(tab('a', 1));
+        panel.open('a');
+        expect(root()).not.toBeNull();
+        panel.dispose();
+        document.body.innerHTML = '';
+        panel = makePanel();
+        expect(() => panel.open('a')).not.toThrow();
+        expect(root()).toBeNull();
+    });
+});
+
 describe('the general tab', () => {
     function makeSettings(): SettingsService {
         const store: Record<string, unknown> = {};
