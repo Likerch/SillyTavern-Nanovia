@@ -3,13 +3,12 @@ import {
     GENERATE_PATH,
     addIncludeBody,
     addIncludeHeaders,
-    directModeHook,
     hintsOf,
     inspectGenerateBody,
     installFetchHook,
     proxyHintsHook,
 } from '../../src/host/fetch-hook';
-import type { FetchHookHandle, GenerateRequest } from '../../src/host/fetch-hook';
+import type { FetchHookHandle, GenerateRequest, ResponseInfo } from '../../src/host/fetch-hook';
 import { memoryLogger } from '../helpers/fakes';
 
 const PROXY = 'http://127.0.0.1:8787/c/abc12345/v1';
@@ -253,11 +252,75 @@ describe('the wrapper', () => {
     });
 });
 
+describe('response observers', () => {
+    it('are told about the response of a hooked generate request, in order, with the request the hooks left', async () => {
+        handle = installFetchHook(memoryLogger());
+        handle.register((request) => void (request.body['hooked'] = true));
+        const order: string[] = [];
+        let seen: ResponseInfo | null = null;
+        handle.observe((info) => {
+            order.push('a');
+            seen = info;
+        });
+        handle.observe(async () => void order.push('b'));
+        const response = await post({ chat_completion_source: 'custom' });
+        expect(order).toEqual(['a', 'b']);
+        const info = seen as unknown as ResponseInfo;
+        expect(info.response).toBe(response);
+        expect(info.request.body['hooked']).toBe(true);
+        expect(info.startedAt).toBeLessThanOrEqual(Date.now());
+    });
+
+    it('are not called for other requests or when no hook is registered', async () => {
+        handle = installFetchHook(memoryLogger());
+        const seen = vi.fn();
+        handle.observe(seen);
+        await post({ a: 1 });
+        expect(seen).not.toHaveBeenCalled();
+        handle.register(() => {});
+        await post({ a: 1 }, '/api/other');
+        await fetch(GENERATE_PATH);
+        expect(seen).not.toHaveBeenCalled();
+    });
+
+    it('never break a request: a throwing or rejecting observer is only logged at debug level', async () => {
+        const log = memoryLogger();
+        handle = installFetchHook(log);
+        handle.register(() => {});
+        handle.observe(() => {
+            throw new Error('sync bug');
+        });
+        handle.observe(async () => {
+            throw new Error('async bug');
+        });
+        const response = await post({});
+        expect(response.status).toBe(200);
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(log.lines.filter((line) => line.level === 'debug')).toHaveLength(2);
+        expect(log.lines.some((line) => line.level === 'warn' || line.level === 'error')).toBe(false);
+    });
+
+    it('can be removed, and uninstall forgets them', async () => {
+        handle = installFetchHook(memoryLogger());
+        handle.register(() => {});
+        const removed = vi.fn();
+        const kept = vi.fn();
+        handle.observe(removed)();
+        handle.observe(kept);
+        await post({});
+        expect(removed).not.toHaveBeenCalled();
+        expect(kept).toHaveBeenCalledOnce();
+        handle.uninstall();
+        await post({});
+        expect(kept).toHaveBeenCalledOnce();
+    });
+});
+
 describe('the built-in proxy hook', () => {
     async function through(body: Record<string, unknown>) {
         handle = installFetchHook(memoryLogger());
         handle.register(proxyHintsHook);
-        handle.register(directModeHook);
         await post(body);
         return sentBody();
     }
