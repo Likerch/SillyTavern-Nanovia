@@ -42,7 +42,25 @@ and exposes `X-Request-ID`. Every reply carries a fresh `X-Request-ID`.
 Keys: `sk-nano-<8+ chars>` or `x-api-key`. Missing key: 401 `missing_api_key`; malformed: 401 `malformed_api_key`; a
 Management token on an inference route: 401 `invalid_api_key`. Management tokens carry their scopes in the name:
 `sk-nano-mgmt-usage…` reads usage only, `…keysread…` / `…presetsread…` read only, `…expired…` / `…revoked…` are rejected
-(401 `invalid_management_token`), anything else holds all scopes (403 `insufficient_scope` otherwise).
+(401 `invalid_management_token`), anything else holds all scopes (403 `insufficient_scope` otherwise). A `write` scope
+includes its `read`; `usage:read` stands alone (a keys token does not read usage). Use fakes like `sk-nano-mgmt-TESTTOKEN`.
+
+## Management API
+
+`/api/management/v1` follows NanoGPT's published contract (`https://nano-gpt.com/management-openapi.json`, version
+2026-09-09-beta): the same fields, ranges and status codes, and the `{ error: { code, message, request_id, details } }`
+envelope. After every start and every `POST /__mock/reset` it holds fixed data:
+
+- keys: `1` "Nanovia main" (USD caps 5/20/50), `2` "Roleplay capped" (request and subscription caps, expires 2099, zdr),
+  `3` "Old test key" (expired, `daily_usd_limit: 0`, legacy `unset` policy); a created key gets id `4`;
+- presets: `rp-fast` and `analyst` (with `thinking`, `prompt_caching` and structured outputs).
+
+Rules it enforces: `Idempotency-Key` (8 to 200 characters) on key creation, a replay answers `Idempotent-Replayed: true`;
+limits are `null` or inside the documented range (USD in steps of 0.0001); `PATCH` needs a field and `null` clears;
+preset names match `^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$` and come back lower-case; `PUT` replaces a whole preset; at most 100
+presets (409), bodies up to 16 KiB (413). Codes the docs name are used as named (`model_preset_not_found`,
+`invalid_preset`, `invalid_preset_name`, `preset_limit_reached`); the others (`idempotency_key_required`,
+`invalid_request`, `not_found`, `payload_too_large`) are guesses, the docs leave them open. `x-mock-error` (401, 429, 500, 503) answers in this envelope too, with `Retry-After` on 429 and 503.
 
 ## Chat behaviour
 
