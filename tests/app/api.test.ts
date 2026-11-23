@@ -44,12 +44,15 @@ describe('NANOVIA_API publication', () => {
         expect((ready.mock.calls[0]?.[0] as CustomEvent).detail).toEqual({ version: 1 });
         expect(api.version).toBe(1);
         expect(api.nanoviaVersion).toBe('1.2.3');
-        expect(api.features).toEqual(['connections']);
+        // Only what is installed is listed: without usage, account and panel services those members are absent.
+        expect(api.features).toEqual(['connections', 'describeProfile', 'describeUrl', 'advice']);
         expect(typeof api.connections).toBe('function');
         expect(typeof api.describeProfile).toBe('function');
         expect(Object.keys(api).sort()).toEqual([
+            'advice',
             'connections',
             'describeProfile',
+            'describeUrl',
             'features',
             'nanoviaVersion',
             'version',

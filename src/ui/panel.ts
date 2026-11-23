@@ -80,6 +80,30 @@ export class SettingsPanel<Ctx> implements PanelApi<Ctx> {
         this.refresh();
     }
 
+    /**
+     * Shows the drawer to the user: opens ST's Extensions panel and the Nanovia drawer in it (each only when it is
+     * closed; ST toggles both from its own delegated click handlers) and selects `tabId` when it is a known tab.
+     * Best effort: a page without the Extensions panel just does nothing.
+     */
+    open(tabId?: string): void {
+        if (tabId) this.select(tabId);
+        if (!this.root && !this.mount()) return;
+        const root = this.root;
+        if (!root || typeof document === 'undefined') return;
+        try {
+            const block = document.getElementById('rm_extensions_block');
+            const opener = document.querySelector<HTMLElement>('#extensions-settings-button .drawer-toggle');
+            if (opener && block && !block.classList.contains('openDrawer')) opener.click();
+            const header = root.querySelector<HTMLElement>('.inline-drawer-toggle');
+            const icon = root.querySelector('.inline-drawer-icon');
+            // ST flips `down` <-> `up` on the icon each time it toggles the drawer.
+            if (header && icon?.classList.contains('down')) header.click();
+            root.scrollIntoView?.({ block: 'start', behavior: 'smooth' });
+        } catch (error) {
+            this.deps.log.debug('could not open the Nanovia drawer', error);
+        }
+    }
+
     activeTab(): string {
         return this.activeId;
     }

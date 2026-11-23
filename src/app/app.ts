@@ -1,6 +1,8 @@
 // Builds the App: host doors, core services, the panel, the features and the public API. The only place that knows
 // every layer.
 import { version as packageVersion } from '../../package.json';
+import { createAccountStore } from '../core/account';
+import type { AccountStore } from '../core/account';
 import { createBus } from '../core/bus';
 import { createConnectionsService } from '../core/connections';
 import type { ConnectionsService } from '../core/connections';
@@ -10,9 +12,12 @@ import { createI18n, hostLocale } from '../core/i18n';
 import { ConsoleLogger, createLogger } from '../core/logger';
 import { Settings } from '../core/settings';
 import type { Unsubscribe } from '../core/types';
+import { createUsageStore } from '../core/usage';
+import type { UsageStore } from '../core/usage';
 import { FEATURES } from '../features';
 import {
     createHost,
+    createPluginAccount,
     createPluginClient,
     createProfilesHost,
     createSecretsHost,
@@ -30,6 +35,8 @@ export interface Runtime {
     ctx: FeatureContext;
     settings: Settings;
     connections: ConnectionsService;
+    usage: UsageStore;
+    account: AccountStore;
     panel: SettingsPanel<FeatureContext>;
     api: ApiPublisher;
     stop(): Promise<void>;
@@ -89,6 +96,11 @@ export async function startNanovia(options: StartOptions = {}): Promise<Runtime>
 
     const catalog = createEmptyCatalogStore();
 
+    // Money and the account (stage 0.4): both read the plugin through the same typed calls.
+    const pluginAccount = createPluginAccount({ client: plugin });
+    const usage = createUsageStore({ bus, account: pluginAccount, connections, log: log.scope('usage') });
+    const account = createAccountStore({ account: pluginAccount, connections, log: log.scope('account') });
+
     // The panel hands the context to its tabs lazily and the context carries the panel: fill it in after both exist.
     const ctx = {} as FeatureContext;
     const panel = new SettingsPanel<FeatureContext>({
@@ -105,6 +117,8 @@ export async function startNanovia(options: StartOptions = {}): Promise<Runtime>
         plugin,
         connections,
         catalog,
+        usage,
+        account,
         profiles,
         secrets,
         registerRequestHook: (hook) => requests.register(hook),
@@ -115,7 +129,7 @@ export async function startNanovia(options: StartOptions = {}): Promise<Runtime>
         log,
     } satisfies FeatureContext);
 
-    const owned: Unsubscribe[] = [];
+    const owned: Unsubscribe[] = [() => usage.dispose()];
     owned.push(panel.registerTab(generalTab<FeatureContext>({ settings, i18n, version: NANOVIA_VERSION })));
 
     const running: Feature[] = [];
@@ -146,12 +160,20 @@ export async function startNanovia(options: StartOptions = {}): Promise<Runtime>
         connections,
         profiles,
         settings,
+        catalog,
+        usage,
+        account,
+        panel: { open: (tab) => panel.open(tab) },
         log: log.scope('api'),
     });
     api.publish();
 
     if (!options.skipInitialRefresh) {
-        void connections.refresh().catch((error: unknown) => log.error('first refresh failed', error));
+        // The plugin is asked first, so the usage store knows whether it may ask for today's summary.
+        void connections
+            .refresh()
+            .then(() => usage.refresh())
+            .catch((error: unknown) => log.error('first refresh failed', error));
     }
     log.info(`${NANOVIA_VERSION} started`);
 
@@ -159,6 +181,8 @@ export async function startNanovia(options: StartOptions = {}): Promise<Runtime>
         ctx,
         settings,
         connections,
+        usage,
+        account,
         panel,
         api,
         async stop() {

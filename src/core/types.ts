@@ -81,4 +81,6 @@ export interface TabDefinition<Ctx = unknown> {
 
 export interface PanelApi<Ctx = unknown> {
     registerTab(tab: TabDefinition<Ctx>): Unsubscribe;
+    /** Opens the Nanovia drawer in ST's Extensions panel, at the tab `tabId` when it exists. */
+    open?(tabId?: string): void;
 }

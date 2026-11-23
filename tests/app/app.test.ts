@@ -6,9 +6,12 @@ import type { Feature } from '../../src/core/context';
 import { SETTINGS_KEY } from '../../src/core/settings';
 import { NANOVIA_API_GLOBAL } from '../../src/shared/constants';
 import type { NanoviaApi } from '../../src/shared/contracts';
+import { createAccountFake, usageRecord } from '../helpers/account-fake';
+import type { AccountFake } from '../helpers/account-fake';
 import { createFakeBackend, seedConnection } from '../helpers/fake-backend';
 import type { FakeBackend } from '../helpers/fake-backend';
-import { flush } from '../helpers/fakes';
+import { flush, memoryLogger } from '../helpers/fakes';
+import type { Harness } from '../helpers/harness';
 import { installStMock, seedConnectionManager } from '../helpers/st-mock';
 import type { StMock } from '../helpers/st-mock';
 
@@ -98,7 +101,15 @@ describe('startNanovia', () => {
         runtime = await startNanovia({ features, skipInitialRefresh: true });
         expect(seen[0]).toMatch(/^\d/);
         expect(seen.slice(1)).toEqual(['function', 'function', 'function']);
-        expect((globals[NANOVIA_API_GLOBAL] as NanoviaApi).features).toEqual(['fine']);
+        expect((globals[NANOVIA_API_GLOBAL] as NanoviaApi).features).toEqual([
+            'fine',
+            'describeProfile',
+            'describeUrl',
+            'usage',
+            'account',
+            'advice',
+            'panel',
+        ]);
         await runtime.stop();
         expect(cleanup).toHaveBeenCalledOnce();
         runtime = null;
@@ -198,5 +209,88 @@ describe('startNanovia', () => {
         const stored = mock.extensionSettings[SETTINGS_KEY];
         expect(JSON.stringify(stored)).not.toContain('sk-nano-never-in-settings-0001');
         expect(JSON.stringify(mock.extensionSettings)).not.toContain('sk-nano-never-in-settings-0001');
+    });
+});
+
+describe('account, usage and the panel API', () => {
+    let fake: AccountFake;
+
+    beforeEach(() => {
+        fake = createAccountFake({ backend, mock, log: memoryLogger() } as unknown as Harness);
+        mock.fetchImpl = fake.fetch;
+    });
+
+    it('registers the Account tab and publishes usage, account and openPanel', async () => {
+        runtime = await startNanovia({ skipInitialRefresh: true });
+        expect(runtime.panel.tabIds()).toContain('account');
+        const api = globals[NANOVIA_API_GLOBAL] as NanoviaApi;
+        expect(api.features).toEqual(expect.arrayContaining(['account', 'usage', 'advice', 'panel', 'describeUrl']));
+        expect(typeof api.usage?.today).toBe('function');
+        expect(typeof api.account?.refresh).toBe('function');
+        expect(typeof api.advice?.backgroundProfile).toBe('function');
+        expect(typeof api.openPanel).toBe('function');
+    });
+
+    it("loads today's usage from the plugin once, after the first answer of the plugin", async () => {
+        fake.records.push(
+            usageRecord({ at: Date.now() - 1000, costUsd: 0.75, equivalentUsd: 1.5, requestId: 'srv-1' }),
+        );
+        runtime = await startNanovia();
+        await flush();
+        await flush();
+        const calls = fake.callsTo('GET /spend');
+        expect(calls).toHaveLength(1);
+        expect(calls[0]?.path).toMatch(/^\/spend\?from=\d+&to=\d+$/);
+        expect(runtime.usage.today()).toMatchObject({ requests: 1, costUsd: 0.75, equivalentUsd: 1.5 });
+        expect(fake.callsTo('GET /account')).toHaveLength(0);
+    });
+
+    it('does not ask a dead plugin for usage', async () => {
+        backend.plugin.up = false;
+        runtime = await startNanovia();
+        await flush();
+        await flush();
+        expect(fake.callsTo('GET /spend')).toHaveLength(0);
+        expect(runtime.usage.state().pluginLoaded).toBe(false);
+    });
+
+    it('counts the requests the browser sees (direct mode) and tells the API listeners', async () => {
+        runtime = await startNanovia({ skipInitialRefresh: true });
+        const api = globals[NANOVIA_API_GLOBAL] as NanoviaApi;
+        const seen: string[] = [];
+        api.usage?.onRecord((record) => seen.push(record.model));
+        await runtime.ctx.bus.emit('usage:record', {
+            record: usageRecord({ at: Date.now(), model: 'direct/model', costUsd: 0.2, equivalentUsd: 0.2 }),
+        });
+        expect(seen).toEqual(['direct/model']);
+        expect(api.usage?.recent(1)[0]?.model).toBe('direct/model');
+    });
+
+    it('opens the drawer at a tab through the API', async () => {
+        runtime = await startNanovia({ skipInitialRefresh: true });
+        const api = globals[NANOVIA_API_GLOBAL] as NanoviaApi;
+        api.openPanel?.('account');
+        expect(runtime.panel.activeTab()).toBe('account');
+        api.openPanel?.('general');
+        expect(runtime.panel.activeTab()).toBe('general');
+        api.openPanel?.('no-such-tab');
+        expect(runtime.panel.activeTab()).toBe('general');
+    });
+
+    it('stops polling when the app stops', async () => {
+        vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+        try {
+            runtime = await startNanovia({ skipInitialRefresh: true });
+            runtime.panel.select('account');
+            await flush();
+            const before = fake.callsTo('GET /spend').length;
+            expect(before).toBeGreaterThan(0);
+            await runtime.stop();
+            runtime = null;
+            await vi.advanceTimersByTimeAsync(5 * 60_000);
+            expect(fake.callsTo('GET /spend')).toHaveLength(before);
+        } finally {
+            vi.useRealTimers();
+        }
     });
 });

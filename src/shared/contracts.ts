@@ -341,6 +341,7 @@ export interface AdviceIssue {
 
 /** Advice for using a profile as a background profile (extraction, summaries, JSON tasks). */
 export interface BackgroundAdvice {
+    /** true when no issue is a warning (information notes alone keep it true). */
     ok: boolean;
     issues: AdviceIssue[];
     /** Catalog ids that reason optionally and support structured output: good for background work. */
@@ -349,7 +350,8 @@ export interface BackgroundAdvice {
 
 /**
  * `globalThis.NANOVIA_API`. `version` stays 1; members are only ever added; consumers feature-detect through
- * `features` (strings: 'connections', 'describeProfile', 'usage', 'account', 'advice', 'panel') or the member itself.
+ * `features` (strings: 'connections', 'describeProfile', 'describeUrl', 'usage', 'account', 'advice', 'panel', plus the
+ * ids of the panel tabs that run) or the member itself.
  * Installed after the extension is ready; `NANOVIA_API_READY_EVENT` is dispatched on `window` once it is.
  */
 export interface NanoviaApi {
@@ -364,7 +366,11 @@ export interface NanoviaApi {
      * known): the proxy URL of a Nanovia connection resolves to its description, anything else to null.
      */
     describeUrl?(apiUrl: string): ProfileDescription | null;
-    /** feature 'usage': what the proxy or the browser hook has seen; sync reads from an in-memory window. */
+    /**
+     * feature 'usage': what the proxy or the browser hook has seen; sync reads from an in-memory window.
+     * `today()` is the plugin's log since local midnight plus what the browser saw (it may start a background reload of
+     * the plugin's part, at most once a minute); `recent` lists the browser's latest requests, newest first (default 50).
+     */
     usage?: {
         today(): UsageTotals;
         recent(limit?: number): UsageRecord[];
