@@ -98,7 +98,8 @@ export function parseSubscriptionState(raw: unknown, now: number): SubscriptionS
     if (!isRecord(raw)) return null;
     const subscription = raw['subscription'];
     // `null` is a valid answer (no subscription); anything else must be a quota document.
-    if (subscription !== null && subscription !== undefined && parseSubscriptionUsage(subscription) === null) return null;
+    if (subscription !== null && subscription !== undefined && parseSubscriptionUsage(subscription) === null)
+        return null;
     return {
         subscription: subscription ? parseSubscriptionUsage(subscription) : null,
         fetchedAt: numberOf(raw['fetchedAt']) ?? now,
@@ -185,7 +186,11 @@ export function createPluginAccount(deps: PluginAccountDeps): PluginAccount {
     return {
         async balance(keyId) {
             const path = `/account/balance${query({ keyId })}`;
-            return map(await client.request('GET', path, undefined, NANOGPT_TIMEOUT_MS), (d) => parseBalance(d, now()), 'balance');
+            return map(
+                await client.request('GET', path, undefined, NANOGPT_TIMEOUT_MS),
+                (d) => parseBalance(d, now()),
+                'balance',
+            );
         },
 
         async subscription(keyId) {

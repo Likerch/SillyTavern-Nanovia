@@ -136,7 +136,10 @@ describe('spend', () => {
             to: 2,
             total: totals,
             byDay: [{ day: '2026-01-01', ...totals }, { day: 5, ...totals }, 'junk'],
-            byConnection: [{ connectionId: null, ...totals }, { connectionId: 'abc', requests: 'x' }],
+            byConnection: [
+                { connectionId: null, ...totals },
+                { connectionId: 'abc', requests: 'x' },
+            ],
             byModel: 'not a list',
         });
         expect(parsed?.byDay.map((row) => row.day)).toEqual(['2026-01-01']);

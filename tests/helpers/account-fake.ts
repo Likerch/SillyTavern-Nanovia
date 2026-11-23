@@ -53,8 +53,7 @@ export function createAccountFake(h: Harness): AccountFake {
         lookups: new Map(),
         fail: new Map(),
         calls: [],
-        callsTo: (route) =>
-            fake.calls.filter((call) => `${call.method} ${call.path.split('?')[0]}`.startsWith(route)),
+        callsTo: (route) => fake.calls.filter((call) => `${call.method} ${call.path.split('?')[0]}`.startsWith(route)),
     };
     let clock = 1_800_000_000_000;
 
