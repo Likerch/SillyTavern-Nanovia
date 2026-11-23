@@ -1,5 +1,7 @@
 // Stage 0.4 contracts: balance, subscription quota, usage and cost summaries, request cost lookup. Types only; the
 // shared contract file of the stage so parallel branches never edit contracts.ts (docs/ARCHITECTURE.md §6).
+import type { UsageTotals } from './contracts';
+
 // Money is always USD unless a field says otherwise. `costUsd` is real money (0 = the subscription covered the request);
 // `equivalentUsd` is what the same request would cost at pay-as-you-go prices and never counts toward a spend cap.
 
@@ -48,17 +50,8 @@ export interface SubscriptionState {
 
 /* ------------------------------------------------------------------------------------------------ usage summary */
 
-/** Sums over a set of usage records. Unknown (null) values count as 0; `requests` counts every record, failed ones too. */
-export interface UsageTotals {
-    requests: number;
-    /** Real money in USD. Subscription requests are counted in `requests` and add 0 here. */
-    costUsd: number;
-    /** Pay-as-you-go equivalent in USD, kept apart from `costUsd`. */
-    equivalentUsd: number;
-    promptTokens: number;
-    completionTokens: number;
-    cachedTokens: number;
-}
+/** Sums over a set of usage records (defined in contracts.ts, re-exported here). */
+export type { UsageTotals };
 
 export interface DayUsage extends UsageTotals {
     /** Calendar day `YYYY-MM-DD` in the zone the caller's `dayOf` uses. */
