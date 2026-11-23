@@ -297,6 +297,9 @@ export function createConnectionsService(deps: ConnectionsDeps): ConnectionsServ
                 : null;
         const spec = kept ?? specFor(config, mode);
         if (!spec) return { code: mode === 'plugin' ? 'profile_needs_token' : 'profile_needs_key' };
+        // The plugin wrote the token behind the page's back: let ST's secret list learn of it before a profile points
+        // at it (Connection Manager selects the secret of a profile from that list).
+        await secrets.sync();
         const result = await profiles.upsert(settings.get().profiles[config.id] ?? null, spec);
         if (!result.ok) return { code: result.reason === 'unavailable' ? 'profile_unavailable' : 'profile_failed' };
         if (settings.get().profiles[config.id] !== result.profileId) {
@@ -386,6 +389,8 @@ export function createConnectionsService(deps: ConnectionsDeps): ConnectionsServ
                 for (const view of list.data) views.set(view.id, view);
                 await pushPending();
                 syncMirror();
+                // Tokens may have been written behind the page's back; profiles are repaired against ST's list.
+                await secrets.sync();
                 await reconcileProfiles();
             } else {
                 up = false;

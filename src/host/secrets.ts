@@ -17,6 +17,12 @@ export interface SecretsHost {
     remove(id: string): Promise<boolean>;
     /** Whether a secret with this id still exists; null when ST could not be asked. */
     has(id: string): Promise<boolean | null>;
+    /**
+     * Makes ST's own (client-side) secret list match the server. The plugin writes proxy tokens into the secret store
+     * behind the page's back; Connection Manager applies a profile's `secret-id` from that list, so a token the page
+     * has not seen cannot be selected and the request goes out with whatever Custom key was active. Never throws.
+     */
+    sync(): Promise<void>;
 }
 
 export interface SecretsHostDeps {
@@ -128,5 +134,7 @@ export function createSecretsHost(deps: SecretsHostDeps): SecretsHost {
             const state = await readState();
             return state === null ? null : state.some((item) => item.id === id);
         },
+
+        sync: changed,
     };
 }

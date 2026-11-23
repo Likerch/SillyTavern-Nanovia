@@ -982,7 +982,8 @@ function createSecretsHost(deps) {
 		async has(id) {
 			const state = await readState();
 			return state === null ? null : state.some((item) => item.id === id);
-		}
+		},
+		sync: changed
 	};
 }
 // src/host/yaml-merge.ts
@@ -1511,6 +1512,7 @@ function createConnectionsService(deps) {
 			secretId: keep["secret-id"]
 		} : null) ?? specFor(config, mode);
 		if (!spec) return { code: mode === "plugin" ? "profile_needs_token" : "profile_needs_key" };
+		await secrets.sync();
 		const result = await profiles.upsert(settings.get().profiles[config.id] ?? null, spec);
 		if (!result.ok) return { code: result.reason === "unavailable" ? "profile_unavailable" : "profile_failed" };
 		if (settings.get().profiles[config.id] !== result.profileId) settings.update((s) => {
@@ -1588,6 +1590,7 @@ function createConnectionsService(deps) {
 				for (const view of list.data) views.set(view.id, view);
 				await pushPending();
 				syncMirror();
+				await secrets.sync();
 				await reconcileProfiles();
 			} else {
 				up = false;

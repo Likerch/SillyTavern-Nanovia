@@ -26,7 +26,8 @@
     "deploy:local": "node scripts/deploy-local.mjs",
     "stand": "node tools/stand/stand.mjs",
     "stand:stop": "node tools/stand/stand.mjs stop",
-    "fixtures:refresh": "node tools/fixtures/refresh.mjs"
+    "fixtures:refresh": "node tools/fixtures/refresh.mjs",
+    "test:live": "vitest run --config vitest.live.config.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

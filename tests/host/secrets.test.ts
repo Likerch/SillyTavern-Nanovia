@@ -156,3 +156,27 @@ describe('remove and has', () => {
         expect(JSON.stringify(log.lines)).not.toContain(KEY);
     });
 });
+
+describe('sync', () => {
+    it("asks ST's own secret list to catch up with the server", async () => {
+        await secrets.sync();
+        expect(afterChange).toHaveBeenCalledOnce();
+    });
+
+    it('never throws when the refresh fails', async () => {
+        const failing = createSecretsHost({
+            ctx: () => mock.context,
+            log,
+            fetchImpl: backend.fetch,
+            afterChange: async () => {
+                throw new Error('module gone');
+            },
+        });
+        await expect(failing.sync()).resolves.toBeUndefined();
+    });
+
+    it('is a no-op without a refresh hook', async () => {
+        const bare = createSecretsHost({ ctx: () => mock.context, log, fetchImpl: backend.fetch });
+        await expect(bare.sync()).resolves.toBeUndefined();
+    });
+});

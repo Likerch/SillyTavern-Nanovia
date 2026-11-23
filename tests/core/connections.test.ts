@@ -636,3 +636,20 @@ describe('operations do not interleave', () => {
         expect(h.connections.list().map((e) => e.config.name)).toEqual(['First', 'Second']);
     });
 });
+
+describe("ST's secret list", () => {
+    it('is synced before a profile is pointed at a token the plugin wrote behind the page', async () => {
+        const sync = vi.spyOn(h.secrets, 'sync');
+        const upsert = vi.spyOn(h.profiles, 'upsert');
+        await createPluginConnection();
+        expect(sync).toHaveBeenCalled();
+        expect(upsert).toHaveBeenCalled();
+        expect(sync.mock.invocationCallOrder[0]).toBeLessThan(upsert.mock.invocationCallOrder[0] as number);
+    });
+
+    it('is synced when the list of connections is refreshed', async () => {
+        const sync = vi.spyOn(h.secrets, 'sync');
+        await h.connections.refresh();
+        expect(sync).toHaveBeenCalled();
+    });
+});
