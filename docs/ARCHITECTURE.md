@@ -215,6 +215,19 @@ a model, a system prompt and sampling and reasoning settings.
   keys 1-3 and presets `rp-fast`, `analyst`, and has scoped fake tokens (`sk-nano-mgmt-usage…`, `…keysread…`, `…presetsread…`,
   `…expired…`, `…revoked…`). Tests and fixtures use only fakes such as `sk-nano-mgmt-TESTTOKEN`.
 
+### The browser's side
+
+`src/host/plugin-mgmt.ts` is the typed, tolerant client over `plugin.request` (never throws; the `mgmt_*` codes and the other codes of
+the route table become a closed `MgmtErrorKind` the UI switches on), `src/core/mgmt.ts` the `MgmtStore` on `FeatureContext.mgmt`
+(status, keys, presets, a 30 s cache, a reload of the list after every write), `src/features/mgmt/` the «Management» tab (order 350,
+between «Keys» and «Account»: token card, managed keys, model presets). The token is write-only in the browser too: the password
+field is the only place the value lives, `saveToken(token)` hands it to the plugin and the store keeps nothing but the status. The
+field is cleared when the plugin took the token or NanoGPT refused it, and kept (never shown) only when the call could not decide
+(NanoGPT unreachable, a rate limit, the plugin not answering), so «save anyway» (`PUT /mgmt/token?force=1`) needs no second paste;
+«save anyway» is never offered for a token NanoGPT rejected. The forms validate with the plugin's own `domain/mgmt.ts` checks, so a
+refusal in the form is what the plugin would answer, and a key edit sends only the fields that changed. `NANOVIA_API.mgmt.status()`
+returns `{ present, valid }` and nothing else.
+
 ### Not verified against NanoGPT (assumptions, listed on purpose)
 
 No NanoGPT key or Management token was available, so nothing here was exercised against the live service; everything follows

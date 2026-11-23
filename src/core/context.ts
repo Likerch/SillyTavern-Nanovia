@@ -4,6 +4,7 @@ import type { AccountStore } from './account';
 import type { CatalogStore } from './catalog';
 import type { ConnectionsService } from './connections';
 import type { DoctorService } from './doctor';
+import type { MgmtStore } from './mgmt';
 import type { Bus, I18n, I18nParams, Logger, PanelApi, SettingsService } from './types';
 import type { UsageStore } from './usage';
 
@@ -25,6 +26,8 @@ export interface FeatureContext {
     account: AccountStore;
     /** The checks of the whole setup, with one-click fixes (stage 0.6). */
     doctor: DoctorService;
+    /** NanoGPT's Management API through the plugin: the write-only token, managed keys with limits, model presets (stage 0.6). */
+    mgmt: MgmtStore;
     /** Connection Manager profile host. */
     profiles: ProfilesHost;
     /** Write-only access to ST's secret store, for direct mode. */

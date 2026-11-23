@@ -107,6 +107,7 @@ describe('startNanovia', () => {
             'describeUrl',
             'usage',
             'account',
+            'mgmt',
             'advice',
             'doctor',
             'panel',

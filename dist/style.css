@@ -951,6 +951,177 @@
     margin: 0;
     box-sizing: border-box;
 }
+/* Tab «Management». Shared pieces (cards, chips, notices, banners, tables, fields) live in ui/style.css and the other tabs. */
+
+.nanovia-mgmt-top {
+    margin-bottom: var(--nanovia-gap-sm);
+}
+
+.nanovia-mgmt-beta {
+    margin-bottom: var(--nanovia-gap-sm);
+}
+
+.nanovia-mgmt-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--nanovia-gap-sm);
+    margin-top: var(--nanovia-gap);
+    padding-top: var(--nanovia-gap-sm);
+    border-top: 1px solid var(--nanovia-border);
+}
+
+.nanovia-mgmt-title {
+    margin: 0;
+}
+
+.nanovia-mgmt-head {
+    justify-content: space-between;
+}
+
+.nanovia-mgmt-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--nanovia-gap-sm);
+    min-width: 0;
+}
+
+.nanovia-mgmt-tokenstatus {
+    display: flex;
+    flex-direction: column;
+    gap: var(--nanovia-gap-sm);
+}
+
+.nanovia-mgmt-tokenform {
+    display: flex;
+    flex-direction: column;
+    gap: var(--nanovia-gap-sm);
+}
+
+.nanovia-mgmt-tokenform > input {
+    width: 100%;
+    margin: 0;
+    box-sizing: border-box;
+}
+
+.nanovia-mgmt-anyway {
+    display: flex;
+    flex-direction: column;
+    gap: var(--nanovia-gap-sm);
+    align-items: flex-start;
+}
+
+.nanovia-mgmt-steps,
+.nanovia-mgmt-scopes {
+    margin: var(--nanovia-gap-sm) 0;
+    padding-left: 1.4em;
+}
+
+.nanovia-mgmt-name,
+.nanovia-mgmt-model,
+.nanovia-mgmt-fixedname {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.nanovia-mgmt-limits-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.nanovia-mgmt-cards {
+    margin-top: 0;
+}
+
+.nanovia-mgmt-from {
+    align-items: stretch;
+}
+
+.nanovia-mgmt-from > select {
+    flex: 1 1 10em;
+    min-width: 0;
+    margin: 0;
+}
+
+.nanovia-mgmt-form {
+    padding: 8px 10px;
+    border: 1px solid var(--nanovia-accent);
+    border-radius: var(--nanovia-radius);
+    background: var(--nanovia-raised);
+}
+
+.nanovia-mgmt-group {
+    margin: var(--nanovia-gap-sm) 0;
+    padding: 4px 10px 8px;
+    border: 1px solid var(--nanovia-border);
+    border-radius: var(--nanovia-radius-sm);
+    min-width: 0;
+}
+
+.nanovia-mgmt-group > legend {
+    padding: 0 6px;
+    font-weight: bold;
+}
+
+.nanovia-mgmt-group textarea {
+    width: 100%;
+    box-sizing: border-box;
+    margin: 0;
+}
+
+.nanovia-mgmt-limits {
+    width: 100%;
+    table-layout: fixed;
+}
+
+.nanovia-mgmt-limits th,
+.nanovia-mgmt-limits td {
+    padding: 3px 4px;
+    white-space: normal;
+}
+
+.nanovia-mgmt-limits th:first-child {
+    width: 28%;
+}
+
+/* The column heads sit over their inputs, not at the right edge of the cell. */
+.nanovia-mgmt-limits thead th {
+    text-align: left;
+    font-weight: normal;
+}
+
+.nanovia-mgmt-limits input {
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    box-sizing: border-box;
+}
+
+.nanovia-mgmt-kind {
+    text-align: left;
+    font-weight: normal;
+    overflow-wrap: anywhere;
+}
+
+.nanovia-mgmt input[aria-invalid='true'],
+.nanovia-mgmt-form [aria-invalid='true'] {
+    border-color: var(--nanovia-error);
+}
+
+.nanovia-mgmt-issues {
+    margin: var(--nanovia-gap-sm) 0;
+    padding-left: 1.4em;
+}
+
+.nanovia-mgmt-gate {
+    padding: 4px 0;
+}
+
+@media (max-width: 767px) {
+    .nanovia-mgmt-group {
+        padding: 4px 6px 8px;
+    }
+}
 /* Tab «Routing». Shared pieces (chips, fields, buttons, notices) live in ui/style.css and features/connections. */
 
 .nanovia-routing-bar {

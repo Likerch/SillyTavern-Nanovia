@@ -6,6 +6,8 @@ import type { FeatureContext } from '../../src/core/context';
 import { createDoctorService } from '../../src/core/doctor';
 import type { DoctorDeps } from '../../src/core/doctor';
 import { createI18n } from '../../src/core/i18n';
+import { createMgmtStore } from '../../src/core/mgmt';
+import type { MgmtStore } from '../../src/core/mgmt';
 import type { Locale } from '../../src/core/types';
 import { createUsageStore } from '../../src/core/usage';
 import type { UsageStore } from '../../src/core/usage';
@@ -16,6 +18,8 @@ import { UI_STRINGS } from '../../src/ui/strings';
 import { createAccountFake } from './account-fake';
 import type { AccountFake } from './account-fake';
 import type { Harness } from './harness';
+import { createMgmtFake } from './mgmt-fake';
+import type { MgmtFake } from './mgmt-fake';
 
 export interface TestContext {
     ctx: FeatureContext;
@@ -24,6 +28,9 @@ export interface TestContext {
     fake: AccountFake;
     usage: UsageStore;
     account: AccountStore;
+    /** The stage 0.6 routes of the fake plugin (Management token, keys, presets). */
+    mgmtFake: MgmtFake;
+    mgmt: MgmtStore;
 }
 
 /**
@@ -57,6 +64,8 @@ export function createContext(
         qvink: () => 'absent',
         ...doctor,
     });
+    const mgmtFake = createMgmtFake(h);
+    const mgmt = createMgmtStore({ mgmt: mgmtFake.mgmt, connections: h.connections, log: h.log });
     const ctx: FeatureContext = {
         version: '0.0.0-test',
         host,
@@ -67,6 +76,7 @@ export function createContext(
         usage,
         account,
         doctor: doctorService,
+        mgmt,
         profiles: h.profiles,
         secrets: h.secrets,
         registerRequestHook: () => () => {},
@@ -76,5 +86,5 @@ export function createContext(
         bus: h.bus,
         log: h.log,
     };
-    return { ctx, setLocale: (value) => void (locale = value), fake, usage, account };
+    return { ctx, setLocale: (value) => void (locale = value), fake, usage, account, mgmtFake, mgmt };
 }

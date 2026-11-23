@@ -5,6 +5,7 @@ import { catalogFeature } from './catalog';
 import { connectionsFeature } from './connections';
 import { doctorFeature } from './doctor';
 import { keysFeature } from './keys';
+import { mgmtFeature } from './mgmt';
 import { routingFeature } from './routing';
 
 export const FEATURES: Feature[] = [
@@ -12,6 +13,7 @@ export const FEATURES: Feature[] = [
     catalogFeature,
     routingFeature,
     keysFeature,
+    mgmtFeature,
     accountFeature,
     doctorFeature,
 ];

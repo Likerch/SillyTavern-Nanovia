@@ -110,14 +110,22 @@ export const KEY_LIMIT_RANGES: Record<KeyLimitKind, { integer: boolean; max: Rec
 export const KEY_NAME_MAX_LENGTH = 120;
 const USD_STEP = 10_000;
 
-const ZDR_POLICIES: readonly KeyZdrPolicy[] = ['zdr', 'off', 'unset'];
-const REASONING_EFFORTS: readonly ReasoningEffort[] = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
-const RESPONSE_FORMATS: readonly PresetResponseFormat[] = ['text', 'json_object'];
-const REASONING_SUMMARIES: readonly PresetReasoningSummary[] = ['auto', 'concise', 'detailed'];
-const VERBOSITIES: readonly PresetVerbosity[] = ['low', 'medium', 'high'];
-const ROUTINGS: readonly PresetRouting[] = ['auto', 'speed', 'throughput', 'latency', 'price', 'caching'];
-const SERVICE_TIERS: readonly PresetServiceTier[] = ['auto', 'default', 'flex', 'priority', 'ultrafast'];
-const CACHE_TTLS: readonly ('5m' | '1h')[] = ['5m', '1h'];
+export const ZDR_POLICIES: readonly KeyZdrPolicy[] = ['zdr', 'off', 'unset'];
+export const REASONING_EFFORTS: readonly ReasoningEffort[] = [
+    'none',
+    'minimal',
+    'low',
+    'medium',
+    'high',
+    'xhigh',
+    'max',
+];
+export const RESPONSE_FORMATS: readonly PresetResponseFormat[] = ['text', 'json_object'];
+export const REASONING_SUMMARIES: readonly PresetReasoningSummary[] = ['auto', 'concise', 'detailed'];
+export const VERBOSITIES: readonly PresetVerbosity[] = ['low', 'medium', 'high'];
+export const ROUTINGS: readonly PresetRouting[] = ['auto', 'speed', 'throughput', 'latency', 'price', 'caching'];
+export const SERVICE_TIERS: readonly PresetServiceTier[] = ['auto', 'default', 'flex', 'priority', 'ultrafast'];
+export const CACHE_TTLS: readonly ('5m' | '1h')[] = ['5m', '1h'];
 
 export const PRESET_NAME_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$/;
 export const PRESET_MODEL_MAX_LENGTH = 256;

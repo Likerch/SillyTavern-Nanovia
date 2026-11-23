@@ -6,6 +6,7 @@ import { backgroundAdvice, canDisableReasoning, qvinkInstalled as detectQvink } 
 import type { CatalogStore } from '../core/catalog';
 import type { ConnectionEntry, ConnectionsService } from '../core/connections';
 import type { DoctorService } from '../core/doctor';
+import type { MgmtStore } from '../core/mgmt';
 import type { Logger, SettingsService } from '../core/types';
 import type { UsageStore } from '../core/usage';
 import { parseProxyUrl } from '../host';
@@ -29,6 +30,8 @@ export interface ApiDeps {
     account?: AccountStore;
     /** Installed: `api.doctor` and the feature 'doctor'. */
     doctor?: DoctorService;
+    /** Installed: `api.mgmt` and the feature 'mgmt'. */
+    mgmt?: MgmtStore;
     /** Installed: `api.openPanel` and the feature 'panel'. */
     panel?: { open(tab?: string): void };
     /** Replaced in tests; defaults to looking for Qvink's global interceptor. */
@@ -54,7 +57,7 @@ function capabilitiesOf(model: CatalogModel | null): ProfileDescription['capabil
 }
 
 export function createApiPublisher(deps: ApiDeps): ApiPublisher {
-    const { connections, profiles, settings, catalog, usage, account, doctor, panel, log } = deps;
+    const { connections, profiles, settings, catalog, usage, account, doctor, mgmt, panel, log } = deps;
     const qvinkInstalled = deps.qvinkInstalled ?? detectQvink;
 
     /** The connection a Connection Manager profile belongs to: by the id we stored, then by a proxy URL it carries. */
@@ -115,6 +118,7 @@ export function createApiPublisher(deps: ApiDeps): ApiPublisher {
         const list = [...deps.features(), 'describeProfile', 'describeUrl'];
         if (usage) list.push('usage');
         if (account) list.push('account');
+        if (mgmt) list.push('mgmt');
         list.push('advice');
         if (doctor) list.push('doctor');
         if (panel) list.push('panel');
@@ -141,6 +145,15 @@ export function createApiPublisher(deps: ApiDeps): ApiPublisher {
         api.account = { snapshot: () => account.snapshot(), refresh: () => account.refresh() };
     }
     if (doctor) api.doctor = () => doctor.brief();
+    if (mgmt) {
+        api.mgmt = {
+            status: () => {
+                // Nothing known yet (the panel was never opened): start reading, the next call knows.
+                mgmt.warm();
+                return mgmt.brief();
+            },
+        };
+    }
     if (panel) {
         api.openPanel = (tab) => {
             try {

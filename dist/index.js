@@ -384,6 +384,8 @@ var PROXY_HOST = "127.0.0.1";
 /** NanoGPT API bases. `api.nano-gpt.com` is IPv4-only and takes bodies up to 32 MiB; `nano-gpt.com` is the fallback. */
 var NANOGPT_API_BASE = "https://api.nano-gpt.com/api/v1";
 var NANOGPT_API_BASE_FALLBACK = "https://nano-gpt.com/api/v1";
+/** Every Management token starts with this; a normal inference key (`sk-nano-<uuid>`) does not work there. */
+var MGMT_TOKEN_PREFIX = "sk-nano-mgmt-";
 var SECRET_KEY_CUSTOM = "api_key_custom";
 /** Prefix of the label of every secret Nanovia writes into ST's secret store. */
 var SECRET_LABEL_PREFIX = "Nanovia: ";
@@ -415,7 +417,7 @@ function isRecord$10(value) {
 function str(value) {
 	return typeof value === "string" ? value : null;
 }
-function invalid$2(what) {
+function invalid$3(what) {
 	return {
 		ok: false,
 		error: {
@@ -559,7 +561,7 @@ function createPluginClient(deps) {
 				};
 			}
 			noteAnswered();
-			if (!parsedOk) return invalid$2("response (not JSON)");
+			if (!parsedOk) return invalid$3("response (not JSON)");
 			return {
 				ok: true,
 				data: json
@@ -581,7 +583,7 @@ function createPluginClient(deps) {
 	function map(result, read, what) {
 		if (!result.ok) return result;
 		const value = read(result.data);
-		return value === null ? invalid$2(what) : {
+		return value === null ? invalid$3(what) : {
 			ok: true,
 			data: value
 		};
@@ -885,7 +887,7 @@ function preferPositive(...values) {
 /** NanoGPT answers within 15 s on the plugin's side; the browser waits a little longer than that. */
 var NANOGPT_TIMEOUT_MS = 2e4;
 var SPEND_TIMEOUT_MS = 15e3;
-function invalid$1(what) {
+function invalid$2(what) {
 	return {
 		ok: false,
 		error: {
@@ -897,7 +899,7 @@ function invalid$1(what) {
 }
 var DECIMAL = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/;
 /** A finite number from a JSON number or a decimal string; null otherwise. */
-function numberOf(value) {
+function numberOf$1(value) {
 	if (typeof value === "number") return Number.isFinite(value) ? value : null;
 	if (typeof value === "string" && DECIMAL.test(value.trim())) {
 		const n = Number(value.trim());
@@ -906,23 +908,23 @@ function numberOf(value) {
 	return null;
 }
 function countOf(value) {
-	const n = numberOf(value);
+	const n = numberOf$1(value);
 	return n !== null && n > 0 ? n : 0;
 }
 function parseBalance(raw, now) {
 	if (!isRecord$9(raw)) return null;
 	return {
-		usdBalance: numberOf(raw["usdBalance"]),
-		nanoBalance: numberOf(raw["nanoBalance"]),
-		fetchedAt: numberOf(raw["fetchedAt"]) ?? now
+		usdBalance: numberOf$1(raw["usdBalance"]),
+		nanoBalance: numberOf$1(raw["nanoBalance"]),
+		fetchedAt: numberOf$1(raw["fetchedAt"]) ?? now
 	};
 }
 function parseWindow(raw) {
 	const window = isRecord$9(raw) ? raw : {};
 	return {
-		used: numberOf(window["used"]),
-		limit: numberOf(window["limit"]),
-		resetsAt: numberOf(window["resetsAt"])
+		used: numberOf$1(window["used"]),
+		limit: numberOf$1(window["limit"]),
+		resetsAt: numberOf$1(window["resetsAt"])
 	};
 }
 function parseSubscriptionUsage(raw) {
@@ -941,11 +943,11 @@ function parseSubscriptionState(raw, now) {
 	if (subscription !== null && subscription !== void 0 && parseSubscriptionUsage(subscription) === null) return null;
 	return {
 		subscription: subscription ? parseSubscriptionUsage(subscription) : null,
-		fetchedAt: numberOf(raw["fetchedAt"]) ?? now
+		fetchedAt: numberOf$1(raw["fetchedAt"]) ?? now
 	};
 }
 function parseTotals(raw) {
-	if (!isRecord$9(raw) || numberOf(raw["requests"]) === null) return null;
+	if (!isRecord$9(raw) || numberOf$1(raw["requests"]) === null) return null;
 	return {
 		requests: countOf(raw["requests"]),
 		costUsd: countOf(raw["costUsd"]),
@@ -969,8 +971,8 @@ function rows(raw, read) {
 }
 function parseSpend(raw) {
 	if (!isRecord$9(raw)) return null;
-	const from = numberOf(raw["from"]);
-	const to = numberOf(raw["to"]);
+	const from = numberOf$1(raw["from"]);
+	const to = numberOf$1(raw["to"]);
 	const total = parseTotals(raw["total"]);
 	if (from === null || to === null || total === null) return null;
 	return {
@@ -1004,11 +1006,11 @@ var CONSUMERS = [
 /** One record of `GET /usage/recent`; null when it is not a record. The plugin already normalised it, this only guards. */
 function parseRecord(raw) {
 	if (!isRecord$9(raw)) return null;
-	const at = numberOf(raw["at"]);
+	const at = numberOf$1(raw["at"]);
 	if (at === null || at < 0) return null;
 	const text = (value) => typeof value === "string" && value ? value : null;
 	const count = (value) => {
-		const n = numberOf(value);
+		const n = numberOf$1(value);
 		return n !== null && n >= 0 ? n : null;
 	};
 	return {
@@ -1041,7 +1043,7 @@ function parseRecent(raw) {
 }
 function parseLookup(raw) {
 	if (!isRecord$9(raw) || typeof raw["requestId"] !== "string" || typeof raw["ready"] !== "boolean") return null;
-	const cost = numberOf(raw["costUsd"]);
+	const cost = numberOf$1(raw["costUsd"]);
 	return {
 		requestId: raw["requestId"],
 		ready: raw["ready"],
@@ -1051,7 +1053,7 @@ function parseLookup(raw) {
 function map(result, read, what) {
 	if (!result.ok) return result;
 	const value = read(result.data);
-	return value === null ? invalid$1(what) : {
+	return value === null ? invalid$2(what) : {
 		ok: true,
 		data: value
 	};
@@ -1098,6 +1100,1070 @@ function createPluginAccount(deps) {
 				body: {},
 				timeoutMs: NANOGPT_TIMEOUT_MS
 			}), parseLookup, "cost lookup");
+		}
+	};
+}
+/**
+* The shape of a Management token: `sk-nano-mgmt-` plus at least MGMT_TOKEN_MIN_BODY printable characters, no spaces, at
+* most MGMT_TOKEN_MAX_LENGTH in all. Surrounding whitespace (a pasted newline) is dropped. A normal inference key
+* (`sk-nano-<uuid>`) is told apart, because pasting it into the wrong box is the likely mistake.
+*/
+function checkMgmtToken(raw) {
+	if (typeof raw !== "string") return {
+		ok: false,
+		issue: "not_string"
+	};
+	const token = raw.trim();
+	if (!token) return {
+		ok: false,
+		issue: "empty"
+	};
+	if (token.length > 512) return {
+		ok: false,
+		issue: "too_long"
+	};
+	if (!token.startsWith("sk-nano-mgmt-")) return {
+		ok: false,
+		issue: token.startsWith("sk-nano-") ? "inference_key" : "prefix"
+	};
+	if (!/^[!-~]+$/.test(token)) return {
+		ok: false,
+		issue: "characters"
+	};
+	if (token.length - 13 < 8) return {
+		ok: false,
+		issue: "too_short"
+	};
+	return {
+		ok: true,
+		token
+	};
+}
+var KEY_LIMIT_KINDS = [
+	"requests",
+	"usd",
+	"inputTokens",
+	"subscriptionInputTokens"
+];
+var KEY_LIMIT_PERIODS = [
+	"daily",
+	"weekly",
+	"monthly"
+];
+var INT_MAX = 2147483647;
+/** What a limit may be: `integer` and the largest value per period (the smallest is 0). USD steps are 0.0001. */
+var KEY_LIMIT_RANGES = {
+	requests: {
+		integer: true,
+		max: {
+			daily: 1e7,
+			weekly: INT_MAX,
+			monthly: INT_MAX
+		}
+	},
+	usd: {
+		integer: false,
+		max: {
+			daily: 1e5,
+			weekly: 1e5,
+			monthly: 1e5
+		}
+	},
+	inputTokens: {
+		integer: true,
+		max: {
+			daily: INT_MAX,
+			weekly: INT_MAX,
+			monthly: INT_MAX
+		}
+	},
+	subscriptionInputTokens: {
+		integer: true,
+		max: {
+			daily: INT_MAX,
+			weekly: INT_MAX,
+			monthly: INT_MAX
+		}
+	}
+};
+var USD_STEP = 1e4;
+var ZDR_POLICIES = [
+	"zdr",
+	"off",
+	"unset"
+];
+var REASONING_EFFORTS$1 = [
+	"none",
+	"minimal",
+	"low",
+	"medium",
+	"high",
+	"xhigh",
+	"max"
+];
+var RESPONSE_FORMATS = ["text", "json_object"];
+var REASONING_SUMMARIES = [
+	"auto",
+	"concise",
+	"detailed"
+];
+var VERBOSITIES = [
+	"low",
+	"medium",
+	"high"
+];
+var ROUTINGS = [
+	"auto",
+	"speed",
+	"throughput",
+	"latency",
+	"price",
+	"caching"
+];
+var SERVICE_TIERS = [
+	"auto",
+	"default",
+	"flex",
+	"priority",
+	"ultrafast"
+];
+var CACHE_TTLS = ["5m", "1h"];
+var PRESET_NAME_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$/;
+var PRESET_PROMPT_MAX_LENGTH = 12e3;
+var PRESET_BODY_LIMIT_BYTES = 16384;
+function pick$1(value, allowed) {
+	if (typeof value !== "string") return null;
+	const wanted = value.trim().toLowerCase();
+	return allowed.find((item) => item === wanted) ?? null;
+}
+function checked(value, issues) {
+	return issues.length === 0 ? {
+		ok: true,
+		value
+	} : {
+		ok: false,
+		issues
+	};
+}
+/** The keys of `raw` outside `allowed` and `ignored`: one `unknown_field` issue each. */
+function rejectUnknown(raw, allowed, ignored, issues) {
+	for (const key of Object.keys(raw)) {
+		if (allowed.includes(key) || ignored.includes(key)) continue;
+		issues.push({
+			field: key,
+			code: "unknown_field",
+			message: "is not a field of this request"
+		});
+	}
+}
+function checkName(value, field, issues) {
+	if (typeof value !== "string") {
+		issues.push({
+			field,
+			code: "type",
+			message: "must be a string"
+		});
+		return null;
+	}
+	const name = value.trim();
+	if (!name || name.length > 120) {
+		issues.push({
+			field,
+			code: "length",
+			message: `must be 1 to 120 characters, not blank`
+		});
+		return null;
+	}
+	return name;
+}
+function checkExpiry(value, issues) {
+	if (value === null) return null;
+	if (typeof value !== "number" || !Number.isFinite(value) || value <= 0 || !Number.isFinite(new Date(value).getTime())) {
+		issues.push({
+			field: "expiresAt",
+			code: "type",
+			message: "must be null or a time in ms since epoch"
+		});
+		return;
+	}
+	return Math.round(value);
+}
+function checkPolicy(value, allowed, issues) {
+	const policy = pick$1(value, allowed);
+	if (policy === null) {
+		issues.push({
+			field: "zdrPolicy",
+			code: "enum",
+			message: `must be one of: ${allowed.join(", ")}`
+		});
+		return;
+	}
+	return policy;
+}
+function checkLimits(raw, issues) {
+	if (!isRecord$9(raw)) {
+		issues.push({
+			field: "limits",
+			code: "type",
+			message: "must be an object"
+		});
+		return;
+	}
+	const out = {};
+	for (const key of Object.keys(raw)) {
+		const kind = KEY_LIMIT_KINDS.find((k) => k === key);
+		if (!kind) {
+			issues.push({
+				field: `limits.${key}`,
+				code: "unknown_field",
+				message: "is not a limit kind"
+			});
+			continue;
+		}
+		const periods = raw[kind];
+		if (!isRecord$9(periods)) {
+			issues.push({
+				field: `limits.${kind}`,
+				code: "type",
+				message: "must be an object"
+			});
+			continue;
+		}
+		const range = KEY_LIMIT_RANGES[kind];
+		const kept = {};
+		for (const name of Object.keys(periods)) {
+			const period = KEY_LIMIT_PERIODS.find((p) => p === name);
+			const field = `limits.${kind}.${name}`;
+			if (!period) {
+				issues.push({
+					field,
+					code: "unknown_field",
+					message: "is not a period"
+				});
+				continue;
+			}
+			const value = periods[period];
+			if (value === null) {
+				kept[period] = null;
+				continue;
+			}
+			if (typeof value !== "number" || !Number.isFinite(value)) {
+				issues.push({
+					field,
+					code: "type",
+					message: "must be null (unlimited) or a number"
+				});
+				continue;
+			}
+			if (range.integer && !Number.isInteger(value)) {
+				issues.push({
+					field,
+					code: "integer",
+					message: "must be a whole number"
+				});
+				continue;
+			}
+			const cleaned = range.integer ? value : Math.round(value * USD_STEP) / USD_STEP;
+			if (!range.integer && Math.abs(value * USD_STEP - Math.round(value * USD_STEP)) > 1e-6) {
+				issues.push({
+					field,
+					code: "step",
+					message: "must be a multiple of 0.0001"
+				});
+				continue;
+			}
+			if (cleaned < 0 || cleaned > range.max[period]) {
+				issues.push({
+					field,
+					code: "range",
+					message: `must be between 0 and ${range.max[period]}`
+				});
+				continue;
+			}
+			kept[period] = cleaned;
+		}
+		if (Object.keys(kept).length > 0) out[kind] = kept;
+	}
+	return out;
+}
+/** Fields of a ManagedKey a client may send back untouched (an edit form posts the whole key): ignored, not rejected. */
+var KEY_READ_ONLY = [
+	"id",
+	"status",
+	"createdAt"
+];
+/**
+* Checks a PATCH of a key (KeyLimitsPatch): the name trimmed, USD amounts cleaned of float noise, limits within the
+* API's ranges and steps, the zdr policy one of zdr/off/unset. Unknown fields are refused (a typo must not silently do
+* nothing); the read-only fields of a ManagedKey are ignored. An input that changes nothing is refused: the API needs at
+* least one field.
+*/
+function sanitizeKeyLimitsPatch(raw) {
+	if (!isRecord$9(raw)) return checked({}, [{
+		field: "body",
+		code: "type",
+		message: "must be a JSON object"
+	}]);
+	const issues = [];
+	rejectUnknown(raw, [
+		"name",
+		"expiresAt",
+		"zdrPolicy",
+		"limits"
+	], KEY_READ_ONLY, issues);
+	const patch = {};
+	if (raw["name"] !== void 0) {
+		const name = checkName(raw["name"], "name", issues);
+		if (name !== null) patch.name = name;
+	}
+	if (raw["expiresAt"] !== void 0) {
+		const expiresAt = checkExpiry(raw["expiresAt"], issues);
+		if (expiresAt !== void 0) patch.expiresAt = expiresAt;
+	}
+	if (raw["zdrPolicy"] !== void 0) {
+		const policy = checkPolicy(raw["zdrPolicy"], ZDR_POLICIES, issues);
+		if (policy) patch.zdrPolicy = policy;
+	}
+	if (raw["limits"] !== void 0) {
+		const limits = checkLimits(raw["limits"], issues);
+		if (limits && Object.keys(limits).length > 0) patch.limits = limits;
+	}
+	if (issues.length === 0 && Object.keys(patch).length === 0) issues.push({
+		field: "body",
+		code: "empty",
+		message: "must change at least one field"
+	});
+	return checked(patch, issues);
+}
+/** Checks a new key (KeyCreateInput). Same rules as the patch; the name is required and `unset` is not a choice. */
+function sanitizeKeyCreateInput(raw) {
+	if (!isRecord$9(raw)) return checked({ name: "" }, [{
+		field: "body",
+		code: "type",
+		message: "must be a JSON object"
+	}]);
+	const issues = [];
+	rejectUnknown(raw, [
+		"name",
+		"expiresAt",
+		"zdrPolicy",
+		"limits"
+	], [], issues);
+	const input = { name: "" };
+	if (raw["name"] === void 0) issues.push({
+		field: "name",
+		code: "required",
+		message: "is required"
+	});
+	else input.name = checkName(raw["name"], "name", issues) ?? "";
+	if (raw["expiresAt"] !== void 0) {
+		const expiresAt = checkExpiry(raw["expiresAt"], issues);
+		if (expiresAt !== void 0) input.expiresAt = expiresAt;
+	}
+	if (raw["zdrPolicy"] !== void 0) {
+		const policy = checkPolicy(raw["zdrPolicy"], ["zdr", "off"], issues);
+		if (policy === "zdr" || policy === "off") input.zdrPolicy = policy;
+	}
+	if (raw["limits"] !== void 0) {
+		const limits = checkLimits(raw["limits"], issues);
+		if (limits && Object.keys(limits).length > 0) input.limits = limits;
+	}
+	return checked(input, issues);
+}
+/** A preset name as the API takes it (`^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$`), lower-cased as the API returns it. */
+function checkPresetName(raw) {
+	return typeof raw === "string" && PRESET_NAME_PATTERN.test(raw) ? raw.toLowerCase() : null;
+}
+/** Every setting key: the type forces this list to stay complete. */
+var SETTING_KEYS = {
+	systemPrompt: true,
+	maxTokens: true,
+	topK: true,
+	temperature: true,
+	topP: true,
+	minP: true,
+	topA: true,
+	frequencyPenalty: true,
+	presencePenalty: true,
+	repetitionPenalty: true,
+	responseFormat: true,
+	structuredOutputs: true,
+	reasoningEffort: true,
+	reasoningSummary: true,
+	verbosity: true,
+	routing: true,
+	serviceTier: true,
+	thinking: true,
+	promptCaching: true
+};
+/** What a form may send back untouched from a ModelPreset: ignored, not rejected. */
+var PRESET_READ_ONLY = [
+	"name",
+	"createdAt",
+	"updatedAt"
+];
+function checkNumber(raw, field, rule, issues) {
+	const value = raw[field];
+	if (value === void 0 || value === null) return null;
+	if (typeof value !== "number" || !Number.isFinite(value)) {
+		issues.push({
+			field,
+			code: "type",
+			message: "must be a number or null"
+		});
+		return null;
+	}
+	if (rule.integer && !Number.isInteger(value)) {
+		issues.push({
+			field,
+			code: "integer",
+			message: "must be a whole number"
+		});
+		return null;
+	}
+	if (value < rule.min || value > rule.max) {
+		issues.push({
+			field,
+			code: "range",
+			message: `must be between ${rule.min} and ${rule.max}`
+		});
+		return null;
+	}
+	return value;
+}
+function checkEnum(raw, field, allowed, issues) {
+	const value = raw[field];
+	if (value === void 0 || value === null) return null;
+	const found = typeof value === "string" ? allowed.find((item) => item === value) ?? null : null;
+	if (found === null) issues.push({
+		field,
+		code: "enum",
+		message: `must be one of: ${allowed.join(", ")}`
+	});
+	return found;
+}
+function checkFlag(raw, field, issues) {
+	const value = raw[field];
+	if (value === void 0 || value === null) return null;
+	if (typeof value !== "boolean") {
+		issues.push({
+			field,
+			code: "type",
+			message: "must be true, false or null"
+		});
+		return null;
+	}
+	return value;
+}
+function checkThinking(raw, issues) {
+	const value = raw["thinking"];
+	if (value === void 0 || value === null) return null;
+	if (!isRecord$9(value) || typeof value["enabled"] !== "boolean") {
+		issues.push({
+			field: "thinking",
+			code: "type",
+			message: "must be null or { enabled: boolean, budgetTokens }"
+		});
+		return null;
+	}
+	const rawBudget = value["budgetTokens"];
+	let budget = null;
+	if (rawBudget !== void 0 && rawBudget !== null) {
+		if (typeof rawBudget !== "number" || !Number.isInteger(rawBudget) || rawBudget < 1 || rawBudget > 1e6) {
+			issues.push({
+				field: "thinking.budgetTokens",
+				code: "range",
+				message: "must be a whole number from 1 to 1000000"
+			});
+			return null;
+		}
+		budget = rawBudget;
+	}
+	if (budget !== null && !value["enabled"]) {
+		issues.push({
+			field: "thinking.budgetTokens",
+			code: "conflict",
+			message: "needs thinking to be enabled"
+		});
+		return null;
+	}
+	return {
+		enabled: value["enabled"],
+		budgetTokens: budget
+	};
+}
+function checkCaching(raw, issues) {
+	const value = raw["promptCaching"];
+	if (value === void 0 || value === null) return null;
+	if (!isRecord$9(value) || typeof value["enabled"] !== "boolean") {
+		issues.push({
+			field: "promptCaching",
+			code: "type",
+			message: "must be null or { enabled: boolean, ttl }"
+		});
+		return null;
+	}
+	const ttl = value["ttl"];
+	if (ttl === void 0 || ttl === null) return {
+		enabled: value["enabled"],
+		ttl: null
+	};
+	const found = typeof ttl === "string" ? CACHE_TTLS.find((item) => item === ttl) ?? null : null;
+	if (found === null) {
+		issues.push({
+			field: "promptCaching.ttl",
+			code: "enum",
+			message: `must be one of: ${CACHE_TTLS.join(", ")}`
+		});
+		return null;
+	}
+	return {
+		enabled: value["enabled"],
+		ttl: found
+	};
+}
+var SAMPLER = {
+	integer: false,
+	min: 0,
+	max: 1
+};
+var PENALTY = {
+	integer: false,
+	min: -2,
+	max: 2
+};
+/**
+* Checks what a client sends for a preset and fills every setting that was left out with null (a PUT replaces the whole
+* preset, so "left out" and null mean the same). Ranges, enums and lengths are the API's own; two rules cross fields:
+* `structuredOutputs: true` needs `responseFormat: 'json_object'`, and the flex / priority service tiers cannot go with
+* ranked routing (speed, throughput, latency, price). Unknown fields are refused; the read-only fields of a ModelPreset
+* are ignored. The serialised body must fit the API's 16 KiB.
+*/
+function sanitizePresetInput(raw) {
+	const empty = sanitizedEmpty();
+	if (!isRecord$9(raw)) return checked(empty, [{
+		field: "body",
+		code: "type",
+		message: "must be a JSON object"
+	}]);
+	const issues = [];
+	rejectUnknown(raw, ["model", ...Object.keys(SETTING_KEYS)], PRESET_READ_ONLY, issues);
+	let model = "";
+	const rawModel = raw["model"];
+	if (rawModel === void 0 || rawModel === null) issues.push({
+		field: "model",
+		code: "required",
+		message: "is required"
+	});
+	else if (typeof rawModel !== "string") issues.push({
+		field: "model",
+		code: "type",
+		message: "must be a string"
+	});
+	else {
+		model = rawModel.trim();
+		if (!model || model.length > 256) {
+			issues.push({
+				field: "model",
+				code: "length",
+				message: `must be 1 to 256 characters`
+			});
+			model = "";
+		}
+	}
+	let systemPrompt = null;
+	const rawPrompt = raw["systemPrompt"];
+	if (rawPrompt !== void 0 && rawPrompt !== null) {
+		if (typeof rawPrompt !== "string") issues.push({
+			field: "systemPrompt",
+			code: "type",
+			message: "must be a string or null"
+		});
+		else if (rawPrompt.length > 12e3) issues.push({
+			field: "systemPrompt",
+			code: "length",
+			message: `must be at most ${PRESET_PROMPT_MAX_LENGTH} characters`
+		});
+		else systemPrompt = rawPrompt;
+	}
+	const input = {
+		model,
+		systemPrompt,
+		maxTokens: checkNumber(raw, "maxTokens", {
+			integer: true,
+			min: 1,
+			max: 1e6
+		}, issues),
+		topK: checkNumber(raw, "topK", {
+			integer: true,
+			min: 0,
+			max: 1e6
+		}, issues),
+		temperature: checkNumber(raw, "temperature", {
+			integer: false,
+			min: 0,
+			max: 2
+		}, issues),
+		topP: checkNumber(raw, "topP", SAMPLER, issues),
+		minP: checkNumber(raw, "minP", SAMPLER, issues),
+		topA: checkNumber(raw, "topA", SAMPLER, issues),
+		frequencyPenalty: checkNumber(raw, "frequencyPenalty", PENALTY, issues),
+		presencePenalty: checkNumber(raw, "presencePenalty", PENALTY, issues),
+		repetitionPenalty: checkNumber(raw, "repetitionPenalty", PENALTY, issues),
+		responseFormat: checkEnum(raw, "responseFormat", RESPONSE_FORMATS, issues),
+		structuredOutputs: checkFlag(raw, "structuredOutputs", issues),
+		reasoningEffort: checkEnum(raw, "reasoningEffort", REASONING_EFFORTS$1, issues),
+		reasoningSummary: checkEnum(raw, "reasoningSummary", REASONING_SUMMARIES, issues),
+		verbosity: checkEnum(raw, "verbosity", VERBOSITIES, issues),
+		routing: checkEnum(raw, "routing", ROUTINGS, issues),
+		serviceTier: checkEnum(raw, "serviceTier", SERVICE_TIERS, issues),
+		thinking: checkThinking(raw, issues),
+		promptCaching: checkCaching(raw, issues)
+	};
+	if (input.structuredOutputs === true && input.responseFormat !== "json_object") issues.push({
+		field: "structuredOutputs",
+		code: "conflict",
+		message: "needs responseFormat \"json_object\""
+	});
+	const rankedRouting = input.routing === "speed" || input.routing === "throughput" || input.routing === "latency" || input.routing === "price";
+	if ((input.serviceTier === "flex" || input.serviceTier === "priority") && rankedRouting) issues.push({
+		field: "serviceTier",
+		code: "conflict",
+		message: "flex and priority cannot go with speed, throughput, latency or price routing"
+	});
+	if (issues.length === 0 && new TextEncoder().encode(JSON.stringify(presetToWire(input))).length > 16384) issues.push({
+		field: "body",
+		code: "too_large",
+		message: `must be at most ${PRESET_BODY_LIMIT_BYTES} bytes`
+	});
+	return checked(input, issues);
+}
+function sanitizedEmpty() {
+	return {
+		model: "",
+		systemPrompt: null,
+		maxTokens: null,
+		topK: null,
+		temperature: null,
+		topP: null,
+		minP: null,
+		topA: null,
+		frequencyPenalty: null,
+		presencePenalty: null,
+		repetitionPenalty: null,
+		responseFormat: null,
+		structuredOutputs: null,
+		reasoningEffort: null,
+		reasoningSummary: null,
+		verbosity: null,
+		routing: null,
+		serviceTier: null,
+		thinking: null,
+		promptCaching: null
+	};
+}
+/** The PUT body of the API for a checked preset: settings that are null are left out (the API reads them as null). */
+function presetToWire(preset) {
+	const thinking = preset.thinking;
+	const caching = preset.promptCaching;
+	const wire = {
+		model: preset.model,
+		system_prompt: preset.systemPrompt,
+		max_tokens: preset.maxTokens,
+		top_k: preset.topK,
+		temperature: preset.temperature,
+		top_p: preset.topP,
+		min_p: preset.minP,
+		top_a: preset.topA,
+		frequency_penalty: preset.frequencyPenalty,
+		presence_penalty: preset.presencePenalty,
+		repetition_penalty: preset.repetitionPenalty,
+		response_format_type: preset.responseFormat,
+		structured_outputs: preset.structuredOutputs,
+		reasoning_effort: preset.reasoningEffort,
+		reasoning_summary: preset.reasoningSummary,
+		verbosity: preset.verbosity,
+		provider_routing_preference: preset.routing,
+		service_tier: preset.serviceTier,
+		thinking: !thinking ? null : thinking.enabled && thinking.budgetTokens !== null ? {
+			type: "enabled",
+			budget_tokens: thinking.budgetTokens
+		} : thinking.enabled,
+		prompt_caching: !caching ? null : caching.ttl === null ? caching.enabled : {
+			enabled: caching.enabled,
+			ttl: caching.ttl
+		}
+	};
+	for (const key of Object.keys(wire)) if (wire[key] === null) delete wire[key];
+	return wire;
+}
+// src/host/plugin-mgmt.ts
+/** True for the errors that mean "the plugin itself is not there", as opposed to NanoGPT or the input being the problem. */
+function isMgmtPluginDown(error) {
+	return error.kind === "plugin_down" || error.kind === "not_installed" || error.kind === "forbidden";
+}
+/** NanoGPT answers within 15 s on the plugin's side; the browser waits a little longer than that. */
+var CALL_TIMEOUT_MS = 2e4;
+/** A key create is retried once by the plugin when the answer is lost. */
+var CREATE_TIMEOUT_MS = 4e4;
+var SCOPES = [
+	"usage:read",
+	"api_keys:read",
+	"api_keys:write",
+	"model_presets:read",
+	"model_presets:write"
+];
+var ERROR_CODES = [
+	"mgmt_token_invalid",
+	"upstream_unreachable",
+	"upstream_timeout",
+	"upstream_error",
+	"rate_limited"
+];
+function numberOf(value) {
+	return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+function pick(value, allowed) {
+	return typeof value === "string" ? allowed.find((item) => item === value) ?? null : null;
+}
+function flag(value) {
+	return typeof value === "boolean" ? value : null;
+}
+function text$2(value) {
+	return typeof value === "string" ? value : null;
+}
+function invalid$1(what) {
+	return {
+		ok: false,
+		error: {
+			kind: "invalid_response",
+			code: "invalid_response",
+			message: `unexpected ${what}`,
+			status: null
+		}
+	};
+}
+/** `GET /mgmt/status` as the contract has it. null when it is not a status. */
+function parseMgmtStatus(raw) {
+	if (!isRecord$9(raw) || typeof raw["present"] !== "boolean") return null;
+	if (!raw["present"]) return {
+		present: false,
+		valid: null,
+		checkedAt: null,
+		error: null
+	};
+	return {
+		present: true,
+		valid: flag(raw["valid"]),
+		checkedAt: numberOf(raw["checkedAt"]),
+		error: pick(raw["error"], ERROR_CODES)
+	};
+}
+function parseLimits$1(raw) {
+	const source = isRecord$9(raw) ? raw : {};
+	const limits = {
+		requests: {
+			daily: null,
+			weekly: null,
+			monthly: null
+		},
+		usd: {
+			daily: null,
+			weekly: null,
+			monthly: null
+		},
+		inputTokens: {
+			daily: null,
+			weekly: null,
+			monthly: null
+		},
+		subscriptionInputTokens: {
+			daily: null,
+			weekly: null,
+			monthly: null
+		}
+	};
+	for (const kind of KEY_LIMIT_KINDS) {
+		const periods = source[kind];
+		if (!isRecord$9(periods)) continue;
+		for (const period of KEY_LIMIT_PERIODS) {
+			const value = numberOf(periods[period]);
+			limits[kind][period] = value !== null && value >= 0 ? value : null;
+		}
+	}
+	return limits;
+}
+/** One key of the contract (`ManagedKey`). null when it has no usable id. */
+function parseManagedKey(raw) {
+	if (!isRecord$9(raw)) return null;
+	const rawId = raw["id"];
+	const id = typeof rawId === "string" ? rawId.trim() : typeof rawId === "number" ? String(rawId) : "";
+	if (!id) return null;
+	return {
+		id,
+		name: text$2(raw["name"]) ?? "",
+		status: raw["status"] === "expired" ? "expired" : "active",
+		createdAt: numberOf(raw["createdAt"]),
+		expiresAt: numberOf(raw["expiresAt"]),
+		limits: parseLimits$1(raw["limits"]),
+		zdrPolicy: pick(raw["zdrPolicy"], ZDR_POLICIES)
+	};
+}
+function parseKeys(raw) {
+	if (!Array.isArray(raw)) return null;
+	const seen = /* @__PURE__ */ new Set();
+	const keys = [];
+	for (const item of raw) {
+		const key = parseManagedKey(item);
+		if (!key || seen.has(key.id)) continue;
+		seen.add(key.id);
+		keys.push(key);
+	}
+	return keys;
+}
+function parseThinking(raw) {
+	if (!isRecord$9(raw) || typeof raw["enabled"] !== "boolean") return null;
+	const budget = numberOf(raw["budgetTokens"]);
+	return {
+		enabled: raw["enabled"],
+		budgetTokens: budget !== null && Number.isInteger(budget) && budget > 0 ? budget : null
+	};
+}
+function parseCaching(raw) {
+	if (!isRecord$9(raw) || typeof raw["enabled"] !== "boolean") return null;
+	return {
+		enabled: raw["enabled"],
+		ttl: pick(raw["ttl"], CACHE_TTLS)
+	};
+}
+/** One preset of the contract (`ModelPreset`). null when it has no usable name. */
+function parseModelPreset(raw) {
+	if (!isRecord$9(raw)) return null;
+	const name = typeof raw["name"] === "string" ? raw["name"].trim() : "";
+	if (!name) return null;
+	return {
+		name,
+		model: text$2(raw["model"]) ?? "",
+		systemPrompt: text$2(raw["systemPrompt"]),
+		maxTokens: numberOf(raw["maxTokens"]),
+		topK: numberOf(raw["topK"]),
+		temperature: numberOf(raw["temperature"]),
+		topP: numberOf(raw["topP"]),
+		minP: numberOf(raw["minP"]),
+		topA: numberOf(raw["topA"]),
+		frequencyPenalty: numberOf(raw["frequencyPenalty"]),
+		presencePenalty: numberOf(raw["presencePenalty"]),
+		repetitionPenalty: numberOf(raw["repetitionPenalty"]),
+		responseFormat: pick(raw["responseFormat"], RESPONSE_FORMATS),
+		structuredOutputs: flag(raw["structuredOutputs"]),
+		reasoningEffort: pick(raw["reasoningEffort"], REASONING_EFFORTS$1),
+		reasoningSummary: pick(raw["reasoningSummary"], REASONING_SUMMARIES),
+		verbosity: pick(raw["verbosity"], VERBOSITIES),
+		routing: pick(raw["routing"], ROUTINGS),
+		serviceTier: pick(raw["serviceTier"], SERVICE_TIERS),
+		thinking: parseThinking(raw["thinking"]),
+		promptCaching: parseCaching(raw["promptCaching"]),
+		createdAt: numberOf(raw["createdAt"]),
+		updatedAt: numberOf(raw["updatedAt"])
+	};
+}
+function parsePresets(raw) {
+	if (!Array.isArray(raw)) return null;
+	const seen = /* @__PURE__ */ new Set();
+	const presets = [];
+	for (const item of raw) {
+		const preset = parseModelPreset(item);
+		if (!preset || seen.has(preset.name)) continue;
+		seen.add(preset.name);
+		presets.push(preset);
+	}
+	return presets;
+}
+/** The scope an error message names (`The Management token lacks the api_keys:write scope`), or null. */
+function scopeIn(message) {
+	return SCOPES.find((scope) => message.includes(scope)) ?? null;
+}
+/** Maps what the plugin client reports to a kind the UI switches on. `needed` is the scope the call required. */
+function mgmtErrorOf(error, needed, secret) {
+	const message = secret && secret.length >= 8 ? error.message.split(secret).join("…") : error.message;
+	const base = {
+		code: error.code,
+		message,
+		status: error.status
+	};
+	switch (error.code) {
+		case "unreachable":
+		case "timeout": return {
+			...base,
+			kind: "plugin_down"
+		};
+		case "not_installed": return {
+			...base,
+			kind: "not_installed"
+		};
+		case "forbidden": return {
+			...base,
+			kind: "forbidden"
+		};
+		case "invalid_response": return {
+			...base,
+			kind: "invalid_response"
+		};
+		case "mgmt_token_missing": return {
+			...base,
+			kind: "token_missing"
+		};
+		case "mgmt_token_invalid": return {
+			...base,
+			kind: "token_invalid"
+		};
+		case "mgmt_scope_missing": {
+			const scope = scopeIn(message) ?? needed;
+			return scope ? {
+				...base,
+				kind: "scope_missing",
+				scope
+			} : {
+				...base,
+				kind: "scope_missing"
+			};
+		}
+		case "mgmt_token_malformed": return {
+			...base,
+			kind: "token_malformed"
+		};
+		case "invalid_request": return {
+			...base,
+			kind: "invalid_request"
+		};
+		case "not_found": return {
+			...base,
+			kind: "not_found"
+		};
+		case "preset_exists": return {
+			...base,
+			kind: "preset_exists"
+		};
+		case "payload_too_large": return {
+			...base,
+			kind: "too_large"
+		};
+		case "rate_limited": return {
+			...base,
+			kind: "rate_limited"
+		};
+		case "secrets_unavailable": return {
+			...base,
+			kind: "secrets_unavailable"
+		};
+		case "secrets_failed": return {
+			...base,
+			kind: "secrets_failed"
+		};
+		case "upstream_unreachable":
+		case "upstream_timeout":
+		case "upstream_error":
+		case "bad_response": return {
+			...base,
+			kind: "upstream"
+		};
+		default: return {
+			...base,
+			kind: error.status === 409 ? "conflict" : "other"
+		};
+	}
+}
+function createPluginMgmt(deps) {
+	const { client } = deps;
+	const now = deps.now ?? Date.now;
+	/** One call: the plugin client's result with its error mapped and its data read by `read` (null = not what we expect). */
+	async function call(method, path, options, read, what) {
+		const result = await client.request(method, path, {
+			...options.body !== void 0 ? { body: options.body } : {},
+			timeoutMs: options.timeoutMs ?? CALL_TIMEOUT_MS
+		});
+		if (!result.ok) return {
+			ok: false,
+			error: mgmtErrorOf(result.error, options.needed, options.secret)
+		};
+		const value = read(result.data);
+		return value === null ? invalid$1(what) : {
+			ok: true,
+			data: value
+		};
+	}
+	const acknowledged = (data) => isRecord$9(data) && data["ok"] === true ? true : null;
+	const keyOf = (data) => isRecord$9(data) ? parseManagedKey(data["key"]) : null;
+	const presetOf = (data) => isRecord$9(data) ? parseModelPreset(data["preset"]) : null;
+	return {
+		status(options) {
+			return call("GET", `/mgmt/status${options?.verify ? "?verify=1" : ""}`, {}, parseMgmtStatus, "status");
+		},
+		saveToken(token, options) {
+			return call("PUT", `/mgmt/token${options?.force ? "?force=1" : ""}`, {
+				body: { token },
+				secret: token
+			}, parseMgmtStatus, "status");
+		},
+		deleteToken() {
+			return call("DELETE", "/mgmt/token", {}, acknowledged, "acknowledgement");
+		},
+		listKeys() {
+			return call("GET", "/mgmt/keys", { needed: "api_keys:read" }, (data) => {
+				const keys = isRecord$9(data) ? parseKeys(data["keys"]) : null;
+				return keys ? {
+					keys,
+					fetchedAt: (isRecord$9(data) ? numberOf(data["fetchedAt"]) : null) ?? now()
+				} : null;
+			}, "key list");
+		},
+		createKey(input) {
+			return call("POST", "/mgmt/keys", {
+				body: input,
+				timeoutMs: CREATE_TIMEOUT_MS,
+				needed: "api_keys:write"
+			}, (data) => {
+				if (!isRecord$9(data)) return null;
+				const key = parseManagedKey(data["key"]);
+				const secretId = text$2(data["secretId"]);
+				return key && secretId ? {
+					key,
+					secretId
+				} : null;
+			}, "created key");
+		},
+		updateKey(id, patch) {
+			return call("PATCH", `/mgmt/keys/${encodeURIComponent(id)}`, {
+				body: patch,
+				needed: "api_keys:write"
+			}, keyOf, "key");
+		},
+		revokeKey(id) {
+			return call("DELETE", `/mgmt/keys/${encodeURIComponent(id)}`, { needed: "api_keys:write" }, acknowledged, "acknowledgement");
+		},
+		listPresets() {
+			return call("GET", "/mgmt/presets", { needed: "model_presets:read" }, (data) => {
+				const presets = isRecord$9(data) ? parsePresets(data["presets"]) : null;
+				return presets ? {
+					presets,
+					fetchedAt: (isRecord$9(data) ? numberOf(data["fetchedAt"]) : null) ?? now()
+				} : null;
+			}, "preset list");
+		},
+		createPreset(input) {
+			return call("POST", "/mgmt/presets", {
+				body: input,
+				needed: "model_presets:write"
+			}, presetOf, "preset");
+		},
+		replacePreset(name, input) {
+			return call("PUT", `/mgmt/presets/${encodeURIComponent(name)}`, {
+				body: input,
+				needed: "model_presets:write"
+			}, presetOf, "preset");
+		},
+		deletePreset(name) {
+			return call("DELETE", `/mgmt/presets/${encodeURIComponent(name)}`, { needed: "model_presets:write" }, acknowledged, "acknowledgement");
 		}
 	};
 }
@@ -5560,6 +6626,277 @@ function stringify(value) {
 function createLogger() {
 	return new ConsoleLogger();
 }
+function emptySlot() {
+	return {
+		items: null,
+		fetchedAt: null,
+		loading: false,
+		error: null,
+		generation: 0
+	};
+}
+function viewOf(slot) {
+	return {
+		items: slot.items ? [...slot.items] : null,
+		fetchedAt: slot.fetchedAt,
+		loading: slot.loading,
+		error: slot.error
+	};
+}
+function createMgmtStore(deps) {
+	const { mgmt, connections, log } = deps;
+	const now = deps.now ?? Date.now;
+	const ttl = deps.ttlMs ?? 3e4;
+	const retry = deps.retryMs ?? 1e4;
+	let status = null;
+	let statusError = null;
+	let statusGeneration = 0;
+	let fetching = 0;
+	const keys = emptySlot();
+	const presets = emptySlot();
+	let freshAt = null;
+	let failedAt = null;
+	let warmedAt = null;
+	let inflight = null;
+	const listeners = /* @__PURE__ */ new Set();
+	function changed() {
+		for (const listener of [...listeners]) try {
+			listener();
+		} catch (error) {
+			log.error("mgmt listener failed", error);
+		}
+	}
+	function stateNow() {
+		if (statusError) {
+			if (statusError.kind === "not_installed") return connections.checked() && connections.pluginUp() ? "plugin_outdated" : "needs_plugin";
+			if (statusError.kind === "plugin_down" || statusError.kind === "forbidden") return "plugin_down";
+			return "error";
+		}
+		if (status === null) return "idle";
+		if (!status.present) return "no_token";
+		if (status.valid === false) return "token_invalid";
+		return "ready";
+	}
+	function detail() {
+		return {
+			state: stateNow(),
+			status,
+			error: statusError,
+			fetching: fetching > 0,
+			keys: viewOf(keys),
+			presets: viewOf(presets)
+		};
+	}
+	function forgetLists() {
+		for (const slot of [keys, presets]) {
+			slot.generation++;
+			slot.items = null;
+			slot.fetchedAt = null;
+			slot.loading = false;
+			slot.error = null;
+		}
+		freshAt = null;
+		failedAt = null;
+	}
+	/** A failed call may say something about the token or the plugin that the whole panel should know. */
+	function noteFailure(error) {
+		if (isMgmtPluginDown(error)) {
+			statusError = error;
+			return;
+		}
+		if (error.kind === "token_invalid" || error.kind === "token_missing") refreshStatus();
+	}
+	/** A call got through: the plugin is there, and (if a token was used) NanoGPT knows it. */
+	function noteSuccess() {
+		let again = false;
+		if (statusError) {
+			statusError = null;
+			again = true;
+		}
+		if (status === null || status.present && status.valid !== true) again = true;
+		if (again) refreshStatus();
+	}
+	async function refreshStatus(options) {
+		const mine = ++statusGeneration;
+		fetching++;
+		changed();
+		try {
+			const result = await mgmt.status(options?.verify ? { verify: true } : void 0);
+			if (mine !== statusGeneration) return;
+			if (result.ok) {
+				status = result.data;
+				statusError = null;
+				if (!status.present) forgetLists();
+			} else {
+				statusError = result.error;
+				log.debug(`mgmt status failed: ${result.error.kind}`);
+			}
+		} catch (error) {
+			log.error("mgmt status failed", error);
+			if (mine === statusGeneration) statusError = {
+				kind: "other",
+				code: "unreachable",
+				message: "the status could not be read",
+				status: null
+			};
+		} finally {
+			fetching--;
+			changed();
+		}
+	}
+	async function load(slot, ask, what) {
+		const mine = ++slot.generation;
+		slot.loading = true;
+		changed();
+		let result;
+		try {
+			result = await ask();
+		} catch (error) {
+			log.error(`mgmt ${what} failed`, error);
+			result = {
+				ok: false,
+				error: {
+					kind: "other",
+					code: "unreachable",
+					message: `the ${what} could not be read`,
+					status: null
+				}
+			};
+		}
+		if (mine !== slot.generation) return;
+		slot.loading = false;
+		if (result.ok) {
+			slot.items = result.data.items;
+			slot.fetchedAt = result.data.fetchedAt;
+			slot.error = null;
+			noteSuccess();
+		} else {
+			slot.error = result.error;
+			failedAt = now();
+			log.debug(`mgmt ${what} failed: ${result.error.kind}`);
+			noteFailure(result.error);
+		}
+		changed();
+	}
+	function refreshKeys() {
+		return load(keys, async () => {
+			const result = await mgmt.listKeys();
+			return result.ok ? {
+				ok: true,
+				data: {
+					items: result.data.keys,
+					fetchedAt: result.data.fetchedAt
+				}
+			} : result;
+		}, "key list");
+	}
+	function refreshPresets() {
+		return load(presets, async () => {
+			const result = await mgmt.listPresets();
+			return result.ok ? {
+				ok: true,
+				data: {
+					items: result.data.presets,
+					fetchedAt: result.data.fetchedAt
+				}
+			} : result;
+		}, "preset list");
+	}
+	function refresh(options) {
+		const force = options?.force === true;
+		if (inflight) return inflight.then(detail);
+		if (!force) {
+			if (freshAt !== null && now() - freshAt < ttl && stateNow() === "ready") return Promise.resolve(detail());
+			if (failedAt !== null && now() - failedAt < retry) return Promise.resolve(detail());
+		}
+		const run = (async () => {
+			await refreshStatus();
+			if (stateNow() === "ready") await Promise.all([refreshKeys(), refreshPresets()]);
+			if (stateNow() !== "ready" || keys.error !== null || presets.error !== null) failedAt = now();
+			else {
+				freshAt = now();
+				failedAt = null;
+			}
+		})().catch((error) => log.error("mgmt refresh failed", error)).finally(() => {
+			if (inflight === run) inflight = null;
+			changed();
+		});
+		inflight = run;
+		return run.then(detail);
+	}
+	/** One write, then a reload of the list it changed (also after a failure that may have changed it). */
+	async function mutate(call, reload, reloadOnError) {
+		const result = await call();
+		if (result.ok) {
+			noteSuccess();
+			await reload();
+		} else {
+			noteFailure(result.error);
+			if (reloadOnError?.(result.error)) await reload();
+			changed();
+		}
+		return result;
+	}
+	return {
+		detail,
+		brief: () => ({
+			present: status?.present ?? false,
+			valid: status?.valid ?? null
+		}),
+		warm() {
+			if (status !== null || fetching > 0) return;
+			if (warmedAt !== null && now() - warmedAt < ttl) return;
+			warmedAt = now();
+			refreshStatus();
+		},
+		refresh,
+		refreshStatus,
+		refreshKeys,
+		refreshPresets,
+		async saveToken(token, options) {
+			const result = await mgmt.saveToken(token, options);
+			if (result.ok) {
+				status = result.data;
+				statusError = null;
+				statusGeneration++;
+				forgetLists();
+				inflight = null;
+				changed();
+				refresh({ force: true });
+			} else {
+				if (isMgmtPluginDown(result.error)) statusError = result.error;
+				changed();
+			}
+			return result;
+		},
+		async deleteToken() {
+			const result = await mgmt.deleteToken();
+			if (result.ok) {
+				status = {
+					present: false,
+					valid: null,
+					checkedAt: null,
+					error: null
+				};
+				statusError = null;
+				statusGeneration++;
+				forgetLists();
+			} else noteFailure(result.error);
+			changed();
+			return result;
+		},
+		createKey: (input) => mutate(() => mgmt.createKey(input), refreshKeys, (error) => error.kind === "secrets_failed"),
+		updateKey: (id, patch) => mutate(() => mgmt.updateKey(id, patch), refreshKeys),
+		revokeKey: (id) => mutate(() => mgmt.revokeKey(id), refreshKeys, (error) => error.kind === "not_found"),
+		createPreset: (input) => mutate(() => mgmt.createPreset(input), refreshPresets),
+		replacePreset: (name, input) => mutate(() => mgmt.replacePreset(name, input), refreshPresets),
+		deletePreset: (name) => mutate(() => mgmt.deletePreset(name), refreshPresets),
+		onChange(listener) {
+			listeners.add(listener);
+			return () => void listeners.delete(listener);
+		}
+	};
+}
 // src/core/settings.ts
 var SETTINGS_KEY = NANOVIA_SETTINGS_KEY;
 var UI_LANGUAGES = [
@@ -6648,8 +7985,8 @@ var UI_STRINGS = {
 	}
 };
 // src/features/account/view-model.ts
-var HOUR_MS = 36e5;
-var DAY_MS = 864e5;
+var HOUR_MS$1 = 36e5;
+var DAY_MS$1 = 864e5;
 var DASH = "—";
 /**
 * USD with the decimals the amount needs to show three significant digits, at least two and at most six:
@@ -6700,9 +8037,9 @@ function formatMoment(at, now) {
 /** "3 d 4 h", "3 h 20 min", "12 min", "< 1 min": the two largest units. */
 function formatDuration(ms, t) {
 	if (!Number.isFinite(ms) || ms < 6e4) return t("account.duration.lessMinute");
-	const days = Math.floor(ms / DAY_MS);
-	const hours = Math.floor(ms % DAY_MS / HOUR_MS);
-	const minutes = Math.floor(ms % HOUR_MS / 6e4);
+	const days = Math.floor(ms / DAY_MS$1);
+	const hours = Math.floor(ms % DAY_MS$1 / HOUR_MS$1);
+	const minutes = Math.floor(ms % HOUR_MS$1 / 6e4);
 	const parts = [];
 	if (days > 0) parts.push(`${days} ${t("account.unit.day")}`);
 	if (hours > 0) parts.push(`${hours} ${t("account.unit.hour")}`);
@@ -6752,7 +8089,7 @@ function recommendedChip(mode, t) {
 		title: t("account.recommended.paygo.hint")
 	};
 }
-function errorText$1(error, t) {
+function errorText$2(error, t) {
 	if ([
 		"key_rejected",
 		"rate_limited",
@@ -6782,7 +8119,7 @@ function accountNotice(detail, t) {
 		};
 		case "error": return {
 			kind: "error",
-			text: detail.error ? errorText$1(detail.error, t) : t("account.error.other", { code: "?" }),
+			text: detail.error ? errorText$2(detail.error, t) : t("account.error.other", { code: "?" }),
 			action: detail.error?.code === "key_rejected" ? "keys" : null
 		};
 		case "ok":
@@ -6823,7 +8160,7 @@ function rangeBounds(range, now, startOfDay) {
 		to
 	};
 	return {
-		from: now - (range === "week" ? 7 : 30) * DAY_MS,
+		from: now - (range === "week" ? 7 : 30) * DAY_MS$1,
 		to
 	};
 }
@@ -7596,7 +8933,7 @@ var KNOWN_ERRORS = [
 	"invalid_response",
 	"not_found"
 ];
-function errorText(code, t) {
+function errorText$1(code, t) {
 	if (KNOWN_ERRORS.includes(code)) return t(`catalog.error.${code}`);
 	const http = /^http_(\d+)$/.exec(code);
 	if (http) return t("catalog.error.http", { status: http[1] ?? "" });
@@ -7607,7 +8944,7 @@ function statusView(status, count, now, t) {
 		if (status.error) return {
 			kind: "error",
 			text: t("catalog.status.failed"),
-			notice: errorText(status.error, t)
+			notice: errorText$1(status.error, t)
 		};
 		return {
 			kind: "muted",
@@ -7625,7 +8962,7 @@ function statusView(status, count, now, t) {
 	if (status.source === "stale") return {
 		kind: "warn",
 		text,
-		notice: status.error ? t("catalog.status.staleError", { error: errorText(status.error, t) }) : t("catalog.status.stale")
+		notice: status.error ? t("catalog.status.staleError", { error: errorText$1(status.error, t) }) : t("catalog.status.stale")
 	};
 	return {
 		kind: "ok",
@@ -7633,7 +8970,7 @@ function statusView(status, count, now, t) {
 		notice: null
 	};
 }
-function detailOf(model, t) {
+function detailOf$1(model, t) {
 	return {
 		id: model.id,
 		name: model.name,
@@ -8295,7 +9632,7 @@ function validateForm(form, ctx) {
 	return issues;
 }
 /** A form issue as the operation issue the tab words (`connections.issue.<code>`). */
-function formIssue(issue) {
+function formIssue$2(issue) {
 	if (issue.field === "directKey") return { code: "direct_key_required" };
 	if (issue.field === "memoryDays") return { code: "invalid_memory_days" };
 	return {
@@ -8396,7 +9733,7 @@ function actionsFor(entry, pluginUp, t) {
 	return actions;
 }
 /** What the plugin status chip says. `checked` is false until the plugin has been asked once. */
-function bannerFor(status, error, pluginUp, t, checked = true) {
+function bannerFor$1(status, error, pluginUp, t, checked = true) {
 	if (!checked && !pluginUp) return {
 		state: "checking",
 		up: false,
@@ -8431,7 +9768,7 @@ function bannerFor(status, error, pluginUp, t, checked = true) {
 	};
 }
 /** Text of an operation's error or warning. */
-function issueText(issue, t) {
+function issueText$1(issue, t) {
 	const params = {};
 	for (const [key, value] of Object.entries(issue.params ?? {})) params[key] = value;
 	if (issue.code === "invalid" && typeof params["field"] === "string") params["field"] = t(`connections.field.${params["field"]}`);
@@ -8474,7 +9811,7 @@ function renderDetail(host, deps) {
 		};
 	}
 	const current = model;
-	const view = detailOf(current, t);
+	const view = detailOf$1(current, t);
 	const costResult = el("div", {
 		class: "nanovia-cost-result",
 		attrs: { "aria-live": "polite" }
@@ -8551,9 +9888,9 @@ function renderDetail(host, deps) {
 			text: t("catalog.cost.hint")
 		}),
 		el("div", { class: "nanovia-cost-inputs" }, [
-			labelled(t("catalog.cost.prompt"), promptInput),
-			labelled(t("catalog.cost.completion"), completionInput),
-			labelled(t("catalog.cost.cached"), cachedInput)
+			labelled$1(t("catalog.cost.prompt"), promptInput),
+			labelled$1(t("catalog.cost.completion"), completionInput),
+			labelled$1(t("catalog.cost.cached"), cachedInput)
 		]),
 		costResult
 	]);
@@ -8588,7 +9925,7 @@ function renderDetail(host, deps) {
 			}
 		});
 		return el("div", { class: "nanovia-criteria" }, [
-			labelled(t("catalog.hosts.priority"), select({
+			labelled$1(t("catalog.hosts.priority"), select({
 				value: session.hosts.priority,
 				options: priorities,
 				label: t("catalog.hosts.priority"),
@@ -8597,7 +9934,7 @@ function renderDetail(host, deps) {
 					drawTable(table);
 				}
 			})),
-			labelled(t("catalog.hosts.prefer"), select({
+			labelled$1(t("catalog.hosts.prefer"), select({
 				value: session.hosts.preferQuantization,
 				options: precisions,
 				label: t("catalog.hosts.prefer"),
@@ -8607,8 +9944,8 @@ function renderDetail(host, deps) {
 					drawTable(table);
 				}
 			})),
-			labelled(t("catalog.hosts.maxPrompt"), maxPrompt),
-			labelled(t("catalog.hosts.maxCompletion"), maxCompletion)
+			labelled$1(t("catalog.hosts.maxPrompt"), maxPrompt),
+			labelled$1(t("catalog.hosts.maxCompletion"), maxCompletion)
 		]);
 	}
 	function hostCell(row) {
@@ -8746,12 +10083,12 @@ function renderDetail(host, deps) {
 	}
 	function report(result, success) {
 		if (!result.ok) {
-			notify("error", issueText(result.error, t));
+			notify("error", issueText$1(result.error, t));
 			return;
 		}
 		const warnings = result.warnings;
 		if (warnings.length === 0) notify("ok", success);
-		else notify("warn", [success, ...warnings.map((warning) => issueText(warning, t))].join(" "));
+		else notify("warn", [success, ...warnings.map((warning) => issueText$1(warning, t))].join(" "));
 	}
 	function drawActions() {
 		clear(actionsHost);
@@ -8858,7 +10195,7 @@ function renderDetail(host, deps) {
 	};
 }
 /** A label above a control (the cost and criteria forms are narrow and stack on phones). */
-function labelled(label, control) {
+function labelled$1(label, control) {
 	return el("label", { class: "nanovia-labelled" }, [el("span", {
 		class: "nanovia-muted",
 		text: label
@@ -9919,18 +11256,18 @@ function renderConnectionsTab(root, ctx) {
 	/** Shows the outcome of an operation: its error, or its success text followed by any warnings. */
 	function report(result, success) {
 		if (!result.ok) {
-			notify("error", issueText(result.error, t));
+			notify("error", issueText$1(result.error, t));
 			return false;
 		}
 		const warnings = result.warnings;
 		if (warnings.length === 0) notify("ok", success);
-		else notify("warn", [success, ...warnings.map((warning) => issueText(warning, t))].join(" "));
+		else notify("warn", [success, ...warnings.map((warning) => issueText$1(warning, t))].join(" "));
 		return true;
 	}
 	function drawBanner() {
 		clear(bannerHost);
 		const up = ctx.connections.pluginUp();
-		const banner = bannerFor(ctx.connections.pluginStatus(), ctx.connections.pluginError(), up, t, ctx.connections.checked());
+		const banner = bannerFor$1(ctx.connections.pluginStatus(), ctx.connections.pluginError(), up, t, ctx.connections.checked());
 		const header = el("div", { class: "nanovia-row" }, [
 			chip(banner.title, banner.state === "up" ? "ok" : banner.state === "down" ? "error" : "muted"),
 			banner.detail ? el("span", {
@@ -10064,7 +11401,7 @@ function renderConnectionsTab(root, ctx) {
 		};
 		const first = validateForm(form, formCtx)[0];
 		if (first) {
-			notify("error", issueText(formIssue(first), t));
+			notify("error", issueText$1(formIssue$2(first), t));
 			return;
 		}
 		if (report(await ctx.connections.save({
@@ -10080,7 +11417,7 @@ function renderConnectionsTab(root, ctx) {
 	async function addKey(label, value) {
 		const result = await ctx.plugin.addKey(label, value);
 		if (!result.ok) {
-			notify("error", issueText({
+			notify("error", issueText$1({
 				code: "plugin_error",
 				params: { message: result.error.message }
 			}, t));
@@ -11106,6 +12443,2213 @@ var keysFeature = {
 			titleKey: "keys.tab",
 			order: 300,
 			render: (root, tabCtx) => renderKeysTab(root, tabCtx)
+		});
+	}
+};
+// src/features/mgmt/strings.ts
+var MGMT_STRINGS = {
+	en: {
+		"mgmt.tab": "Management",
+		"mgmt.title": "NanoGPT management",
+		"mgmt.beta.chip": "beta",
+		"mgmt.beta": "NanoGPT calls this API a beta: fields, limits and error codes may still change.",
+		"mgmt.refresh": "Refresh",
+		"mgmt.notice.refreshed": "Refreshed.",
+		"mgmt.loading": "Loading…",
+		"mgmt.on": "on",
+		"mgmt.off": "off",
+		"mgmt.opt.unset": "Not set",
+		"mgmt.form.cancel": "Cancel",
+		"mgmt.ago.now": "just now",
+		"mgmt.ago.minutes": "{count} min ago",
+		"mgmt.ago.hours": "{count} h ago",
+		"mgmt.ago.days": "{count} d ago",
+		"mgmt.banner.needsPlugin.title": "Needs the plugin",
+		"mgmt.banner.needsPlugin": "NanoGPT’s Management API cannot be called from the browser (it has no CORS), so it works only through the Nanovia server plugin. The plugin is not installed or not enabled: install it (see the README), restart SillyTavern and reload the page.",
+		"mgmt.banner.outdated.title": "The plugin is too old",
+		"mgmt.banner.outdated": "The Nanovia plugin answers, but it does not know the Management routes. Update the plugin (server/index.js), restart SillyTavern and reload the page.",
+		"mgmt.banner.down.title": "The plugin is not answering",
+		"mgmt.banner.error.title": "Management is not available",
+		"mgmt.gate.loading": "Loading…",
+		"mgmt.gate.noToken": "Add a Management token above to use this section.",
+		"mgmt.gate.tokenInvalid": "NanoGPT rejected the stored token. Save a new one above to use this section.",
+		"mgmt.gate.plugin": "Needs the Nanovia plugin: see the notice at the top.",
+		"mgmt.token.title": "Management token",
+		"mgmt.token.absent": "No token",
+		"mgmt.token.valid": "Valid",
+		"mgmt.token.valid.hint": "NanoGPT accepted the token at the last contact.",
+		"mgmt.token.invalid": "Rejected",
+		"mgmt.token.invalid.problem": "NanoGPT rejected the token: it was revoked, it expired (they last 90 days by default) or it was mistyped. Create a new one and save it here.",
+		"mgmt.token.unknown": "Not verified",
+		"mgmt.token.unknown.hint": "The token is stored, but NanoGPT has not confirmed it yet.",
+		"mgmt.token.checked": "Checked {when}",
+		"mgmt.token.why.mgmt_token_invalid": "At the last check NanoGPT rejected the token.",
+		"mgmt.token.why.upstream_unreachable": "The last check could not reach NanoGPT.",
+		"mgmt.token.why.upstream_timeout": "NanoGPT did not answer in time at the last check.",
+		"mgmt.token.why.upstream_error": "NanoGPT answered with an error at the last check.",
+		"mgmt.token.why.rate_limited": "NanoGPT was rate limiting the token at the last check.",
+		"mgmt.token.input": "Management token",
+		"mgmt.token.save": "Save",
+		"mgmt.token.delete": "Delete token",
+		"mgmt.token.check": "Check now",
+		"mgmt.token.check.hint": "Asks NanoGPT whether it accepts the stored token.",
+		"mgmt.token.check.valid": "NanoGPT accepts the token.",
+		"mgmt.token.check.invalid": "NanoGPT rejected the token.",
+		"mgmt.token.check.unknown": "NanoGPT could not be reached, so the token was not verified.",
+		"mgmt.token.hint": "The token goes to the plugin once and is kept only on this SillyTavern server. It is never shown again, not even in part.",
+		"mgmt.token.saved": "Token saved: NanoGPT accepted it.",
+		"mgmt.token.savedUnverified": "Token saved without confirmation. Use “Check now” later to verify it.",
+		"mgmt.token.deleted": "Token deleted.",
+		"mgmt.token.confirmDelete.title": "Delete token",
+		"mgmt.token.confirmDelete": "Delete the stored Management token? The keys and presets stay at NanoGPT; you will need a token again to manage them.",
+		"mgmt.token.anyway.text": "NanoGPT could not confirm this token, so it was not stored. If you are sure it is right, you can store it without checking.",
+		"mgmt.token.anyway.button": "Save without checking",
+		"mgmt.token.shape.empty": "Paste the token first.",
+		"mgmt.token.shape.inferenceKey": "This is an inference API key, not a Management token. Management tokens start with sk-nano-mgmt-.",
+		"mgmt.token.shape.prefix": "A Management token starts with sk-nano-mgmt-.",
+		"mgmt.token.shape.tooShort": "The token is too short; paste the whole token.",
+		"mgmt.token.shape.tooLong": "That is too long for a token.",
+		"mgmt.token.shape.characters": "A token has no spaces or special characters.",
+		"mgmt.guide.title": "Where do I get a token?",
+		"mgmt.guide.step1": "Sign in at nano-gpt.com and open Settings, then Security.",
+		"mgmt.guide.step2": "Create a Management token (it starts with {prefix}). It is a separate token, not your inference API key.",
+		"mgmt.guide.step3": "Tick the scopes below, copy the token and paste it above.",
+		"mgmt.guide.scopes": "Scopes this tab uses (a “write” scope includes “read”):",
+		"mgmt.scope.keys": "managed API keys: list, create, change limits, revoke",
+		"mgmt.scope.presets": "model presets: list, create, change, delete",
+		"mgmt.guide.expiry": "A token lasts 90 days by default (365 at most). When it expires, create a new one and save it here.",
+		"mgmt.guide.privacy": "A Management token is not an inference key: it cannot call models, and your inference keys cannot manage anything.",
+		"mgmt.keys.title": "Managed API keys",
+		"mgmt.keys.new": "New key",
+		"mgmt.keys.note": "NanoGPT’s API shows neither the end of a key nor how much each key has used, so the list shows only the name, limits and expiry. A key’s secret appears once, when it is made, and Nanovia puts it straight into SillyTavern’s secret store.",
+		"mgmt.keys.empty": "NanoGPT has no managed keys for this token yet.",
+		"mgmt.keys.noLimits": "No limits.",
+		"mgmt.keys.edit": "Edit limits",
+		"mgmt.keys.revoke": "Revoke",
+		"mgmt.keys.blocked": "Blocked",
+		"mgmt.keys.blocked.hint": "A limit of 0 stops this key from working.",
+		"mgmt.key.unnamed": "(unnamed)",
+		"mgmt.key.status.active": "Active",
+		"mgmt.key.status.expired": "Expired",
+		"mgmt.key.noExpiry": "No expiry",
+		"mgmt.key.expires": "Expires {date} (UTC)",
+		"mgmt.key.expired": "Expired {date} (UTC)",
+		"mgmt.key.created": "created {date}",
+		"mgmt.zdr.zdr": "ZDR routes only",
+		"mgmt.zdr.zdr.hint": "Zero data retention: requests go only to providers that keep no data.",
+		"mgmt.zdr.off": "Any route",
+		"mgmt.zdr.off.hint": "Anonymized routing: any provider may serve the key.",
+		"mgmt.zdr.unset": "Policy not set",
+		"mgmt.zdr.unset.hint": "A key from before the policy existed. Choose one when you edit it.",
+		"mgmt.zdr.choice.keep": "Leave as it is",
+		"mgmt.zdr.choice.default": "NanoGPT default",
+		"mgmt.limit.kind.requests": "Requests",
+		"mgmt.limit.kind.usd": "USD",
+		"mgmt.limit.kind.inputTokens": "Input tokens",
+		"mgmt.limit.kind.subscriptionInputTokens": "Subscription tokens",
+		"mgmt.limit.per.daily": "{value} / day",
+		"mgmt.limit.per.weekly": "{value} / week",
+		"mgmt.limit.per.monthly": "{value} / month",
+		"mgmt.period.daily": "Per day",
+		"mgmt.period.weekly": "Per week",
+		"mgmt.period.monthly": "Per month",
+		"mgmt.keys.form.titleNew": "New API key",
+		"mgmt.keys.form.titleEdit": "Edit limits: {name}",
+		"mgmt.keys.form.name": "Name",
+		"mgmt.keys.form.nameHint": "The key is saved in SillyTavern as “{prefix}<name>”. Its secret is never shown.",
+		"mgmt.keys.form.expiry": "Expires on (UTC)",
+		"mgmt.keys.form.expiryHint": "Empty: the key never expires. The key works until the end of that day, UTC.",
+		"mgmt.keys.form.zdr": "Data policy",
+		"mgmt.keys.form.zdrHint": "ZDR routes only keeps requests off providers that retain data; any route allows anonymized routing.",
+		"mgmt.keys.form.limits": "Limits",
+		"mgmt.keys.form.limitsHint": "Empty means no limit; 0 blocks the key. Windows are UTC calendar periods: a day starts at 00:00, a week on Monday, a month on the 1st.",
+		"mgmt.keys.form.limitsMax": "Requests and tokens are whole numbers (at most {daily} requests a day, {other} otherwise); USD goes in steps of 0.0001, up to {usd}. A request the subscription covers skips the USD limits.",
+		"mgmt.keys.form.cell": "{kind}, {period}",
+		"mgmt.keys.form.save": "Save",
+		"mgmt.keys.unchanged": "Nothing changed.",
+		"mgmt.keys.updated": "Key “{name}” updated.",
+		"mgmt.keys.created": "Key created and saved in SillyTavern as “{label}”. Its secret is not shown; pick it for a connection in the Keys tab.",
+		"mgmt.keys.openKeys": "Open the Keys tab",
+		"mgmt.keys.confirmRevoke.title": "Revoke key",
+		"mgmt.keys.confirmRevoke": "Revoke the key “{name}” at NanoGPT? It stops working at once and cannot be restored. Connections that use it will fail. The copy saved in SillyTavern stays in the Keys tab; delete it there.",
+		"mgmt.keys.revoked": "Key “{name}” revoked.",
+		"mgmt.presets.title": "Model presets",
+		"mgmt.presets.note": "A preset is a named bundle of a model, a system prompt and sampling settings. Call it as the model id presets/<name>. What a request sends wins over the preset. Up to {limit} presets.",
+		"mgmt.presets.new": "New preset",
+		"mgmt.presets.empty": "There are no presets yet.",
+		"mgmt.presets.edit": "Edit",
+		"mgmt.presets.duplicate": "Duplicate",
+		"mgmt.presets.delete": "Delete",
+		"mgmt.presets.duplicate.note": "A copy of “{name}”: pick a name and save.",
+		"mgmt.presets.fromConnection": "From connection",
+		"mgmt.presets.fromConnection.pick": "Connection",
+		"mgmt.presets.fromConnection.hint": "Starts a new preset from a connection’s model, routing preference and fixed reasoning effort.",
+		"mgmt.presets.fromConnection.note": "Filled from the connection “{name}”: its model, routing preference and reasoning effort.",
+		"mgmt.presets.fromConnection.dropped": "Provider lists, price caps and quantisation filters are not part of a preset, so they were left out.",
+		"mgmt.presets.form.titleNew": "New preset",
+		"mgmt.presets.form.titleEdit": "Edit preset: {name}",
+		"mgmt.presets.form.save": "Save",
+		"mgmt.presets.created": "Preset “{name}” created.",
+		"mgmt.presets.saved": "Preset “{name}” saved.",
+		"mgmt.presets.deleted": "Preset “{name}” deleted.",
+		"mgmt.presets.confirmDelete.title": "Delete preset",
+		"mgmt.presets.confirmDelete": "Delete the preset “{name}”? Requests that call presets/{name} will fail.",
+		"mgmt.preset.model": "Model: {model}",
+		"mgmt.preset.noSettings": "Only the model, no other settings.",
+		"mgmt.preset.updated": "updated {date}",
+		"mgmt.preset.promptChars": "System prompt {count} characters",
+		"mgmt.preset.promptCount": "{count} / {max} characters",
+		"mgmt.preset.group.model": "Model and system prompt",
+		"mgmt.preset.group.sampling": "Sampling and output",
+		"mgmt.preset.group.reasoning": "Reasoning and provider options",
+		"mgmt.preset.nameHint": "Letters, digits, - and _; up to 80 characters; kept in lower case.",
+		"mgmt.preset.nameFixed": "A preset’s name cannot be changed; duplicate it to get another.",
+		"mgmt.preset.modelHint": "A model id, not another preset.",
+		"mgmt.preset.range": "From {min} to {max}.",
+		"mgmt.preset.rangeInt": "A whole number from {min} to {max}.",
+		"mgmt.preset.routingHint": "How NanoGPT picks a provider.",
+		"mgmt.preset.tierHint": "flex and priority cannot go with speed, throughput, latency or price routing.",
+		"mgmt.preset.structuredHint": "Needs the response format json_object.",
+		"mgmt.preset.replaceHint": "Saving replaces the whole preset: a field left empty is cleared. What a request sends wins over the preset.",
+		"mgmt.preset.f.name": "Name",
+		"mgmt.preset.f.model": "Model",
+		"mgmt.preset.f.systemPrompt": "System prompt",
+		"mgmt.preset.f.maxTokens": "Max tokens",
+		"mgmt.preset.f.topK": "Top K",
+		"mgmt.preset.f.temperature": "Temperature",
+		"mgmt.preset.f.topP": "Top P",
+		"mgmt.preset.f.minP": "Min P",
+		"mgmt.preset.f.topA": "Top A",
+		"mgmt.preset.f.frequencyPenalty": "Frequency penalty",
+		"mgmt.preset.f.presencePenalty": "Presence penalty",
+		"mgmt.preset.f.repetitionPenalty": "Repetition penalty",
+		"mgmt.preset.f.responseFormat": "Response format",
+		"mgmt.preset.f.structuredOutputs": "Structured outputs",
+		"mgmt.preset.f.reasoningEffort": "Reasoning effort",
+		"mgmt.preset.f.reasoningSummary": "Reasoning summary",
+		"mgmt.preset.f.verbosity": "Verbosity",
+		"mgmt.preset.f.routing": "Routing preference",
+		"mgmt.preset.f.serviceTier": "Service tier",
+		"mgmt.preset.f.thinking": "Thinking",
+		"mgmt.preset.f.thinkingBudget": "Thinking budget (tokens)",
+		"mgmt.preset.f.promptCaching": "Prompt caching",
+		"mgmt.preset.f.cacheTtl": "Cache lifetime",
+		"mgmt.preset.f.body": "Whole preset",
+		"mgmt.error.pluginDown": "The Nanovia plugin is not answering.",
+		"mgmt.error.notInstalled": "SillyTavern does not know the Nanovia plugin or its Management routes: install or update the plugin and restart SillyTavern.",
+		"mgmt.error.forbidden": "SillyTavern refused the request (session or CSRF check). Reload the page.",
+		"mgmt.error.tokenMissing": "No Management token is stored: save one in the token card.",
+		"mgmt.error.tokenInvalid": "NanoGPT rejected the Management token (revoked, expired or wrong). Save a new one.",
+		"mgmt.error.scopeMissing": "The token lacks the {scope} scope. Create a token with that scope in NanoGPT (Settings, Security) and save it here.",
+		"mgmt.error.scopeMissingAny": "The token lacks a scope this action needs. Create a token with the right scopes in NanoGPT (Settings, Security).",
+		"mgmt.error.tokenMalformed": "That is not a Management token (they start with sk-nano-mgmt-).",
+		"mgmt.error.rateLimited": "NanoGPT is limiting how often this token may call the API. Wait a minute and try again.",
+		"mgmt.error.invalidRequest": "The values were refused: {detail}",
+		"mgmt.error.notFound": "It no longer exists at NanoGPT. Refresh the list.",
+		"mgmt.error.presetExists": "A preset with this name already exists. Pick another name, or edit that preset.",
+		"mgmt.error.presetLimit": "NanoGPT allows at most {limit} presets. Delete one first.",
+		"mgmt.error.conflict": "NanoGPT refused the change as a conflict ({code}).",
+		"mgmt.error.tooLarge": "The preset is too large for NanoGPT (16 KiB). Shorten the system prompt.",
+		"mgmt.error.secretsUnavailable": "SillyTavern’s secret store is not available, so no key was made. Nothing changed at NanoGPT.",
+		"mgmt.error.secretsFailed": "The key was created at NanoGPT, but SillyTavern could not store its secret. The secret cannot be shown again: revoke that key in the list and make a new one.",
+		"mgmt.error.upstream": "NanoGPT could not be reached or answered with an error. Try again later.",
+		"mgmt.error.upstreamTimeout": "NanoGPT did not answer in time. Try again later.",
+		"mgmt.error.invalidResponse": "The plugin sent an answer that was not understood. Update the plugin and the extension to the same version.",
+		"mgmt.error.other": "Something went wrong: {message}",
+		"mgmt.issue.required": "Required.",
+		"mgmt.issue.type": "Not an allowed kind of value.",
+		"mgmt.issue.length": "Must be 1 to {max} characters.",
+		"mgmt.issue.tooLong": "Longer than {max} characters.",
+		"mgmt.issue.enum": "Not an allowed choice.",
+		"mgmt.issue.range": "Must be between {min} and {max}.",
+		"mgmt.issue.integer": "Must be a whole number.",
+		"mgmt.issue.step": "Must be a multiple of 0.0001.",
+		"mgmt.issue.unknown_field": "Not accepted here.",
+		"mgmt.issue.empty": "Nothing to send.",
+		"mgmt.issue.too_large": "The whole preset is too large (at most 16 KiB): shorten the system prompt.",
+		"mgmt.issue.number": "Not a number.",
+		"mgmt.issue.past": "Pick today or a later day.",
+		"mgmt.issue.date": "Not a valid date.",
+		"mgmt.issue.format": "Use letters, digits, - and _, starting with a letter or digit, up to 80 characters.",
+		"mgmt.issue.conflict.structuredOutputs": "Needs the response format json_object.",
+		"mgmt.issue.conflict.serviceTier": "flex and priority cannot go with speed, throughput, latency or price routing.",
+		"mgmt.issue.conflict.thinkingBudget": "The budget needs thinking to be on.",
+		"mgmt.issue.conflict.other": "These settings do not go together."
+	},
+	ru: {
+		"mgmt.tab": "Управление",
+		"mgmt.title": "Управление NanoGPT",
+		"mgmt.beta.chip": "бета",
+		"mgmt.beta": "NanoGPT называет этот API бета-версией: поля, лимиты и коды ошибок ещё могут измениться.",
+		"mgmt.refresh": "Обновить",
+		"mgmt.notice.refreshed": "Обновлено.",
+		"mgmt.loading": "Загружаю…",
+		"mgmt.on": "вкл.",
+		"mgmt.off": "выкл.",
+		"mgmt.opt.unset": "Не задано",
+		"mgmt.form.cancel": "Отмена",
+		"mgmt.ago.now": "только что",
+		"mgmt.ago.minutes": "{count} мин назад",
+		"mgmt.ago.hours": "{count} ч назад",
+		"mgmt.ago.days": "{count} дн. назад",
+		"mgmt.banner.needsPlugin.title": "Нужен плагин",
+		"mgmt.banner.needsPlugin": "Management API NanoGPT нельзя вызвать из браузера (у него нет CORS), поэтому он работает только через серверный плагин Nanovia. Плагин не установлен или не включён: установите его (см. README), перезапустите SillyTavern и обновите страницу.",
+		"mgmt.banner.outdated.title": "Плагин устарел",
+		"mgmt.banner.outdated": "Плагин Nanovia отвечает, но не знает маршрутов Management. Обновите плагин (server/index.js), перезапустите SillyTavern и обновите страницу.",
+		"mgmt.banner.down.title": "Плагин не отвечает",
+		"mgmt.banner.error.title": "Управление недоступно",
+		"mgmt.gate.loading": "Загружаю…",
+		"mgmt.gate.noToken": "Добавьте токен управления выше, чтобы пользоваться этим разделом.",
+		"mgmt.gate.tokenInvalid": "NanoGPT отклонил сохранённый токен. Сохраните новый выше, чтобы пользоваться этим разделом.",
+		"mgmt.gate.plugin": "Нужен плагин Nanovia: см. сообщение вверху.",
+		"mgmt.token.title": "Токен управления",
+		"mgmt.token.absent": "Токена нет",
+		"mgmt.token.valid": "Действует",
+		"mgmt.token.valid.hint": "При последнем обращении NanoGPT принял токен.",
+		"mgmt.token.invalid": "Отклонён",
+		"mgmt.token.invalid.problem": "NanoGPT отклонил токен: он отозван, истёк (по умолчанию токен живёт 90 дней) или набран с ошибкой. Создайте новый и сохраните здесь.",
+		"mgmt.token.unknown": "Не проверен",
+		"mgmt.token.unknown.hint": "Токен сохранён, но NanoGPT его ещё не подтвердил.",
+		"mgmt.token.checked": "Проверен: {when}",
+		"mgmt.token.why.mgmt_token_invalid": "При последней проверке NanoGPT отклонил токен.",
+		"mgmt.token.why.upstream_unreachable": "При последней проверке NanoGPT не удалось достать.",
+		"mgmt.token.why.upstream_timeout": "При последней проверке NanoGPT не ответил вовремя.",
+		"mgmt.token.why.upstream_error": "При последней проверке NanoGPT ответил ошибкой.",
+		"mgmt.token.why.rate_limited": "При последней проверке NanoGPT ограничивал частоту запросов токена.",
+		"mgmt.token.input": "Токен управления",
+		"mgmt.token.save": "Сохранить",
+		"mgmt.token.delete": "Удалить токен",
+		"mgmt.token.check": "Проверить сейчас",
+		"mgmt.token.check.hint": "Спрашивает у NanoGPT, принимает ли он сохранённый токен.",
+		"mgmt.token.check.valid": "NanoGPT принимает токен.",
+		"mgmt.token.check.invalid": "NanoGPT отклонил токен.",
+		"mgmt.token.check.unknown": "NanoGPT не удалось достать, токен не проверен.",
+		"mgmt.token.hint": "Токен один раз уходит в плагин и хранится только на этом сервере SillyTavern. Повторно он не показывается, даже частично.",
+		"mgmt.token.saved": "Токен сохранён: NanoGPT его принял.",
+		"mgmt.token.savedUnverified": "Токен сохранён без подтверждения. Позже нажмите «Проверить сейчас».",
+		"mgmt.token.deleted": "Токен удалён.",
+		"mgmt.token.confirmDelete.title": "Удаление токена",
+		"mgmt.token.confirmDelete": "Удалить сохранённый токен управления? Ключи и пресеты останутся у NanoGPT; чтобы ими управлять, понадобится токен снова.",
+		"mgmt.token.anyway.text": "NanoGPT не смог подтвердить этот токен, поэтому он не сохранён. Если вы уверены, что он верный, его можно сохранить без проверки.",
+		"mgmt.token.anyway.button": "Сохранить без проверки",
+		"mgmt.token.shape.empty": "Сначала вставьте токен.",
+		"mgmt.token.shape.inferenceKey": "Это ключ API для запросов, а не токен управления. Токены управления начинаются с sk-nano-mgmt-.",
+		"mgmt.token.shape.prefix": "Токен управления начинается с sk-nano-mgmt-.",
+		"mgmt.token.shape.tooShort": "Токен слишком короткий: вставьте его целиком.",
+		"mgmt.token.shape.tooLong": "Для токена это слишком длинно.",
+		"mgmt.token.shape.characters": "В токене нет пробелов и особых символов.",
+		"mgmt.guide.title": "Где взять токен?",
+		"mgmt.guide.step1": "Войдите на nano-gpt.com и откройте Settings, затем Security.",
+		"mgmt.guide.step2": "Создайте токен управления (он начинается с {prefix}). Это отдельный токен, не ваш ключ API для запросов.",
+		"mgmt.guide.step3": "Отметьте права из списка ниже, скопируйте токен и вставьте его выше.",
+		"mgmt.guide.scopes": "Права, которые использует эта вкладка (право «write» включает «read»):",
+		"mgmt.scope.keys": "управляемые ключи API: список, создание, лимиты, отзыв",
+		"mgmt.scope.presets": "пресеты моделей: список, создание, изменение, удаление",
+		"mgmt.guide.expiry": "По умолчанию токен живёт 90 дней (не больше 365). Когда он истечёт, создайте новый и сохраните здесь.",
+		"mgmt.guide.privacy": "Токен управления — не ключ для запросов: моделей им не вызвать, а ваши ключи для запросов ничем не управляют.",
+		"mgmt.keys.title": "Управляемые ключи API",
+		"mgmt.keys.new": "Новый ключ",
+		"mgmt.keys.note": "API NanoGPT не показывает ни конец ключа, ни сколько потратил каждый ключ, поэтому в списке только имя, лимиты и срок действия. Секрет ключа виден один раз, при создании, и Nanovia сразу кладёт его в хранилище секретов SillyTavern.",
+		"mgmt.keys.empty": "У NanoGPT пока нет управляемых ключей для этого токена.",
+		"mgmt.keys.noLimits": "Без лимитов.",
+		"mgmt.keys.edit": "Лимиты",
+		"mgmt.keys.revoke": "Отозвать",
+		"mgmt.keys.blocked": "Заблокирован",
+		"mgmt.keys.blocked.hint": "Лимит 0 не даёт ключу работать.",
+		"mgmt.key.unnamed": "(без имени)",
+		"mgmt.key.status.active": "Активен",
+		"mgmt.key.status.expired": "Истёк",
+		"mgmt.key.noExpiry": "Без срока",
+		"mgmt.key.expires": "Действует до {date} (UTC)",
+		"mgmt.key.expired": "Истёк {date} (UTC)",
+		"mgmt.key.created": "создан {date}",
+		"mgmt.zdr.zdr": "Только ZDR",
+		"mgmt.zdr.zdr.hint": "Zero data retention: запросы идут только к провайдерам, которые ничего не хранят.",
+		"mgmt.zdr.off": "Любой маршрут",
+		"mgmt.zdr.off.hint": "Анонимизированная маршрутизация: ключ может обслуживать любой провайдер.",
+		"mgmt.zdr.unset": "Политика не задана",
+		"mgmt.zdr.unset.hint": "Ключ из времён до появления политики. Выберите её при редактировании.",
+		"mgmt.zdr.choice.keep": "Оставить как есть",
+		"mgmt.zdr.choice.default": "По умолчанию NanoGPT",
+		"mgmt.limit.kind.requests": "Запросы",
+		"mgmt.limit.kind.usd": "USD",
+		"mgmt.limit.kind.inputTokens": "Входные токены",
+		"mgmt.limit.kind.subscriptionInputTokens": "Токены подписки",
+		"mgmt.limit.per.daily": "{value} / сутки",
+		"mgmt.limit.per.weekly": "{value} / неделя",
+		"mgmt.limit.per.monthly": "{value} / месяц",
+		"mgmt.period.daily": "В сутки",
+		"mgmt.period.weekly": "В неделю",
+		"mgmt.period.monthly": "В месяц",
+		"mgmt.keys.form.titleNew": "Новый ключ API",
+		"mgmt.keys.form.titleEdit": "Лимиты ключа: {name}",
+		"mgmt.keys.form.name": "Имя",
+		"mgmt.keys.form.nameHint": "Ключ сохранится в SillyTavern как «{prefix}<имя>». Его секрет не показывается.",
+		"mgmt.keys.form.expiry": "Действует до (UTC)",
+		"mgmt.keys.form.expiryHint": "Пусто: ключ не истекает. Ключ работает до конца этого дня по UTC.",
+		"mgmt.keys.form.zdr": "Политика данных",
+		"mgmt.keys.form.zdrHint": "«Только ZDR» не пускает запросы к провайдерам, которые хранят данные; «любой маршрут» разрешает анонимизированную маршрутизацию.",
+		"mgmt.keys.form.limits": "Лимиты",
+		"mgmt.keys.form.limitsHint": "Пусто — без лимита; 0 блокирует ключ. Окна — календарные периоды по UTC: сутки с 00:00, неделя с понедельника, месяц с 1-го числа.",
+		"mgmt.keys.form.limitsMax": "Запросы и токены — целые числа (не больше {daily} запросов в сутки, остальное не больше {other}); USD — с шагом 0.0001, до {usd}. Запрос, покрытый подпиской, лимиты USD пропускает.",
+		"mgmt.keys.form.cell": "{kind}, {period}",
+		"mgmt.keys.form.save": "Сохранить",
+		"mgmt.keys.unchanged": "Ничего не изменилось.",
+		"mgmt.keys.updated": "Ключ «{name}» обновлён.",
+		"mgmt.keys.created": "Ключ создан и сохранён в SillyTavern как «{label}». Его секрет не показывается; выберите его для подключения на вкладке «Ключи».",
+		"mgmt.keys.openKeys": "Открыть вкладку «Ключи»",
+		"mgmt.keys.confirmRevoke.title": "Отзыв ключа",
+		"mgmt.keys.confirmRevoke": "Отозвать ключ «{name}» у NanoGPT? Он перестанет работать сразу, восстановить его нельзя. Подключения с этим ключом перестанут работать. Копия в SillyTavern останется на вкладке «Ключи»: удалите её там.",
+		"mgmt.keys.revoked": "Ключ «{name}» отозван.",
+		"mgmt.presets.title": "Пресеты моделей",
+		"mgmt.presets.note": "Пресет — именованный набор из модели, системного промпта и настроек сэмплирования. Вызывайте его как id модели presets/<имя>. Значения из запроса главнее пресета. Не больше {limit} пресетов.",
+		"mgmt.presets.new": "Новый пресет",
+		"mgmt.presets.empty": "Пресетов пока нет.",
+		"mgmt.presets.edit": "Изменить",
+		"mgmt.presets.duplicate": "Дублировать",
+		"mgmt.presets.delete": "Удалить",
+		"mgmt.presets.duplicate.note": "Копия «{name}»: выберите имя и сохраните.",
+		"mgmt.presets.fromConnection": "Из подключения",
+		"mgmt.presets.fromConnection.pick": "Подключение",
+		"mgmt.presets.fromConnection.hint": "Начинает новый пресет с модели, предпочтения маршрутизации и фиксированного уровня рассуждений подключения.",
+		"mgmt.presets.fromConnection.note": "Заполнено из подключения «{name}»: его модель, предпочтение маршрутизации и уровень рассуждений.",
+		"mgmt.presets.fromConnection.dropped": "Списки провайдеров, потолки цен и фильтры квантизации в пресет не входят, поэтому их нет.",
+		"mgmt.presets.form.titleNew": "Новый пресет",
+		"mgmt.presets.form.titleEdit": "Пресет: {name}",
+		"mgmt.presets.form.save": "Сохранить",
+		"mgmt.presets.created": "Пресет «{name}» создан.",
+		"mgmt.presets.saved": "Пресет «{name}» сохранён.",
+		"mgmt.presets.deleted": "Пресет «{name}» удалён.",
+		"mgmt.presets.confirmDelete.title": "Удаление пресета",
+		"mgmt.presets.confirmDelete": "Удалить пресет «{name}»? Запросы к presets/{name} перестанут работать.",
+		"mgmt.preset.model": "Модель: {model}",
+		"mgmt.preset.noSettings": "Только модель, других настроек нет.",
+		"mgmt.preset.updated": "изменён {date}",
+		"mgmt.preset.promptChars": "Системный промпт: {count} симв.",
+		"mgmt.preset.promptCount": "{count} / {max} символов",
+		"mgmt.preset.group.model": "Модель и системный промпт",
+		"mgmt.preset.group.sampling": "Сэмплирование и вывод",
+		"mgmt.preset.group.reasoning": "Рассуждения и параметры провайдера",
+		"mgmt.preset.nameHint": "Буквы, цифры, - и _; до 80 символов; хранится в нижнем регистре.",
+		"mgmt.preset.nameFixed": "Имя пресета изменить нельзя; дублируйте пресет, чтобы получить другое.",
+		"mgmt.preset.modelHint": "Id модели, а не другого пресета.",
+		"mgmt.preset.range": "От {min} до {max}.",
+		"mgmt.preset.rangeInt": "Целое число от {min} до {max}.",
+		"mgmt.preset.routingHint": "Как NanoGPT выбирает провайдера.",
+		"mgmt.preset.tierHint": "flex и priority нельзя сочетать с маршрутизацией по speed, throughput, latency или price.",
+		"mgmt.preset.structuredHint": "Нужен формат ответа json_object.",
+		"mgmt.preset.replaceHint": "Сохранение заменяет пресет целиком: пустое поле очищается. Значения из запроса главнее пресета.",
+		"mgmt.preset.f.name": "Имя",
+		"mgmt.preset.f.model": "Модель",
+		"mgmt.preset.f.systemPrompt": "Системный промпт",
+		"mgmt.preset.f.maxTokens": "Макс. токенов",
+		"mgmt.preset.f.topK": "Top K",
+		"mgmt.preset.f.temperature": "Температура",
+		"mgmt.preset.f.topP": "Top P",
+		"mgmt.preset.f.minP": "Min P",
+		"mgmt.preset.f.topA": "Top A",
+		"mgmt.preset.f.frequencyPenalty": "Штраф за частоту",
+		"mgmt.preset.f.presencePenalty": "Штраф за присутствие",
+		"mgmt.preset.f.repetitionPenalty": "Штраф за повторы",
+		"mgmt.preset.f.responseFormat": "Формат ответа",
+		"mgmt.preset.f.structuredOutputs": "Структурированный вывод",
+		"mgmt.preset.f.reasoningEffort": "Уровень рассуждений",
+		"mgmt.preset.f.reasoningSummary": "Сводка рассуждений",
+		"mgmt.preset.f.verbosity": "Многословность",
+		"mgmt.preset.f.routing": "Предпочтение маршрута",
+		"mgmt.preset.f.serviceTier": "Уровень сервиса",
+		"mgmt.preset.f.thinking": "Thinking",
+		"mgmt.preset.f.thinkingBudget": "Бюджет thinking (токенов)",
+		"mgmt.preset.f.promptCaching": "Кэш промпта",
+		"mgmt.preset.f.cacheTtl": "Время жизни кэша",
+		"mgmt.preset.f.body": "Пресет целиком",
+		"mgmt.error.pluginDown": "Плагин Nanovia не отвечает.",
+		"mgmt.error.notInstalled": "SillyTavern не знает плагина Nanovia или его маршрутов Management: установите или обновите плагин и перезапустите SillyTavern.",
+		"mgmt.error.forbidden": "SillyTavern отклонил запрос (проверка сессии или CSRF). Обновите страницу.",
+		"mgmt.error.tokenMissing": "Токен управления не сохранён: сохраните его в карточке токена.",
+		"mgmt.error.tokenInvalid": "NanoGPT отклонил токен управления (отозван, истёк или неверный). Сохраните новый.",
+		"mgmt.error.scopeMissing": "У токена нет права {scope}. Создайте в NanoGPT (Settings, Security) токен с этим правом и сохраните его здесь.",
+		"mgmt.error.scopeMissingAny": "У токена нет права, которое нужно для этого действия. Создайте в NanoGPT (Settings, Security) токен с нужными правами.",
+		"mgmt.error.tokenMalformed": "Это не токен управления (они начинаются с sk-nano-mgmt-).",
+		"mgmt.error.rateLimited": "NanoGPT ограничивает частоту обращений этого токена к API. Подождите минуту и повторите.",
+		"mgmt.error.invalidRequest": "Значения отклонены: {detail}",
+		"mgmt.error.notFound": "У NanoGPT этого больше нет. Обновите список.",
+		"mgmt.error.presetExists": "Пресет с таким именем уже есть. Выберите другое имя или измените тот пресет.",
+		"mgmt.error.presetLimit": "NanoGPT разрешает не больше {limit} пресетов. Сначала удалите один.",
+		"mgmt.error.conflict": "NanoGPT отклонил изменение как конфликт ({code}).",
+		"mgmt.error.tooLarge": "Пресет слишком велик для NanoGPT (16 КиБ). Сократите системный промпт.",
+		"mgmt.error.secretsUnavailable": "Хранилище секретов SillyTavern недоступно, поэтому ключ не создан. У NanoGPT ничего не изменилось.",
+		"mgmt.error.secretsFailed": "Ключ создан у NanoGPT, но SillyTavern не смог сохранить его секрет. Секрет повторно не показать: отзовите этот ключ в списке и создайте новый.",
+		"mgmt.error.upstream": "NanoGPT не удалось достать, или он ответил ошибкой. Попробуйте позже.",
+		"mgmt.error.upstreamTimeout": "NanoGPT не ответил вовремя. Попробуйте позже.",
+		"mgmt.error.invalidResponse": "Плагин прислал непонятный ответ. Обновите плагин и расширение до одной версии.",
+		"mgmt.error.other": "Что-то пошло не так: {message}",
+		"mgmt.issue.required": "Обязательное поле.",
+		"mgmt.issue.type": "Недопустимый вид значения.",
+		"mgmt.issue.length": "Нужно от 1 до {max} символов.",
+		"mgmt.issue.tooLong": "Длиннее {max} символов.",
+		"mgmt.issue.enum": "Недопустимый вариант.",
+		"mgmt.issue.range": "Должно быть от {min} до {max}.",
+		"mgmt.issue.integer": "Нужно целое число.",
+		"mgmt.issue.step": "Должно быть кратно 0.0001.",
+		"mgmt.issue.unknown_field": "Здесь не принимается.",
+		"mgmt.issue.empty": "Отправлять нечего.",
+		"mgmt.issue.too_large": "Пресет целиком слишком велик (не больше 16 КиБ): сократите системный промпт.",
+		"mgmt.issue.number": "Это не число.",
+		"mgmt.issue.past": "Выберите сегодняшний или более поздний день.",
+		"mgmt.issue.date": "Это не дата.",
+		"mgmt.issue.format": "Буквы, цифры, - и _, начинать с буквы или цифры, до 80 символов.",
+		"mgmt.issue.conflict.structuredOutputs": "Нужен формат ответа json_object.",
+		"mgmt.issue.conflict.serviceTier": "flex и priority нельзя сочетать с маршрутизацией по speed, throughput, latency или price.",
+		"mgmt.issue.conflict.thinkingBudget": "Бюджет нужен только при включённом thinking.",
+		"mgmt.issue.conflict.other": "Эти настройки несовместимы."
+	}
+};
+// src/features/mgmt/controls.ts
+/** A text field for a number: the value stays text until the form model parses it (so "0,5" or "" are the user's to type). */
+function numberField(options) {
+	const input = textInput({
+		value: options.value,
+		label: options.label,
+		disabled: options.disabled === true,
+		onInput: options.onInput
+	});
+	input.setAttribute("inputmode", "decimal");
+	if (options.invalid) input.setAttribute("aria-invalid", "true");
+	return input;
+}
+/** A calendar date field (`YYYY-MM-DD`); empty = no date. */
+function dateField(options) {
+	const input = el("input", {
+		class: "text_pole nanovia-text",
+		attrs: {
+			type: "date",
+			"aria-label": options.label,
+			"aria-invalid": options.invalid ? "true" : void 0
+		}
+	});
+	input.value = options.value;
+	const handler = () => options.onInput(input.value);
+	input.addEventListener("input", handler);
+	input.addEventListener("change", handler);
+	return input;
+}
+/** A coloured notice line, with a button when the notice offers a next step. */
+function noticeBox(kind, text, action) {
+	return el("div", { class: ["nanovia-notice", `nanovia-notice-${kind}`] }, [el("div", { text }), action ? button({
+		label: action.label,
+		kind: "ghost",
+		onClick: action.onClick
+	}) : null]);
+}
+// src/features/mgmt/format.ts
+var MINUTE_MS = 6e4;
+var HOUR_MS = 36e5;
+var DAY_MS = 864e5;
+/** A non-breaking space, so a grouped number does not wrap in the middle. */
+var NBSP = String.fromCharCode(160);
+/** `YYYY-MM-DD` of a moment, in UTC. */
+function formatDate(ms) {
+	return new Date(ms).toISOString().slice(0, 10);
+}
+/** The last millisecond of a `YYYY-MM-DD` day in UTC; null for text that is not a real calendar date. */
+function endOfDayUtc(date) {
+	const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date.trim());
+	if (!match) return null;
+	const year = Number(match[1]);
+	const month = Number(match[2]);
+	const day = Number(match[3]);
+	const moment = new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
+	if (moment.getUTCFullYear() !== year || moment.getUTCMonth() !== month - 1 || moment.getUTCDate() !== day) return null;
+	return moment.getTime();
+}
+/** 1500000 -> "1 500 000" (non-breaking spaces; the same in every language). */
+function groupDigits(value) {
+	const [whole = "0", fraction] = String(value).split(".");
+	const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, NBSP);
+	return fraction ? `${grouped}.${fraction}` : grouped;
+}
+/** A limit as the list shows it: USD as `$5` / `$0.0025`, counts grouped. */
+function formatLimit(kind, value) {
+	if (kind === "usd") return `$${trimZeros(value.toFixed(4))}`;
+	return groupDigits(value);
+}
+/**
+* What a user typed into a number field: '' (or only spaces) = null ("no value"), a decimal number (a comma works as the
+* decimal mark, spaces inside are grouping) = the number, anything else = undefined (not a number).
+*/
+function parseNumberText(text) {
+	const trimmed = text.trim();
+	if (!trimmed) return null;
+	const compact = trimmed.replace(/\s/g, "").replace(",", ".");
+	if (!/^[+-]?\d+(?:\.\d+)?$/.test(compact)) return void 0;
+	const value = Number(compact);
+	return Number.isFinite(value) ? value : void 0;
+}
+/** A number as a field shows it (no exponent, no float noise). */
+function numberText$1(value) {
+	if (value === null) return "";
+	return trimZeros(Number(value.toPrecision(12)).toFixed(10));
+}
+/** "just now", "5 min ago", "3 h ago", "2 d ago". */
+function agoText(at, now, t) {
+	const age = Math.max(0, now - at);
+	if (age < MINUTE_MS) return t("mgmt.ago.now");
+	if (age < HOUR_MS) return t("mgmt.ago.minutes", { count: Math.floor(age / MINUTE_MS) });
+	if (age < DAY_MS) return t("mgmt.ago.hours", { count: Math.floor(age / HOUR_MS) });
+	return t("mgmt.ago.days", { count: Math.floor(age / DAY_MS) });
+}
+// src/features/mgmt/key-form-model.ts
+function limitField(kind, period) {
+	return `limits.${kind}.${period}`;
+}
+function blankLimits() {
+	const blank = () => ({
+		daily: "",
+		weekly: "",
+		monthly: ""
+	});
+	return {
+		requests: blank(),
+		usd: blank(),
+		inputTokens: blank(),
+		subscriptionInputTokens: blank()
+	};
+}
+function emptyKeyForm() {
+	return {
+		name: "",
+		expiry: "",
+		zdr: "keep",
+		limits: blankLimits()
+	};
+}
+function keyFormFromKey(key) {
+	const limits = blankLimits();
+	for (const kind of KEY_LIMIT_KINDS) for (const period of KEY_LIMIT_PERIODS) limits[kind][period] = numberText$1(key.limits[kind][period]);
+	return {
+		name: key.name,
+		expiry: key.expiresAt === null ? "" : formatDate(key.expiresAt),
+		zdr: key.zdrPolicy ?? "keep",
+		limits
+	};
+}
+/** The largest value a limit field takes (for hints and messages). */
+function limitMax(kind, period) {
+	return KEY_LIMIT_RANGES[kind].max[period];
+}
+/** Maps a path of the plugin's validation (`expiresAt`, `limits.usd.daily`) to a form field and adds what the text needs. */
+function formIssue$1(raw) {
+	const field = raw.field === "expiresAt" ? "expiry" : raw.field === "zdrPolicy" ? "zdr" : raw.field;
+	const limit = /^limits\.(\w+)\.(\w+)$/.exec(field);
+	const kind = KEY_LIMIT_KINDS.find((item) => item === limit?.[1]);
+	const period = KEY_LIMIT_PERIODS.find((item) => item === limit?.[2]);
+	const params = {};
+	if (kind && period) {
+		params["min"] = 0;
+		params["max"] = limitMax(kind, period);
+	}
+	if (field === "name") params["max"] = 120;
+	return Object.keys(params).length > 0 ? {
+		field,
+		code: raw.code,
+		params
+	} : {
+		field,
+		code: raw.code
+	};
+}
+/** Reads every limit field; a field that is not a number is an issue, an empty one is null (unlimited). */
+function parseLimits(form) {
+	const values = {};
+	const issues = [];
+	for (const kind of KEY_LIMIT_KINDS) for (const period of KEY_LIMIT_PERIODS) {
+		const value = parseNumberText(form.limits[kind][period]);
+		if (value === void 0) {
+			issues.push({
+				field: limitField(kind, period),
+				code: "number"
+			});
+			continue;
+		}
+		(values[kind] ??= {})[period] = value;
+	}
+	return {
+		values,
+		issues
+	};
+}
+/** The expiry as a moment: null for no expiry, undefined (and an issue) for a date that is not one or is already past. */
+function parseExpiry(form, now, issues) {
+	if (!form.expiry.trim()) return null;
+	const end = endOfDayUtc(form.expiry);
+	if (end === null) {
+		issues.push({
+			field: "expiry",
+			code: "date"
+		});
+		return;
+	}
+	if (end < now) {
+		issues.push({
+			field: "expiry",
+			code: "past"
+		});
+		return;
+	}
+	return end;
+}
+/**
+* The PATCH for an edited key: only the fields that differ from `original`, the limits per cell (an emptied cell is
+* `null`, which clears the limit). Everything sent has passed the plugin's own checks.
+*/
+function buildKeyPatch(original, form, now) {
+	const issues = [];
+	const patch = {};
+	if (form.name.trim() !== original.name.trim()) patch.name = form.name;
+	const originalExpiry = original.expiresAt === null ? "" : formatDate(original.expiresAt);
+	if (form.expiry.trim() !== originalExpiry) {
+		const expiresAt = parseExpiry(form, now, issues);
+		if (expiresAt !== void 0) patch.expiresAt = expiresAt;
+	}
+	if (form.zdr !== "keep" && form.zdr !== original.zdrPolicy) patch.zdrPolicy = form.zdr;
+	const parsed = parseLimits(form);
+	issues.push(...parsed.issues);
+	for (const kind of KEY_LIMIT_KINDS) for (const period of KEY_LIMIT_PERIODS) {
+		const value = parsed.values[kind]?.[period];
+		if (value === void 0 || value === original.limits[kind][period]) continue;
+		patch.limits ??= {};
+		(patch.limits[kind] ??= {})[period] = value;
+	}
+	if (Object.keys(patch).length === 0) return issues.length > 0 ? {
+		ok: false,
+		unchanged: false,
+		issues
+	} : {
+		ok: false,
+		unchanged: true,
+		issues: []
+	};
+	const checked = sanitizeKeyLimitsPatch(patch);
+	if (checked.ok && issues.length === 0) return {
+		ok: true,
+		patch: checked.value
+	};
+	if (!checked.ok) issues.push(...checked.issues.map(formIssue$1));
+	return {
+		ok: false,
+		unchanged: false,
+		issues
+	};
+}
+/** The POST body for a new key: the name, and only the limits, expiry and policy that were filled in. */
+function buildKeyCreate(form, now) {
+	const issues = [];
+	const input = { name: form.name };
+	const expiresAt = parseExpiry(form, now, issues);
+	if (typeof expiresAt === "number") input.expiresAt = expiresAt;
+	if (form.zdr === "zdr" || form.zdr === "off") input.zdrPolicy = form.zdr;
+	const parsed = parseLimits(form);
+	issues.push(...parsed.issues);
+	for (const kind of KEY_LIMIT_KINDS) for (const period of KEY_LIMIT_PERIODS) {
+		const value = parsed.values[kind]?.[period];
+		if (value === void 0 || value === null) continue;
+		input.limits ??= {};
+		(input.limits[kind] ??= {})[period] = value;
+	}
+	const checked = sanitizeKeyCreateInput(input);
+	if (checked.ok && issues.length === 0) return {
+		ok: true,
+		input: checked.value
+	};
+	if (!checked.ok) issues.push(...checked.issues.map(formIssue$1));
+	return {
+		ok: false,
+		issues
+	};
+}
+// src/features/mgmt/view-model.ts
+/** The token chip, the time of the last check, and what is wrong with a token that is not valid. Never the token itself. */
+function tokenView(detail, now, t) {
+	const status = detail.status;
+	if (!status || !status.present) return {
+		id: "absent",
+		chip: {
+			label: t("mgmt.token.absent"),
+			kind: "muted"
+		},
+		checked: null,
+		problem: null
+	};
+	const checked = status.checkedAt === null ? null : t("mgmt.token.checked", { when: agoText(status.checkedAt, now, t) });
+	if (status.valid === true) return {
+		id: "valid",
+		chip: {
+			label: t("mgmt.token.valid"),
+			kind: "ok",
+			title: t("mgmt.token.valid.hint")
+		},
+		checked,
+		problem: null
+	};
+	if (status.valid === false) return {
+		id: "invalid",
+		chip: {
+			label: t("mgmt.token.invalid"),
+			kind: "error"
+		},
+		checked,
+		problem: t("mgmt.token.invalid.problem")
+	};
+	const why = status.error === null ? null : t(`mgmt.token.why.${status.error}`);
+	return {
+		id: "unknown",
+		chip: {
+			label: t("mgmt.token.unknown"),
+			kind: "warn",
+			title: t("mgmt.token.unknown.hint")
+		},
+		checked,
+		problem: why
+	};
+}
+/** A token the plugin could not confirm may be stored anyway; one NanoGPT rejected, or a malformed one, never. */
+function offersSaveAnyway(error) {
+	return error.kind === "upstream" || error.kind === "rate_limited";
+}
+/** The scopes a token needs for what this tab does; `write` includes `read`. `usage:read` is not used by Nanovia. */
+var SCOPE_GUIDE = [{
+	scope: "api_keys:write",
+	purposeKey: "mgmt.scope.keys"
+}, {
+	scope: "model_presets:write",
+	purposeKey: "mgmt.scope.presets"
+}];
+/** Whether the tab's actions work: not while the plugin cannot be reached or does not know Management. */
+function actionsEnabled(state) {
+	return state !== "needs_plugin" && state !== "plugin_outdated" && state !== "plugin_down" && state !== "error";
+}
+/** The banner under the head for the states where the tab cannot work at all; null otherwise. */
+function bannerFor(detail, t) {
+	switch (detail.state) {
+		case "needs_plugin": return {
+			kind: "warn",
+			title: t("mgmt.banner.needsPlugin.title"),
+			text: t("mgmt.banner.needsPlugin")
+		};
+		case "plugin_outdated": return {
+			kind: "warn",
+			title: t("mgmt.banner.outdated.title"),
+			text: t("mgmt.banner.outdated")
+		};
+		case "plugin_down": return {
+			kind: "error",
+			title: t("mgmt.banner.down.title"),
+			text: detail.error ? errorText(detail.error, t) : t("mgmt.error.pluginDown")
+		};
+		case "error": return {
+			kind: "error",
+			title: t("mgmt.banner.error.title"),
+			text: detail.error ? errorText(detail.error, t) : t("mgmt.error.other", { message: "" })
+		};
+		default: return null;
+	}
+}
+/** Whether a section (keys, presets) can be used now, from the state of the whole tab. */
+function gateFor(state, t) {
+	switch (state) {
+		case "ready": return {
+			open: true,
+			text: null
+		};
+		case "idle": return {
+			open: false,
+			text: t("mgmt.gate.loading")
+		};
+		case "no_token": return {
+			open: false,
+			text: t("mgmt.gate.noToken")
+		};
+		case "token_invalid": return {
+			open: false,
+			text: t("mgmt.gate.tokenInvalid")
+		};
+		default: return {
+			open: false,
+			text: t("mgmt.gate.plugin")
+		};
+	}
+}
+/** The `field: problem` part of an invalid_request message, without the lead-in sentence. */
+function detailOf(message) {
+	const colon = message.indexOf(": ");
+	return colon >= 0 ? message.slice(colon + 2) : message;
+}
+/** One error in the user's language. The plugin's English message is shown only where it carries the detail. */
+function errorText(error, t) {
+	switch (error.kind) {
+		case "plugin_down": return t("mgmt.error.pluginDown");
+		case "not_installed": return t("mgmt.error.notInstalled");
+		case "forbidden": return t("mgmt.error.forbidden");
+		case "token_missing": return t("mgmt.error.tokenMissing");
+		case "token_invalid": return t("mgmt.error.tokenInvalid");
+		case "scope_missing": return error.scope ? t("mgmt.error.scopeMissing", { scope: error.scope }) : t("mgmt.error.scopeMissingAny");
+		case "token_malformed": return t("mgmt.error.tokenMalformed");
+		case "rate_limited": return t("mgmt.error.rateLimited");
+		case "invalid_request": return t("mgmt.error.invalidRequest", { detail: detailOf(error.message) });
+		case "not_found": return t("mgmt.error.notFound");
+		case "preset_exists": return t("mgmt.error.presetExists");
+		case "conflict": return error.code === "preset_limit_reached" ? t("mgmt.error.presetLimit", { limit: 100 }) : t("mgmt.error.conflict", { code: error.code });
+		case "too_large": return t("mgmt.error.tooLarge");
+		case "secrets_unavailable": return t("mgmt.error.secretsUnavailable");
+		case "secrets_failed": return t("mgmt.error.secretsFailed");
+		case "upstream": return error.code === "upstream_timeout" ? t("mgmt.error.upstreamTimeout") : t("mgmt.error.upstream");
+		case "invalid_response": return t("mgmt.error.invalidResponse");
+		case "other": return t("mgmt.error.other", { message: error.message });
+	}
+}
+/** The fields whose `conflict` has a message of its own. */
+var CONFLICT_FIELDS = [
+	"structuredOutputs",
+	"serviceTier",
+	"thinkingBudget"
+];
+/** A form problem in the user's language. */
+function issueText(issue, t) {
+	const params = {};
+	for (const [name, value] of Object.entries(issue.params ?? {})) params[name] = typeof value === "number" ? groupDigits(value) : value;
+	switch (issue.code) {
+		case "conflict": return t(`mgmt.issue.conflict.${CONFLICT_FIELDS.includes(issue.field) ? issue.field : "other"}`);
+		case "length": return t(issue.field === "systemPrompt" ? "mgmt.issue.tooLong" : "mgmt.issue.length", params);
+		default: return t(`mgmt.issue.${issue.code}`, params);
+	}
+}
+/** One kind's limits as text: only the periods that are set. Empty when none is. */
+function limitLine(kind, limits, t) {
+	const parts = [];
+	for (const period of KEY_LIMIT_PERIODS) {
+		const value = limits[kind][period];
+		if (value !== null) parts.push(t(`mgmt.limit.per.${period}`, { value: formatLimit(kind, value) }));
+	}
+	return parts.length === 0 ? null : {
+		kind,
+		label: t(`mgmt.limit.kind.${kind}`),
+		text: parts.join(" · ")
+	};
+}
+/** The limits of a key as lines, in a fixed order; `[]` when it is unlimited. */
+function limitLines(limits, t) {
+	const lines = [];
+	for (const kind of KEY_LIMIT_KINDS) {
+		const line = limitLine(kind, limits, t);
+		if (line) lines.push(line);
+	}
+	return lines;
+}
+function zdrChip(policy, t) {
+	switch (policy) {
+		case "zdr": return {
+			label: t("mgmt.zdr.zdr"),
+			kind: "info",
+			title: t("mgmt.zdr.zdr.hint")
+		};
+		case "off": return {
+			label: t("mgmt.zdr.off"),
+			kind: "muted",
+			title: t("mgmt.zdr.off.hint")
+		};
+		case "unset": return {
+			label: t("mgmt.zdr.unset"),
+			kind: "warn",
+			title: t("mgmt.zdr.unset.hint")
+		};
+		default: return null;
+	}
+}
+function expiryText(key, now, t) {
+	if (key.expiresAt === null) return t("mgmt.key.noExpiry");
+	const date = formatDate(key.expiresAt);
+	return key.status === "expired" || key.expiresAt <= now ? t("mgmt.key.expired", { date }) : t("mgmt.key.expires", { date });
+}
+/** Whether any limit of the key is 0, which stops the key from working. */
+function isBlocked(limits) {
+	return KEY_LIMIT_KINDS.some((kind) => KEY_LIMIT_PERIODS.some((period) => limits[kind][period] === 0));
+}
+function keyCard(key, now, t) {
+	const expired = key.status === "expired" || key.expiresAt !== null && key.expiresAt <= now;
+	return {
+		id: key.id,
+		name: key.name || t("mgmt.key.unnamed"),
+		status: expired ? {
+			label: t("mgmt.key.status.expired"),
+			kind: "error"
+		} : {
+			label: t("mgmt.key.status.active"),
+			kind: "ok"
+		},
+		zdr: zdrChip(key.zdrPolicy, t),
+		expiry: expiryText(key, now, t),
+		created: key.createdAt === null ? null : t("mgmt.key.created", { date: formatDate(key.createdAt) }),
+		limits: limitLines(key.limits, t),
+		blocked: isBlocked(key.limits)
+	};
+}
+/** The label of the ST secret a created key is stored under (the plugin cuts it at 100 characters). */
+function secretLabel(prefix, name) {
+	return `${prefix}${name}`.slice(0, 100);
+}
+function labelled(t, key, value) {
+	return `${t(`mgmt.preset.f.${key}`)} ${value}`;
+}
+/** The set settings of a preset as short chips ("Temperature 0.8", "Thinking budget 8 000"). */
+function presetChips(preset, t) {
+	const chips = [];
+	const numbers = [
+		["maxTokens", preset.maxTokens],
+		["temperature", preset.temperature],
+		["topP", preset.topP],
+		["topK", preset.topK],
+		["minP", preset.minP],
+		["topA", preset.topA],
+		["frequencyPenalty", preset.frequencyPenalty],
+		["presencePenalty", preset.presencePenalty],
+		["repetitionPenalty", preset.repetitionPenalty]
+	];
+	for (const [key, value] of numbers) if (value !== null) chips.push(labelled(t, key, groupDigits(value)));
+	if (preset.responseFormat) chips.push(labelled(t, "responseFormat", preset.responseFormat));
+	if (preset.structuredOutputs !== null) chips.push(labelled(t, "structuredOutputs", t(preset.structuredOutputs ? "mgmt.on" : "mgmt.off")));
+	if (preset.reasoningEffort) chips.push(labelled(t, "reasoningEffort", preset.reasoningEffort));
+	if (preset.reasoningSummary) chips.push(labelled(t, "reasoningSummary", preset.reasoningSummary));
+	if (preset.verbosity) chips.push(labelled(t, "verbosity", preset.verbosity));
+	if (preset.routing) chips.push(labelled(t, "routing", preset.routing));
+	if (preset.serviceTier) chips.push(labelled(t, "serviceTier", preset.serviceTier));
+	if (preset.thinking) {
+		const budget = preset.thinking.budgetTokens;
+		chips.push(preset.thinking.enabled && budget !== null ? labelled(t, "thinkingBudget", groupDigits(budget)) : labelled(t, "thinking", t(preset.thinking.enabled ? "mgmt.on" : "mgmt.off")));
+	}
+	if (preset.promptCaching) {
+		const ttl = preset.promptCaching.ttl;
+		chips.push(preset.promptCaching.enabled && ttl ? labelled(t, "promptCaching", ttl) : labelled(t, "promptCaching", t(preset.promptCaching.enabled ? "mgmt.on" : "mgmt.off")));
+	}
+	if (preset.systemPrompt) chips.push(t("mgmt.preset.promptChars", { count: groupDigits(preset.systemPrompt.length) }));
+	return chips;
+}
+function presetCard(preset, t) {
+	return {
+		name: preset.name,
+		modelId: `presets/${preset.name}`,
+		model: preset.model,
+		chips: presetChips(preset, t),
+		updated: preset.updatedAt === null ? null : t("mgmt.preset.updated", { date: formatDate(preset.updatedAt) })
+	};
+}
+// src/features/mgmt/keys-view.ts
+function fieldLabel$1(field, t) {
+	if (field === "name") return t("mgmt.keys.form.name");
+	if (field === "expiry") return t("mgmt.keys.form.expiry");
+	if (field === "zdr") return t("mgmt.keys.form.zdr");
+	const cell = /^limits\.(\w+)\.(\w+)$/.exec(field);
+	if (cell) return t("mgmt.keys.form.cell", {
+		kind: t(`mgmt.limit.kind.${cell[1]}`),
+		period: t(`mgmt.period.${cell[2]}`)
+	});
+	return field;
+}
+function zdrOptions(editing, t) {
+	const options = [
+		{
+			value: "keep",
+			label: t(editing ? "mgmt.zdr.choice.keep" : "mgmt.zdr.choice.default")
+		},
+		{
+			value: "zdr",
+			label: t("mgmt.zdr.zdr")
+		},
+		{
+			value: "off",
+			label: t("mgmt.zdr.off")
+		}
+	];
+	if (editing?.zdrPolicy === "unset") options.push({
+		value: "unset",
+		label: t("mgmt.zdr.unset")
+	});
+	return options;
+}
+function createKeysSection(deps) {
+	const { ctx, notify } = deps;
+	const t = ctx.t;
+	let detail = ctx.mgmt.detail();
+	let editor = null;
+	const newButton = button({
+		label: t("mgmt.keys.new"),
+		icon: "plus",
+		kind: "primary",
+		onClick: () => openEditor(null)
+	});
+	const body = el("div", { class: "nanovia-mgmt-body" });
+	const root = el("section", { class: "nanovia-mgmt-section nanovia-mgmt-keys" }, [
+		el("div", { class: "nanovia-row nanovia-mgmt-head" }, [el("h4", {
+			class: "nanovia-mgmt-title",
+			text: t("mgmt.keys.title")
+		}), newButton]),
+		el("div", {
+			class: "nanovia-muted",
+			text: t("mgmt.keys.note")
+		}),
+		body
+	]);
+	function openEditor(key) {
+		editor = {
+			key,
+			form: key ? keyFormFromKey(key) : emptyKeyForm(),
+			issues: [],
+			error: null,
+			element: el("form")
+		};
+		drawEditor();
+		drawBody();
+		editor.element.scrollIntoView?.({ block: "nearest" });
+	}
+	function closeEditor() {
+		editor = null;
+		drawBody();
+	}
+	function limitInput(state, kind, period) {
+		const id = limitField(kind, period);
+		return numberField({
+			value: state.form.limits[kind][period],
+			label: fieldLabel$1(id, t),
+			invalid: state.issues.some((issue) => issue.field === id),
+			onInput: (value) => void (state.form.limits[kind][period] = value)
+		});
+	}
+	/** Builds the form into `editor.element` (again after a failed attempt, so the messages show; the values live in `form`). */
+	function drawEditor() {
+		const state = editor;
+		if (!state) return;
+		const { form } = state;
+		const invalid = (name) => state.issues.some((issue) => issue.field === name);
+		const grid = el("table", { class: "nanovia-table nanovia-mgmt-limits" }, [el("thead", {}, [el("tr", {}, [el("th"), ...KEY_LIMIT_PERIODS.map((period) => el("th", { text: t(`mgmt.period.${period}`) }))])]), el("tbody", {}, KEY_LIMIT_KINDS.map((kind) => el("tr", { data: { kind } }, [el("th", {
+			class: "nanovia-mgmt-kind",
+			text: t(`mgmt.limit.kind.${kind}`)
+		}), ...KEY_LIMIT_PERIODS.map((period) => el("td", {}, [limitInput(state, kind, period)]))])))]);
+		const children = [
+			el("h4", {
+				class: "nanovia-form-title",
+				text: state.key ? t("mgmt.keys.form.titleEdit", { name: state.key.name }) : t("mgmt.keys.form.titleNew")
+			}),
+			field(t("mgmt.keys.form.name"), textInput({
+				value: form.name,
+				label: t("mgmt.keys.form.name"),
+				maxLength: 120,
+				onInput: (value) => void (form.name = value)
+			}), state.key ? void 0 : t("mgmt.keys.form.nameHint", { prefix: SECRET_LABEL_PREFIX })),
+			field(t("mgmt.keys.form.expiry"), dateField({
+				value: form.expiry,
+				label: t("mgmt.keys.form.expiry"),
+				invalid: invalid("expiry"),
+				onInput: (value) => void (form.expiry = value)
+			}), t("mgmt.keys.form.expiryHint")),
+			field(t("mgmt.keys.form.zdr"), select({
+				value: form.zdr,
+				options: zdrOptions(state.key, t),
+				label: t("mgmt.keys.form.zdr"),
+				onChange: (value) => void (form.zdr = value)
+			}), t("mgmt.keys.form.zdrHint")),
+			el("b", { text: t("mgmt.keys.form.limits") }),
+			el("div", { class: "nanovia-table-wrap" }, [grid]),
+			el("div", {
+				class: "nanovia-field-hint",
+				text: t("mgmt.keys.form.limitsHint")
+			}),
+			el("div", {
+				class: "nanovia-field-hint",
+				text: t("mgmt.keys.form.limitsMax", {
+					daily: groupDigits(limitMax("requests", "daily")),
+					other: groupDigits(limitMax("inputTokens", "daily")),
+					usd: groupDigits(limitMax("usd", "daily"))
+				})
+			})
+		];
+		if (state.issues.length > 0) children.push(el("ul", { class: "nanovia-error-text nanovia-mgmt-issues" }, state.issues.map((issue) => el("li", { text: `${fieldLabel$1(issue.field, t)}: ${issueText(issue, t)}` }))));
+		if (state.error) children.push(el("div", {
+			class: "nanovia-error-text nanovia-mgmt-formerror",
+			text: state.error
+		}));
+		children.push(el("div", { class: "nanovia-row nanovia-form-actions" }, [button({
+			label: t("mgmt.keys.form.save"),
+			icon: "check",
+			kind: "primary",
+			onClick: () => submit()
+		}), button({
+			label: t("mgmt.form.cancel"),
+			onClick: () => closeEditor()
+		})]));
+		const next = el("form", {
+			class: "nanovia-form nanovia-mgmt-form",
+			on: { submit: (event) => event.preventDefault() }
+		}, children);
+		state.element.replaceWith(next);
+		state.element = next;
+	}
+	async function submit() {
+		const state = editor;
+		if (!state) return;
+		state.error = null;
+		const now = Date.now();
+		if (state.key) {
+			const built = buildKeyPatch(state.key, state.form, now);
+			if (!built.ok) {
+				if (built.unchanged) {
+					notify("warn", t("mgmt.keys.unchanged"));
+					return;
+				}
+				state.issues = built.issues;
+				drawEditor();
+				return;
+			}
+			const name = state.key.name;
+			const result = await ctx.mgmt.updateKey(state.key.id, built.patch);
+			if (!result.ok) {
+				state.issues = [];
+				state.error = errorText(result.error, t);
+				drawEditor();
+				return;
+			}
+			closeEditor();
+			notify("ok", t("mgmt.keys.updated", { name: result.data.name || name }));
+			return;
+		}
+		const built = buildKeyCreate(state.form, now);
+		if (!built.ok) {
+			state.issues = built.issues;
+			drawEditor();
+			return;
+		}
+		const result = await ctx.mgmt.createKey(built.input);
+		if (!result.ok) {
+			state.issues = [];
+			state.error = errorText(result.error, t);
+			drawEditor();
+			return;
+		}
+		closeEditor();
+		notify("ok", t("mgmt.keys.created", { label: secretLabel(SECRET_LABEL_PREFIX, result.data.key.name) }), {
+			label: t("mgmt.keys.openKeys"),
+			onClick: () => ctx.panel.open?.("keys")
+		});
+	}
+	async function revoke(key) {
+		const name = key.name || t("mgmt.key.unnamed");
+		if (!await ctx.host.confirm(t("mgmt.keys.confirmRevoke", { name }), t("mgmt.keys.confirmRevoke.title"))) return;
+		const result = await ctx.mgmt.revokeKey(key.id);
+		if (!result.ok) {
+			notify("error", errorText(result.error, t));
+			return;
+		}
+		if (editor?.key?.id === key.id) editor = null;
+		notify("ok", t("mgmt.keys.revoked", { name }));
+	}
+	function drawCard(key, now) {
+		const spec = keyCard(key, now, t);
+		const limits = spec.limits.length === 0 ? [el("div", {
+			class: "nanovia-muted",
+			text: t("mgmt.keys.noLimits")
+		})] : spec.limits.map((line) => el("div", {
+			class: "nanovia-mgmt-limit",
+			data: { kind: line.kind }
+		}, [el("span", {
+			class: "nanovia-muted",
+			text: `${line.label}: `
+		}), el("span", { text: line.text })]));
+		return el("div", {
+			class: "nanovia-card nanovia-mgmt-keycard",
+			data: { key: key.id }
+		}, [
+			el("div", { class: "nanovia-row" }, [el("b", {
+				class: "nanovia-mgmt-name",
+				text: spec.name
+			}), el("span", {
+				class: "nanovia-muted",
+				text: `#${spec.id}`
+			})]),
+			el("div", { class: "nanovia-row nanovia-chips" }, [
+				chip(spec.status.label, spec.status.kind),
+				spec.zdr ? chip(spec.zdr.label, spec.zdr.kind, spec.zdr.title) : null,
+				spec.blocked ? chip(t("mgmt.keys.blocked"), "warn", t("mgmt.keys.blocked.hint")) : null
+			]),
+			el("div", { class: "nanovia-muted" }, [spec.expiry, spec.created ? ` · ${spec.created}` : ""]),
+			el("div", { class: "nanovia-mgmt-limits-summary" }, limits),
+			el("div", { class: "nanovia-row" }, [button({
+				label: t("mgmt.keys.edit"),
+				icon: "sliders",
+				onClick: () => openEditor(key)
+			}), button({
+				label: t("mgmt.keys.revoke"),
+				icon: "ban",
+				kind: "danger",
+				onClick: () => revoke(key)
+			})])
+		]);
+	}
+	function drawBody() {
+		clear(body);
+		const gate = gateFor(detail.state, t);
+		newButton.disabled = !gate.open;
+		if (!gate.open) {
+			editor = null;
+			body.appendChild(el("div", {
+				class: "nanovia-muted nanovia-mgmt-gate",
+				text: gate.text ?? ""
+			}));
+			return;
+		}
+		const list = detail.keys;
+		if (list.error) body.appendChild(noticeBox("error", errorText(list.error, t)));
+		if (editor && !editor.key) body.appendChild(editor.element);
+		if (list.items === null) {
+			if (!list.error) body.appendChild(el("div", {
+				class: "nanovia-muted",
+				text: t("mgmt.loading")
+			}));
+			return;
+		}
+		if (list.items.length === 0) {
+			body.appendChild(el("div", {
+				class: "nanovia-muted nanovia-empty",
+				text: t("mgmt.keys.empty")
+			}));
+			return;
+		}
+		const now = Date.now();
+		const cards = el("div", { class: "nanovia-cards nanovia-mgmt-cards" });
+		for (const key of list.items) if (editor?.key?.id === key.id) cards.appendChild(editor.element);
+		else cards.appendChild(drawCard(key, now));
+		body.appendChild(cards);
+	}
+	drawBody();
+	return {
+		el: root,
+		update(next) {
+			detail = next;
+			const editing = editor?.key;
+			const items = detail.keys.items;
+			if (editing && items !== null && !items.some((key) => key.id === editing.id)) editor = null;
+			drawBody();
+		}
+	};
+}
+// src/features/mgmt/preset-form-model.ts
+/** The numeric settings with the API's ranges (a test holds this table against the plugin's own checks). */
+var PRESET_NUMBER_RULES = [
+	{
+		key: "maxTokens",
+		integer: true,
+		min: 1,
+		max: 1e6
+	},
+	{
+		key: "topK",
+		integer: true,
+		min: 0,
+		max: 1e6
+	},
+	{
+		key: "temperature",
+		integer: false,
+		min: 0,
+		max: 2
+	},
+	{
+		key: "topP",
+		integer: false,
+		min: 0,
+		max: 1
+	},
+	{
+		key: "minP",
+		integer: false,
+		min: 0,
+		max: 1
+	},
+	{
+		key: "topA",
+		integer: false,
+		min: 0,
+		max: 1
+	},
+	{
+		key: "frequencyPenalty",
+		integer: false,
+		min: -2,
+		max: 2
+	},
+	{
+		key: "presencePenalty",
+		integer: false,
+		min: -2,
+		max: 2
+	},
+	{
+		key: "repetitionPenalty",
+		integer: false,
+		min: -2,
+		max: 2
+	}
+];
+function blankNumbers() {
+	return {
+		maxTokens: "",
+		topK: "",
+		temperature: "",
+		topP: "",
+		minP: "",
+		topA: "",
+		frequencyPenalty: "",
+		presencePenalty: "",
+		repetitionPenalty: ""
+	};
+}
+function emptyPresetForm() {
+	return {
+		name: "",
+		model: "",
+		systemPrompt: "",
+		numbers: blankNumbers(),
+		responseFormat: "",
+		structuredOutputs: "",
+		reasoningEffort: "",
+		reasoningSummary: "",
+		verbosity: "",
+		routing: "",
+		serviceTier: "",
+		thinking: "",
+		thinkingBudget: "",
+		promptCaching: "",
+		cacheTtl: ""
+	};
+}
+function tri(value) {
+	return value === null ? "" : value ? "on" : "off";
+}
+/** The form of an existing preset: every setting it holds, so saving cannot drop one (a PUT replaces the whole preset). */
+function presetFormFromPreset(preset) {
+	const numbers = blankNumbers();
+	for (const rule of PRESET_NUMBER_RULES) numbers[rule.key] = numberText$1(preset[rule.key]);
+	return {
+		name: preset.name,
+		model: preset.model,
+		systemPrompt: preset.systemPrompt ?? "",
+		numbers,
+		responseFormat: preset.responseFormat ?? "",
+		structuredOutputs: tri(preset.structuredOutputs),
+		reasoningEffort: preset.reasoningEffort ?? "",
+		reasoningSummary: preset.reasoningSummary ?? "",
+		verbosity: preset.verbosity ?? "",
+		routing: preset.routing ?? "",
+		serviceTier: preset.serviceTier ?? "",
+		thinking: preset.thinking ? tri(preset.thinking.enabled) : "",
+		thinkingBudget: preset.thinking?.budgetTokens != null ? String(preset.thinking.budgetTokens) : "",
+		promptCaching: preset.promptCaching ? tri(preset.promptCaching.enabled) : "",
+		cacheTtl: preset.promptCaching?.ttl ?? ""
+	};
+}
+/** A preset name from free text: lower case, letters, digits, `-` and `_`, starting with a letter or digit, at most 80. */
+function slugifyPresetName(text) {
+	return text.toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/-{2,}/g, "-").replace(/^[-_]+/, "").slice(0, 80).replace(/-+$/, "") || "preset";
+}
+/** `base`, or `base-2`, `base-3` … the first that no existing preset uses (names compare lower case, within 80 characters). */
+function uniquePresetName(base, existing) {
+	const taken = new Set([...existing].map((name) => name.toLowerCase()));
+	const start = slugifyPresetName(base);
+	if (!taken.has(start)) return start;
+	for (let n = 2;; n++) {
+		const suffix = `-${n}`;
+		const candidate = `${start.slice(0, 80 - suffix.length).replace(/-+$/, "")}${suffix}`;
+		if (!taken.has(candidate)) return candidate;
+	}
+}
+/** A copy of a preset under a new name (`<name>-copy`, then `-copy-2` …). */
+function duplicatePresetForm(preset, existing) {
+	return {
+		...presetFormFromPreset(preset),
+		name: uniquePresetName(`${preset.name}-copy`, existing)
+	};
+}
+/** `provider_routing_preference` for a connection's routing: its sort when it ranks, else the caching route, else none. */
+function routingOf(connection) {
+	const { routing } = connection;
+	if (!routing.enabled) return "";
+	if (routing.sort !== "default") return routing.sort;
+	return routing.cachingRoute ? "caching" : "";
+}
+function reasoningOf(connection) {
+	const { reasoning } = connection;
+	if (reasoning.policy === "off") return "none";
+	if (reasoning.policy === "fixed" && reasoning.effort) return reasoning.effort;
+	return "";
+}
+/**
+* A preset form filled from a connection: its model, its routing preference and a fixed reasoning effort, only what a
+* preset can hold (no provider lists, price caps or quantisation: `droppedRouting` says when the connection had some).
+*/
+function presetFormFromConnection(connection, existing) {
+	const { routing } = connection;
+	const droppedRouting = routing.enabled && (routing.order.length > 0 || routing.only.length > 0 || routing.ignore.length > 0 || routing.quantizations.length > 0 || routing.minQuantization !== null || routing.maxPrice.prompt !== null || routing.maxPrice.completion !== null || routing.preferredMaxLatency !== null || routing.preferredMinThroughput !== null);
+	return {
+		form: {
+			...emptyPresetForm(),
+			name: uniquePresetName(connection.name, existing),
+			model: connection.modelId,
+			routing: routingOf(connection),
+			reasoningEffort: reasoningOf(connection)
+		},
+		droppedRouting
+	};
+}
+/** Paths of the plugin's validation that are named differently on the form. */
+var FIELD_NAMES = {
+	"thinking.budgetTokens": "thinkingBudget",
+	"promptCaching.ttl": "cacheTtl"
+};
+/** Maps a path of the plugin's validation to a form field and adds what the message needs. */
+function formIssue(raw) {
+	const field = FIELD_NAMES[raw.field] ?? raw.field;
+	const params = {};
+	const rule = PRESET_NUMBER_RULES.find((item) => item.key === field);
+	if (rule) {
+		params["min"] = rule.min;
+		params["max"] = rule.max;
+	}
+	if (field === "model") params["max"] = 256;
+	if (field === "systemPrompt") params["max"] = PRESET_PROMPT_MAX_LENGTH;
+	if (field === "thinkingBudget") {
+		params["min"] = 1;
+		params["max"] = 1e6;
+	}
+	return Object.keys(params).length > 0 ? {
+		field,
+		code: raw.code,
+		params
+	} : {
+		field,
+		code: raw.code
+	};
+}
+function enabled(value) {
+	return value === "" ? null : value === "on";
+}
+/**
+* What the form turns into: the name (checked against the API's pattern, lower-cased as the API keeps it) and the whole
+* input (every setting, null where the field is empty). Nothing is returned unless the plugin's checks pass.
+*/
+function buildPreset(form, options) {
+	const issues = [];
+	let name = form.name.trim();
+	if (options.checkName) {
+		const checked = checkPresetName(name);
+		if (checked === null) issues.push({
+			field: "name",
+			code: "format"
+		});
+		else name = checked;
+	}
+	const raw = { model: form.model };
+	raw["systemPrompt"] = form.systemPrompt === "" ? null : form.systemPrompt;
+	for (const rule of PRESET_NUMBER_RULES) {
+		const value = parseNumberText(form.numbers[rule.key]);
+		if (value === void 0) issues.push({
+			field: rule.key,
+			code: "number"
+		});
+		else raw[rule.key] = value;
+	}
+	raw["responseFormat"] = form.responseFormat || null;
+	raw["structuredOutputs"] = enabled(form.structuredOutputs);
+	raw["reasoningEffort"] = form.reasoningEffort || null;
+	raw["reasoningSummary"] = form.reasoningSummary || null;
+	raw["verbosity"] = form.verbosity || null;
+	raw["routing"] = form.routing || null;
+	raw["serviceTier"] = form.serviceTier || null;
+	const thinking = enabled(form.thinking);
+	if (thinking === null) raw["thinking"] = null;
+	else {
+		const budget = thinking ? parseNumberText(form.thinkingBudget) : null;
+		if (budget === void 0) issues.push({
+			field: "thinkingBudget",
+			code: "number"
+		});
+		raw["thinking"] = {
+			enabled: thinking,
+			budgetTokens: budget ?? null
+		};
+	}
+	const caching = enabled(form.promptCaching);
+	raw["promptCaching"] = caching === null ? null : {
+		enabled: caching,
+		ttl: form.cacheTtl || null
+	};
+	const checked = sanitizePresetInput(raw);
+	if (checked.ok && issues.length === 0) return {
+		ok: true,
+		name,
+		input: checked.value
+	};
+	if (!checked.ok) issues.push(...checked.issues.map(formIssue));
+	return {
+		ok: false,
+		issues
+	};
+}
+/** The POST body of a new preset. */
+function presetCreateInput(name, input) {
+	return {
+		...input,
+		name
+	};
+}
+// src/features/mgmt/presets-view.ts
+function fieldLabel(name, t) {
+	if (name === "name") return t("mgmt.preset.f.name");
+	if (name === "body") return t("mgmt.preset.f.body");
+	return t(`mgmt.preset.f.${name}`);
+}
+function optionalOptions(values, t) {
+	return [{
+		value: "",
+		label: t("mgmt.opt.unset")
+	}, ...values.map((value) => ({
+		value,
+		label: value
+	}))];
+}
+function triOptions(t) {
+	return [
+		{
+			value: "",
+			label: t("mgmt.opt.unset")
+		},
+		{
+			value: "on",
+			label: t("mgmt.on")
+		},
+		{
+			value: "off",
+			label: t("mgmt.off")
+		}
+	];
+}
+function createPresetsSection(deps) {
+	const { ctx, notify } = deps;
+	const t = ctx.t;
+	let detail = ctx.mgmt.detail();
+	let editor = null;
+	/** The connection chosen for "create from connection". */
+	let connectionId = "";
+	const newButton = button({
+		label: t("mgmt.presets.new"),
+		icon: "plus",
+		kind: "primary",
+		onClick: () => openEditor("create", null, emptyPresetForm(), null)
+	});
+	const fromHost = el("div", { class: "nanovia-row nanovia-mgmt-from" });
+	const body = el("div", { class: "nanovia-mgmt-body" });
+	const root = el("section", { class: "nanovia-mgmt-section nanovia-mgmt-presets" }, [
+		el("div", { class: "nanovia-row nanovia-mgmt-head" }, [el("h4", {
+			class: "nanovia-mgmt-title",
+			text: t("mgmt.presets.title")
+		}), newButton]),
+		el("div", {
+			class: "nanovia-muted",
+			text: t("mgmt.presets.note", { limit: 100 })
+		}),
+		fromHost,
+		body
+	]);
+	const names = () => (detail.presets.items ?? []).map((preset) => preset.name);
+	function openEditor(mode, original, form, note) {
+		editor = {
+			mode,
+			original,
+			form,
+			note,
+			issues: [],
+			error: null,
+			nameTaken: false,
+			element: el("form")
+		};
+		drawEditor();
+		drawBody();
+		editor.element.scrollIntoView?.({ block: "nearest" });
+	}
+	function closeEditor() {
+		editor = null;
+		drawBody();
+	}
+	function drawEditor() {
+		const state = editor;
+		if (!state) return;
+		const { form } = state;
+		const invalid = (name) => state.issues.some((issue) => issue.field === name);
+		const nameControl = state.mode === "create" ? textInput({
+			value: form.name,
+			label: t("mgmt.preset.f.name"),
+			maxLength: 80,
+			onInput: (value) => void (form.name = value)
+		}) : el("code", {
+			class: "nanovia-mgmt-fixedname",
+			text: form.name
+		});
+		if (state.mode === "create" && (invalid("name") || state.nameTaken)) nameControl.setAttribute("aria-invalid", "true");
+		const counter = el("div", {
+			class: "nanovia-field-hint nanovia-mgmt-counter",
+			text: t("mgmt.preset.promptCount", {
+				count: groupDigits(form.systemPrompt.length),
+				max: groupDigits(PRESET_PROMPT_MAX_LENGTH)
+			})
+		});
+		const prompt = textArea({
+			value: form.systemPrompt,
+			rows: 6,
+			label: t("mgmt.preset.f.systemPrompt"),
+			onInput: (value) => {
+				form.systemPrompt = value;
+				counter.textContent = t("mgmt.preset.promptCount", {
+					count: groupDigits(value.length),
+					max: groupDigits(PRESET_PROMPT_MAX_LENGTH)
+				});
+			}
+		});
+		if (invalid("systemPrompt")) prompt.setAttribute("aria-invalid", "true");
+		function optional(key, values, hint) {
+			const label = t(`mgmt.preset.f.${key}`);
+			const control = select({
+				value: form[key],
+				options: optionalOptions(values, t),
+				label,
+				onChange: (value) => void (form[key] = value)
+			});
+			if (invalid(key)) control.setAttribute("aria-invalid", "true");
+			return field(label, control, hint);
+		}
+		function tri(key, hint) {
+			const label = t(`mgmt.preset.f.${key}`);
+			return field(label, select({
+				value: form[key],
+				options: triOptions(t),
+				label,
+				onChange: (value) => {
+					form[key] = value;
+					if (key !== "structuredOutputs") drawEditor();
+				}
+			}), hint);
+		}
+		const sampling = PRESET_NUMBER_RULES.map((rule) => {
+			const label = t(`mgmt.preset.f.${rule.key}`);
+			return field(label, numberField({
+				value: form.numbers[rule.key],
+				label,
+				invalid: invalid(rule.key),
+				onInput: (value) => void (form.numbers[rule.key] = value)
+			}), t(rule.integer ? "mgmt.preset.rangeInt" : "mgmt.preset.range", {
+				min: groupDigits(rule.min),
+				max: groupDigits(rule.max)
+			}));
+		});
+		const reasoning = [
+			optional("reasoningEffort", REASONING_EFFORTS$1),
+			optional("reasoningSummary", REASONING_SUMMARIES),
+			optional("verbosity", VERBOSITIES),
+			optional("routing", ROUTINGS, t("mgmt.preset.routingHint")),
+			optional("serviceTier", SERVICE_TIERS, t("mgmt.preset.tierHint")),
+			tri("thinking")
+		];
+		if (form.thinking === "on") {
+			const label = t("mgmt.preset.f.thinkingBudget");
+			reasoning.push(field(label, numberField({
+				value: form.thinkingBudget,
+				label,
+				invalid: invalid("thinkingBudget"),
+				onInput: (value) => void (form.thinkingBudget = value)
+			}), t("mgmt.preset.rangeInt", {
+				min: 1,
+				max: groupDigits(1e6)
+			})));
+		}
+		reasoning.push(tri("promptCaching"));
+		if (form.promptCaching !== "") reasoning.push(optional("cacheTtl", CACHE_TTLS));
+		const group = (title, children) => el("fieldset", { class: "nanovia-mgmt-group" }, [el("legend", { text: title }), ...children]);
+		const children = [
+			el("h4", {
+				class: "nanovia-form-title",
+				text: state.mode === "create" ? t("mgmt.presets.form.titleNew") : t("mgmt.presets.form.titleEdit", { name: form.name })
+			}),
+			state.note ? el("div", {
+				class: "nanovia-notice nanovia-mgmt-fromnote",
+				text: state.note
+			}) : null,
+			group(t("mgmt.preset.group.model"), [
+				field(t("mgmt.preset.f.name"), nameControl, state.mode === "create" ? t("mgmt.preset.nameHint") : t("mgmt.preset.nameFixed")),
+				field(t("mgmt.preset.f.model"), modelPicker({
+					catalog: ctx.catalog,
+					t,
+					value: form.model,
+					label: t("mgmt.preset.f.model"),
+					maxLength: 256,
+					onInput: (value) => void (form.model = value)
+				}), t("mgmt.preset.modelHint")),
+				field(t("mgmt.preset.f.systemPrompt"), prompt, void 0),
+				counter
+			]),
+			group(t("mgmt.preset.group.sampling"), [
+				...sampling,
+				optional("responseFormat", RESPONSE_FORMATS),
+				tri("structuredOutputs", t("mgmt.preset.structuredHint"))
+			]),
+			group(t("mgmt.preset.group.reasoning"), reasoning),
+			el("div", {
+				class: "nanovia-field-hint",
+				text: t("mgmt.preset.replaceHint")
+			})
+		];
+		if (state.issues.length > 0) children.push(el("ul", { class: "nanovia-error-text nanovia-mgmt-issues" }, state.issues.map((issue) => el("li", { text: `${fieldLabel(issue.field, t)}: ${issueText(issue, t)}` }))));
+		if (state.error) children.push(el("div", {
+			class: "nanovia-error-text nanovia-mgmt-formerror",
+			text: state.error
+		}));
+		children.push(el("div", { class: "nanovia-row nanovia-form-actions" }, [button({
+			label: t("mgmt.presets.form.save"),
+			icon: "check",
+			kind: "primary",
+			onClick: () => submit()
+		}), button({
+			label: t("mgmt.form.cancel"),
+			onClick: () => closeEditor()
+		})]));
+		const next = el("form", {
+			class: "nanovia-form nanovia-mgmt-form",
+			on: { submit: (event) => event.preventDefault() }
+		}, children);
+		state.element.replaceWith(next);
+		state.element = next;
+	}
+	async function submit() {
+		const state = editor;
+		if (!state) return;
+		state.error = null;
+		state.nameTaken = false;
+		const built = buildPreset(state.form, { checkName: state.mode === "create" });
+		if (!built.ok) {
+			state.issues = built.issues;
+			drawEditor();
+			return;
+		}
+		const original = state.original;
+		const result = state.mode === "create" || !original ? await ctx.mgmt.createPreset(presetCreateInput(built.name, built.input)) : await ctx.mgmt.replacePreset(original.name, built.input);
+		if (!result.ok) {
+			state.issues = [];
+			state.error = errorText(result.error, t);
+			state.nameTaken = result.error.kind === "preset_exists";
+			drawEditor();
+			return;
+		}
+		closeEditor();
+		notify("ok", t(state.mode === "create" ? "mgmt.presets.created" : "mgmt.presets.saved", { name: result.data.name }));
+	}
+	async function remove(preset) {
+		if (!await ctx.host.confirm(t("mgmt.presets.confirmDelete", { name: preset.name }), t("mgmt.presets.confirmDelete.title"))) return;
+		const result = await ctx.mgmt.deletePreset(preset.name);
+		if (!result.ok) {
+			notify("error", errorText(result.error, t));
+			return;
+		}
+		if (editor?.original?.name === preset.name) editor = null;
+		notify("ok", t("mgmt.presets.deleted", { name: preset.name }));
+	}
+	function fromConnection() {
+		const entry = ctx.connections.get(connectionId) ?? ctx.connections.list()[0] ?? null;
+		if (!entry) return;
+		const { form, droppedRouting } = presetFormFromConnection(entry.config, names());
+		openEditor("create", null, form, [t("mgmt.presets.fromConnection.note", { name: entry.config.name }), droppedRouting ? t("mgmt.presets.fromConnection.dropped") : null].filter((line) => line !== null).join(" "));
+	}
+	function drawFrom(enabled) {
+		clear(fromHost);
+		const entries = ctx.connections.list();
+		if (entries.length === 0) return;
+		if (!entries.some((entry) => entry.config.id === connectionId)) connectionId = entries[0]?.config.id ?? "";
+		fromHost.append(select({
+			value: connectionId,
+			options: entries.map((entry) => ({
+				value: entry.config.id,
+				label: entry.config.name
+			})),
+			label: t("mgmt.presets.fromConnection.pick"),
+			disabled: !enabled,
+			onChange: (value) => void (connectionId = value)
+		}), button({
+			label: t("mgmt.presets.fromConnection"),
+			icon: "link",
+			title: t("mgmt.presets.fromConnection.hint"),
+			disabled: !enabled,
+			onClick: () => fromConnection()
+		}));
+	}
+	function drawCard(preset) {
+		const spec = presetCard(preset, t);
+		return el("div", {
+			class: "nanovia-card nanovia-mgmt-presetcard",
+			data: { preset: preset.name }
+		}, [
+			el("div", { class: "nanovia-row" }, [el("b", {
+				class: "nanovia-mgmt-name",
+				text: spec.name
+			}), el("code", {
+				class: "nanovia-muted",
+				text: spec.modelId
+			})]),
+			el("div", {
+				class: "nanovia-muted nanovia-mgmt-model",
+				text: t("mgmt.preset.model", { model: spec.model })
+			}),
+			spec.chips.length === 0 ? el("div", {
+				class: "nanovia-muted",
+				text: t("mgmt.preset.noSettings")
+			}) : el("div", { class: "nanovia-row nanovia-chips" }, spec.chips.map((text) => chip(text, "muted"))),
+			spec.updated ? el("div", {
+				class: "nanovia-muted",
+				text: spec.updated
+			}) : null,
+			el("div", { class: "nanovia-row" }, [
+				button({
+					label: t("mgmt.presets.edit"),
+					icon: "pen",
+					onClick: () => openEditor("edit", preset, presetFormFromPreset(preset), null)
+				}),
+				button({
+					label: t("mgmt.presets.duplicate"),
+					icon: "copy",
+					onClick: () => openEditor("create", null, duplicatePresetForm(preset, names()), t("mgmt.presets.duplicate.note", { name: preset.name }))
+				}),
+				button({
+					label: t("mgmt.presets.delete"),
+					icon: "trash",
+					kind: "danger",
+					onClick: () => remove(preset)
+				})
+			])
+		]);
+	}
+	function drawBody() {
+		clear(body);
+		const gate = gateFor(detail.state, t);
+		newButton.disabled = !gate.open;
+		drawFrom(gate.open);
+		if (!gate.open) {
+			editor = null;
+			body.appendChild(el("div", {
+				class: "nanovia-muted nanovia-mgmt-gate",
+				text: gate.text ?? ""
+			}));
+			return;
+		}
+		const list = detail.presets;
+		if (list.error) body.appendChild(noticeBox("error", errorText(list.error, t)));
+		if (editor && editor.mode === "create") body.appendChild(editor.element);
+		if (list.items === null) {
+			if (!list.error) body.appendChild(el("div", {
+				class: "nanovia-muted",
+				text: t("mgmt.loading")
+			}));
+			return;
+		}
+		if (list.items.length === 0) {
+			body.appendChild(el("div", {
+				class: "nanovia-muted nanovia-empty",
+				text: t("mgmt.presets.empty")
+			}));
+			return;
+		}
+		const cards = el("div", { class: "nanovia-cards nanovia-mgmt-cards" });
+		for (const preset of list.items) if (editor?.mode === "edit" && editor.original?.name === preset.name) cards.appendChild(editor.element);
+		else cards.appendChild(drawCard(preset));
+		body.appendChild(cards);
+	}
+	drawBody();
+	return {
+		el: root,
+		update(next) {
+			detail = next;
+			const editing = editor?.mode === "edit" ? editor.original : null;
+			const items = detail.presets.items;
+			if (editing && items !== null && !items.some((preset) => preset.name === editing.name)) editor = null;
+			drawBody();
+		}
+	};
+}
+// src/features/mgmt/token-view.ts
+var SHAPE_KEYS = {
+	not_string: "mgmt.token.shape.empty",
+	empty: "mgmt.token.shape.empty",
+	inference_key: "mgmt.token.shape.inferenceKey",
+	prefix: "mgmt.token.shape.prefix",
+	too_short: "mgmt.token.shape.tooShort",
+	too_long: "mgmt.token.shape.tooLong",
+	characters: "mgmt.token.shape.characters"
+};
+/** Whether a failed save leaves the typed token in the field: when the call could not decide, a retry should not need a paste. */
+function keepsToken(error) {
+	return offersSaveAnyway(error) || isMgmtPluginDown(error);
+}
+function createTokenSection(deps) {
+	const { ctx, notify } = deps;
+	const t = ctx.t;
+	let detail = ctx.mgmt.detail();
+	const statusHost = el("div", { class: "nanovia-mgmt-tokenstatus" });
+	const anywayHost = el("div", {
+		class: "nanovia-notice nanovia-notice-warn nanovia-mgmt-anyway",
+		attrs: { hidden: true }
+	});
+	const input = textInput({
+		value: "",
+		type: "password",
+		label: t("mgmt.token.input"),
+		placeholder: `${MGMT_TOKEN_PREFIX}…`,
+		onInput: () => hideAnyway()
+	});
+	function hideAnyway() {
+		anywayHost.hidden = true;
+		clear(anywayHost);
+	}
+	/** Sends what is in the field. The plugin checks it with NanoGPT; `force` stores it without that check. */
+	async function save(force) {
+		const value = input.value;
+		hideAnyway();
+		if (!force) {
+			const shape = checkMgmtToken(value);
+			if (!shape.ok) {
+				input.value = "";
+				notify("error", t(SHAPE_KEYS[shape.issue]));
+				return;
+			}
+		}
+		const result = await ctx.mgmt.saveToken(value, force ? { force: true } : void 0);
+		if (result.ok) {
+			input.value = "";
+			notify(result.data.valid === true ? "ok" : "warn", result.data.valid === true ? t("mgmt.token.saved") : t("mgmt.token.savedUnverified"));
+			return;
+		}
+		if (!keepsToken(result.error)) input.value = "";
+		notify("error", errorText(result.error, t));
+		if (offersSaveAnyway(result.error)) {
+			anywayHost.append(el("div", { text: t("mgmt.token.anyway.text") }), button({
+				label: t("mgmt.token.anyway.button"),
+				icon: "triangle-exclamation",
+				onClick: () => save(true)
+			}));
+			anywayHost.hidden = false;
+		}
+	}
+	async function remove() {
+		if (!await ctx.host.confirm(t("mgmt.token.confirmDelete"), t("mgmt.token.confirmDelete.title"))) return;
+		const result = await ctx.mgmt.deleteToken();
+		if (result.ok) {
+			hideAnyway();
+			notify("ok", t("mgmt.token.deleted"));
+		} else notify("error", errorText(result.error, t));
+	}
+	/**
+	* ui/button() enables a button again when its handler is done, whatever the tab's state says by then (the plugin may
+	* have stopped answering meanwhile): draw once more after the handler has finished.
+	*/
+	function thenDraw(handler) {
+		return async () => {
+			try {
+				await handler();
+			} finally {
+				setTimeout(draw, 0);
+			}
+		};
+	}
+	const saveButton = button({
+		label: t("mgmt.token.save"),
+		icon: "key",
+		kind: "primary",
+		onClick: thenDraw(() => save(false))
+	});
+	const deleteButton = button({
+		label: t("mgmt.token.delete"),
+		icon: "trash",
+		kind: "danger",
+		onClick: thenDraw(remove)
+	});
+	const checkButton = button({
+		label: t("mgmt.token.check"),
+		icon: "rotate",
+		kind: "ghost",
+		title: t("mgmt.token.check.hint"),
+		onClick: thenDraw(async () => {
+			await ctx.mgmt.refreshStatus({ verify: true });
+			const after = ctx.mgmt.detail();
+			if (after.error) notify("error", errorText(after.error, t));
+			else if (after.status?.valid === true) notify("ok", t("mgmt.token.check.valid"));
+			else if (after.status?.valid === false) notify("error", t("mgmt.token.check.invalid"));
+			else notify("warn", t("mgmt.token.check.unknown"));
+		})
+	});
+	const guide = el("details", { class: "nanovia-details nanovia-mgmt-guide" }, [
+		el("summary", { text: t("mgmt.guide.title") }),
+		el("ol", { class: "nanovia-mgmt-steps" }, [
+			el("li", { text: t("mgmt.guide.step1") }),
+			el("li", { text: t("mgmt.guide.step2", { prefix: MGMT_TOKEN_PREFIX }) }),
+			el("li", { text: t("mgmt.guide.step3") })
+		]),
+		el("div", {
+			class: "nanovia-muted",
+			text: t("mgmt.guide.scopes")
+		}),
+		el("ul", { class: "nanovia-mgmt-scopes" }, SCOPE_GUIDE.map((item) => el("li", {}, [el("code", { text: item.scope }), ` ${t(item.purposeKey)}`]))),
+		el("div", {
+			class: "nanovia-muted",
+			text: t("mgmt.guide.expiry")
+		}),
+		el("div", {
+			class: "nanovia-muted",
+			text: t("mgmt.guide.privacy")
+		})
+	]);
+	const root = el("section", { class: "nanovia-mgmt-section nanovia-mgmt-token" }, [
+		el("h4", {
+			class: "nanovia-mgmt-title",
+			text: t("mgmt.token.title")
+		}),
+		statusHost,
+		el("form", {
+			class: "nanovia-mgmt-tokenform",
+			on: { submit: (event) => event.preventDefault() }
+		}, [input, el("div", { class: "nanovia-row" }, [saveButton, deleteButton])]),
+		anywayHost,
+		el("div", {
+			class: "nanovia-field-hint",
+			text: t("mgmt.token.hint")
+		}),
+		guide
+	]);
+	function draw() {
+		const view = tokenView(detail, Date.now(), t);
+		const enabled = actionsEnabled(detail.state);
+		clear(statusHost);
+		statusHost.appendChild(el("div", { class: "nanovia-row" }, [
+			chip(view.chip.label, view.chip.kind, view.chip.title),
+			view.checked ? el("span", {
+				class: "nanovia-muted",
+				text: view.checked
+			}) : null,
+			view.id === "absent" ? null : checkButton
+		]));
+		if (view.problem) statusHost.appendChild(el("div", {
+			class: "nanovia-error-text",
+			text: view.problem
+		}));
+		const present = detail.status?.present === true;
+		input.disabled = !enabled;
+		saveButton.disabled = !enabled;
+		checkButton.disabled = !enabled;
+		deleteButton.hidden = !present;
+		deleteButton.disabled = !enabled;
+		if (!guideSet && detail.status !== null) {
+			guideSet = true;
+			guide.open = !present;
+		}
+	}
+	let guideSet = false;
+	draw();
+	return {
+		el: root,
+		update(next) {
+			detail = next;
+			draw();
+		}
+	};
+}
+// src/features/mgmt/view.ts
+function renderMgmtTab(root, ctx) {
+	const t = ctx.t;
+	let disposed = false;
+	const bannerHost = el("div", { class: "nanovia-banner-host" });
+	const noticeHost = el("div", {
+		class: "nanovia-notice-host",
+		attrs: { "aria-live": "polite" }
+	});
+	function notify(kind, text, action) {
+		clear(noticeHost);
+		noticeHost.appendChild(noticeBox(kind, text, action));
+	}
+	const deps = {
+		ctx,
+		notify
+	};
+	const token = createTokenSection(deps);
+	const keys = createKeysSection(deps);
+	const presets = createPresetsSection(deps);
+	const head = el("div", { class: "nanovia-row nanovia-mgmt-top" }, [
+		el("b", { text: t("mgmt.title") }),
+		chip(t("mgmt.beta.chip"), "info", t("mgmt.beta")),
+		button({
+			label: t("mgmt.refresh"),
+			icon: "rotate",
+			kind: "ghost",
+			onClick: async () => {
+				await ctx.mgmt.refresh({ force: true });
+				const detail = ctx.mgmt.detail();
+				if (detail.state === "ready" && !detail.keys.error && !detail.presets.error) notify("ok", t("mgmt.notice.refreshed"));
+			}
+		})
+	]);
+	root.append(head, el("div", {
+		class: "nanovia-muted nanovia-mgmt-beta",
+		text: t("mgmt.beta")
+	}), bannerHost, noticeHost, token.el, keys.el, presets.el);
+	function drawBanner(detail) {
+		clear(bannerHost);
+		const banner = bannerFor(detail, t);
+		if (!banner) return;
+		bannerHost.appendChild(el("div", { class: ["nanovia-banner", banner.kind === "error" ? "nanovia-banner-down" : "nanovia-banner-checking"] }, [el("div", { class: "nanovia-row" }, [chip(banner.title, banner.kind === "error" ? "error" : "warn")]), el("div", {
+			class: banner.kind === "error" ? "nanovia-error-text" : "",
+			text: banner.text
+		})]));
+	}
+	function redraw() {
+		if (disposed) return;
+		const detail = ctx.mgmt.detail();
+		drawBanner(detail);
+		token.update(detail);
+		keys.update(detail);
+		presets.update(detail);
+	}
+	const offs = [ctx.mgmt.onChange(redraw), ctx.connections.onChange(() => {
+		if (!disposed) presets.update(ctx.mgmt.detail());
+	})];
+	redraw();
+	ctx.mgmt.refresh();
+	return () => {
+		disposed = true;
+		for (const off of offs) off();
+	};
+}
+// src/features/mgmt/index.ts
+var MGMT_FEATURE_ID = "mgmt";
+var MGMT_TAB_ID = "mgmt";
+/** Tab «Management»: the Management token (write-only), the API keys it manages with their limits, and model presets. */
+var mgmtFeature = {
+	id: MGMT_FEATURE_ID,
+	init(ctx) {
+		ctx.i18n.register(MGMT_STRINGS);
+		return ctx.panel.registerTab({
+			id: MGMT_TAB_ID,
+			titleKey: "mgmt.tab",
+			order: 350,
+			render: (root, tabCtx) => renderMgmtTab(root, tabCtx)
 		});
 	}
 };
@@ -12173,11 +15717,11 @@ function renderRoutingTab(root, ctx) {
 	}
 	function report(result, success) {
 		if (!result.ok) {
-			notify("error", issueText(result.error, t));
+			notify("error", issueText$1(result.error, t));
 			return false;
 		}
 		if (result.warnings.length === 0) notify("ok", success);
-		else notify("warn", [success, ...result.warnings.map((warning) => issueText(warning, t))].join(" "));
+		else notify("warn", [success, ...result.warnings.map((warning) => issueText$1(warning, t))].join(" "));
 		return true;
 	}
 	function compute(data) {
@@ -12368,6 +15912,7 @@ var FEATURES = [
 		}
 	},
 	keysFeature,
+	mgmtFeature,
 	accountFeature,
 	doctorFeature
 ];
@@ -12384,7 +15929,7 @@ function capabilitiesOf(model) {
 	};
 }
 function createApiPublisher(deps) {
-	const { connections, profiles, settings, catalog, usage, account, doctor, panel, log } = deps;
+	const { connections, profiles, settings, catalog, usage, account, doctor, mgmt, panel, log } = deps;
 	const qvinkInstalled$1 = deps.qvinkInstalled ?? qvinkInstalled;
 	/** The connection a Connection Manager profile belongs to: by the id we stored, then by a proxy URL it carries. */
 	function connectionIdOf(profileId) {
@@ -12440,6 +15985,7 @@ function createApiPublisher(deps) {
 		];
 		if (usage) list.push("usage");
 		if (account) list.push("account");
+		if (mgmt) list.push("mgmt");
 		list.push("advice");
 		if (doctor) list.push("doctor");
 		if (panel) list.push("panel");
@@ -12464,6 +16010,10 @@ function createApiPublisher(deps) {
 		refresh: () => account.refresh()
 	};
 	if (doctor) api.doctor = () => doctor.brief();
+	if (mgmt) api.mgmt = { status: () => {
+		mgmt.warm();
+		return mgmt.brief();
+	} };
 	if (panel) api.openPanel = (tab) => {
 		try {
 			panel.open(typeof tab === "string" && tab ? tab : void 0);
@@ -12547,6 +16097,11 @@ async function startNanovia(options = {}) {
 		connections,
 		log: log.scope("account")
 	});
+	const mgmt = createMgmtStore({
+		mgmt: createPluginMgmt({ client: plugin }),
+		connections,
+		log: log.scope("mgmt")
+	});
 	const ctx = {};
 	const panel = new SettingsPanel({
 		i18n,
@@ -12563,6 +16118,10 @@ async function startNanovia(options = {}) {
 		catalog: () => ctx.catalog,
 		panel: () => panel,
 		host,
+		mgmtToken: () => {
+			mgmt.warm();
+			return mgmt.detail().status?.present ?? null;
+		},
 		log: log.scope("doctor")
 	});
 	Object.assign(ctx, {
@@ -12575,6 +16134,7 @@ async function startNanovia(options = {}) {
 		usage,
 		account,
 		doctor,
+		mgmt,
 		profiles,
 		secrets,
 		registerRequestHook: (hook) => requests.register(hook),
@@ -12629,6 +16189,7 @@ async function startNanovia(options = {}) {
 		usage,
 		account,
 		doctor,
+		mgmt,
 		panel: { open: (tab) => panel.open(tab) },
 		log: log.scope("api")
 	});
