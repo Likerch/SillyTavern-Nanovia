@@ -1,8 +1,10 @@
 // What a feature receives (docs/ARCHITECTURE.md §5). Features never import app/; the App hands them this object.
 import type { Host, PluginClient, ProfilesHost, RequestHooks, SecretsHost } from '../host';
+import type { AccountStore } from './account';
 import type { CatalogStore } from './catalog';
 import type { ConnectionsService } from './connections';
 import type { Bus, I18n, I18nParams, Logger, PanelApi, SettingsService } from './types';
+import type { UsageStore } from './usage';
 
 export interface FeatureContext {
     /** The extension's version (package.json). */
@@ -16,6 +18,10 @@ export interface FeatureContext {
     connections: ConnectionsService;
     /** The model catalog as the browser knows it (an empty store until it is loaded). */
     catalog: CatalogStore;
+    /** Money spent: the plugin's usage log plus the requests this browser saw (stage 0.4). */
+    usage: UsageStore;
+    /** Balance and subscription quota of the NanoGPT account, read through the plugin (stage 0.4). */
+    account: AccountStore;
     /** Connection Manager profile host. */
     profiles: ProfilesHost;
     /** Write-only access to ST's secret store, for direct mode. */
