@@ -306,7 +306,52 @@ export interface ProfileDescription {
     } | null;
 }
 
-/** `globalThis.NANOVIA_API`. `version` stays 1; members are only ever added; consumers feature-detect through `features`. */
+/** Totals of the usage log over a period; real money and the pay-as-you-go equivalent are kept apart. */
+export interface UsageTotals {
+    requests: number;
+    /** Real money: 0 for requests the subscription covered. This is what caps and meters count. */
+    costUsd: number;
+    /** What the same requests would cost at pay-as-you-go prices. Informational, never counted toward caps. */
+    equivalentUsd: number;
+    promptTokens: number;
+    completionTokens: number;
+    cachedTokens: number;
+}
+
+/** A short account snapshot for cards and meters. */
+export interface AccountBrief {
+    usdBalance: string | null;
+    /** Share of the subscription quota used, 0..1, per window; null when there is no subscription or no data. */
+    subscription: { dailyUsed: number | null; weeklyUsed: number | null } | null;
+    fetchedAt: number;
+}
+
+/** One finding of a check; `code` + `params` are turned into text by the consumer's own i18n. */
+export interface AdviceIssue {
+    code:
+        | 'reasoning.alwaysOn'
+        | 'reasoning.policyOn'
+        | 'billing.bypassesSubscription'
+        | 'memory.overlapsQvink'
+        | 'route.pluginDown'
+        | 'model.unknown';
+    severity: 'info' | 'warn';
+    params?: Record<string, string | number | boolean>;
+}
+
+/** Advice for using a profile as a background profile (extraction, summaries, JSON tasks). */
+export interface BackgroundAdvice {
+    ok: boolean;
+    issues: AdviceIssue[];
+    /** Catalog ids that reason optionally and support structured output: good for background work. */
+    suggestedModels: string[];
+}
+
+/**
+ * `globalThis.NANOVIA_API`. `version` stays 1; members are only ever added; consumers feature-detect through
+ * `features` (strings: 'connections', 'describeProfile', 'usage', 'account', 'advice', 'panel') or the member itself.
+ * Installed after the extension is ready; `NANOVIA_API_READY_EVENT` is dispatched on `window` once it is.
+ */
 export interface NanoviaApi {
     version: 1;
     nanoviaVersion: string;
@@ -314,4 +359,21 @@ export interface NanoviaApi {
     connections(): ConnectionSummary[];
     /** null when the profile is not a Nanovia connection. */
     describeProfile(profileId: string): ProfileDescription | null;
+    /** feature 'usage': what the proxy or the browser hook has seen; sync reads from an in-memory window. */
+    usage?: {
+        today(): UsageTotals;
+        recent(limit?: number): UsageRecord[];
+        onRecord(listener: (record: UsageRecord) => void): () => void;
+    };
+    /** feature 'account': the last known balance and subscription state, refreshed by the panel. */
+    account?: {
+        snapshot(): AccountBrief | null;
+        refresh(): Promise<AccountBrief | null>;
+    };
+    /** feature 'advice': null when the profile is not a Nanovia connection. */
+    advice?: {
+        backgroundProfile(profileId: string): BackgroundAdvice | null;
+    };
+    /** feature 'panel': opens the Nanovia panel (optionally at a tab id such as 'connections', 'catalog', 'account'). */
+    openPanel?(tab?: string): void;
 }
