@@ -124,7 +124,10 @@ export interface CatalogModel {
 /** One host of a model (`GET /api/models/:id/providers`), normalised. */
 export interface ProviderEndpoint {
     id: string;
+    /** Normalised: mxfp4/nvfp4 -> fp4, native/-/absent -> unknown, null when the host reports nothing. */
     quantization: Quantization | null;
+    /** The label exactly as the host reports it (`mxfp4`, `nvfp4`, `native`, `fp8` …). */
+    rawQuantization: string | null;
     /** USD per 1M tokens, markup included, as NanoGPT bills an explicit selection. */
     pricing: { prompt: number; completion: number; cacheRead: number | null } | null;
     tps: number | null;
@@ -179,6 +182,8 @@ export interface UpstreamInput {
     /** The OpenAI-style request body as it came in. */
     body: Record<string, unknown>;
     hints: RequestHints;
+    /** `ModelProviders.supportsProviderSelection` of the model; null when unknown (treated as true). */
+    providerSelection: boolean | null;
 }
 
 /** Everything needed to call NanoGPT: pure data, built by domain/upstream.ts and used by the proxy and the browser hook. */
