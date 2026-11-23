@@ -4,6 +4,14 @@ import { accountFeature } from './account';
 import { catalogFeature } from './catalog';
 import { connectionsFeature } from './connections';
 import { keysFeature } from './keys';
+import { mgmtFeature } from './mgmt';
 import { routingFeature } from './routing';
 
-export const FEATURES: Feature[] = [connectionsFeature, catalogFeature, routingFeature, keysFeature, accountFeature];
+export const FEATURES: Feature[] = [
+    connectionsFeature,
+    catalogFeature,
+    routingFeature,
+    keysFeature,
+    mgmtFeature,
+    accountFeature,
+];
