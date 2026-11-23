@@ -3,6 +3,7 @@ import {
     DEFAULT_PROXY_PORT,
     NANOGPT_API_BASE,
     NANOGPT_API_BASE_FALLBACK,
+    NANOGPT_MEDIA_BASE,
     NANOGPT_MGMT_BASE,
 } from '../../src/shared/constants';
 import { DEFAULT_TIMEOUT_MS, defaultConfig, parseConfig } from '../../src/server/config';
@@ -54,6 +55,27 @@ describe('parseConfig', () => {
         expect(Object.keys(parseConfig(file, {}).config).filter((key) => /mgmt/i.test(key))).toEqual(['mgmtBase']);
     });
 
+    it('reads the media base from the file or NANOVIA_MEDIA, a host of its own with no fallback', () => {
+        // The media host has no path (routes sit under /v1 and /api); the chat upstream is another host and path.
+        expect(NANOGPT_MEDIA_BASE).toBe('https://api.nano-gpt.com');
+        expect(defaultConfig().mediaBase).toBe(NANOGPT_MEDIA_BASE);
+        expect(NANOGPT_API_BASE.startsWith(NANOGPT_MEDIA_BASE)).toBe(true);
+        expect(NANOGPT_API_BASE).not.toBe(NANOGPT_MEDIA_BASE);
+        const file = JSON.stringify({ mediaBase: 'http://127.0.0.1:5300/' });
+        expect(parseConfig(file, {}).config.mediaBase).toBe('http://127.0.0.1:5300');
+        expect(parseConfig(file, { NANOVIA_MEDIA: 'https://example.test/m/' }).config.mediaBase).toBe(
+            'https://example.test/m',
+        );
+        // A custom upstream, site or Management base says nothing about where the media calls (and the key) go.
+        const others = parseConfig(null, {
+            NANOVIA_UPSTREAM: 'http://localhost:5/v1',
+            NANOVIA_SITE: 'http://localhost:5',
+            NANOVIA_MGMT: 'http://localhost:5/m',
+        });
+        expect(others.config.mediaBase).toBe(NANOGPT_MEDIA_BASE);
+        expect(Object.keys(parseConfig(file, {}).config).filter((key) => /media/i.test(key))).toEqual(['mediaBase']);
+    });
+
     it('falls back to defaults with a warning for broken values', () => {
         const file = JSON.stringify({
             port: 'abc',
@@ -61,10 +83,11 @@ describe('parseConfig', () => {
             timeoutMs: 5,
             siteBase: 'nope',
             mgmtBase: 'file:///etc',
+            mediaBase: 'ftp://media',
         });
         const { config, warnings } = parseConfig(file, {});
         expect(config).toEqual(defaultConfig());
-        expect(warnings).toHaveLength(5);
+        expect(warnings).toHaveLength(6);
         expect(parseConfig('{ broken', {}).warnings).toEqual(['config.json is not valid JSON; ignored']);
         expect(parseConfig('[]', {}).warnings).toEqual(['config.json is not an object; ignored']);
         expect(parseConfig(null, { NANOVIA_PORT: '99999' }).warnings).toHaveLength(1);

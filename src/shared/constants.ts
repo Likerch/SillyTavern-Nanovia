@@ -19,6 +19,12 @@ export const DEFAULT_PROXY_PORT = 8787;
 export const NANOGPT_API_BASE = 'https://api.nano-gpt.com/api/v1';
 export const NANOGPT_API_BASE_FALLBACK = 'https://nano-gpt.com/api/v1';
 export const NANOGPT_SITE = 'https://nano-gpt.com';
+/**
+ * The media API (images, speech, transcription, video and their model lists), WITHOUT a path: the routes sit under `/v1/...`
+ * and `/api/...` of this host. A different host from the chat upstream (`NANOGPT_API_BASE` carries `/api/v1`); the website
+ * host rejects bodies over about 4.5 MB, so media always goes to `api.nano-gpt.com`. No fallback host.
+ */
+export const NANOGPT_MEDIA_BASE = 'https://api.nano-gpt.com';
 /** The Management API (API keys with limits, model presets). Its own host path, no CORS, no fallback host. */
 export const NANOGPT_MGMT_BASE = 'https://nano-gpt.com/api/management/v1';
 /** Every Management token starts with this; a normal inference key (`sk-nano-<uuid>`) does not work there. */
@@ -52,6 +58,8 @@ export const RESPONSE_HEADERS = {
     billing: 'x-nanovia-billing',
     requestId: 'x-nanovia-request-id',
     warnings: 'x-nanovia-warnings',
+    /** Stage 0.7, media endpoints of the proxy: the cost in USD when one is known (images: the response's own figure, speech: the catalog estimate). */
+    cost: 'x-nanovia-cost',
 } as const;
 
 /** Markup NanoGPT adds when a provider is chosen explicitly (docs: "normally 5%"). */
