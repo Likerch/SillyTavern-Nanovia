@@ -13,8 +13,8 @@ export { QVINK_INTERCEPTOR, qvinkState, readStVersion } from './extensions';
 export type { QvinkState } from './extensions';
 export { createPluginClient, isPluginDown, parseConnectionView, parseStatus } from './plugin-client';
 export type { PluginClient, PluginError, PluginErrorCode, PluginResult } from './plugin-client';
-export { createPluginAccount } from './plugin-account';
-export type { PluginAccount, SpendRange } from './plugin-account';
+export { createPluginAccount, mediumRowsOf, readMediumRows } from './plugin-account';
+export type { MediumSpendRow, PluginAccount, SpendRange } from './plugin-account';
 export {
     createPluginMgmt,
     isMgmtPluginDown,
@@ -24,6 +24,17 @@ export {
     parseModelPreset,
 } from './plugin-mgmt';
 export type { MgmtError, MgmtErrorKind, MgmtResult, PluginMgmt } from './plugin-mgmt';
+export {
+    createPluginMedia,
+    isMediaPluginDown,
+    mediaErrorOf,
+    mediaFileUrl,
+    parseMediaModel,
+    requiredAmountOf,
+} from './plugin-media';
+export type { MediaError, MediaErrorKind, MediaResult, PluginMedia } from './plugin-media';
+export { recorderSupport, startRecording } from './recorder';
+export type { RecordedAudio, RecorderEnv, RecorderError, RecorderHandle, RecorderSupport } from './recorder';
 export { createProfilesHost, profileDrift, profileName } from './profiles';
 export type { ProfileResult, ProfileSpec, ProfilesHost } from './profiles';
 export { createSecretsHost } from './secrets';
