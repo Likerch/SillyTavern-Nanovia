@@ -1,4 +1,4 @@
-// Minimal typing of the SillyTavern 1.19 host API used by Dramatis (ported from Maestro's typing).
+// Minimal typing of the SillyTavern 1.19 host API used by Nanovia (ported from Dramatis' typing).
 // Only what we call is declared; everything comes from SillyTavern.getContext() / SillyTavern.libs.
 
 export {};
@@ -97,6 +97,23 @@ declare global {
         id: string;
         name: string;
         members: string[];
+    }
+
+    /** A Connection Manager profile (public/scripts/extensions/connection-manager/index.js). */
+    interface STConnectionProfile {
+        id: string;
+        name?: string;
+        /** 'cc' (Chat Completion) or 'tc' (Text Completion). */
+        mode?: string;
+        /** API source: 'openrouter', 'openai', 'custom', … */
+        api?: string;
+        model?: string;
+        preset?: string;
+        proxy?: string;
+        'api-url'?: string;
+        'secret-id'?: string;
+        exclude?: string[];
+        [key: string]: unknown;
     }
 
     interface STSlashCommandStatic {
@@ -310,6 +327,8 @@ declare global {
     }
 
     var SillyTavern: Window['SillyTavern'];
+    /** Nanovia's public API (docs/ARCHITECTURE.md); installed by dist/index.js. */
+    var NANOVIA_API: import('./src/shared/contracts').NanoviaApi | undefined;
     var jQuery: (selector: string | Element) => { length: number; get(index: number): HTMLElement | undefined };
     var toastr: {
         success(message: string, title?: string, options?: Record<string, unknown>): void;

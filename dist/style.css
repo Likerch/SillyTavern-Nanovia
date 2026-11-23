@@ -1,0 +1,311 @@
+/*
+ * Nanovia UI. Every class is prefixed `nanovia-`; custom properties are `--nanovia-*`.
+ * Colours, blur and font size come from the ST theme (SmartTheme variables), so Nanovia follows the user's theme.
+ * Narrow screens (< 768px): fields stack, tab buttons wrap.
+ */
+
+:root {
+    --nanovia-text: var(--SmartThemeBodyColor, rgb(220, 220, 210));
+    --nanovia-muted: var(--SmartThemeEmColor, rgb(145, 145, 145));
+    --nanovia-accent: var(--SmartThemeQuoteColor, rgb(225, 138, 36));
+    --nanovia-border: var(--SmartThemeBorderColor, rgba(0, 0, 0, 0.5));
+    --nanovia-ok: rgb(90, 190, 120);
+    --nanovia-warn: rgb(225, 170, 50);
+    --nanovia-error: rgb(225, 80, 80);
+    --nanovia-info: rgb(95, 160, 225);
+    --nanovia-raised: color-mix(in srgb, var(--nanovia-text) 6%, transparent);
+    --nanovia-radius: 8px;
+    --nanovia-radius-sm: 6px;
+    --nanovia-gap: 12px;
+    --nanovia-gap-sm: 6px;
+    --nanovia-tap: 44px;
+}
+
+.nanovia-ui [hidden] {
+    display: none !important;
+}
+
+.nanovia-muted,
+.nanovia-field-hint {
+    color: var(--nanovia-muted);
+    font-size: 0.85em;
+    overflow-wrap: anywhere;
+}
+
+.nanovia-error-text {
+    color: var(--nanovia-error);
+    overflow-wrap: anywhere;
+}
+
+.nanovia-ok-text {
+    color: var(--nanovia-ok);
+}
+
+/* ------------------------------------------------------------------ tabs */
+
+.nanovia-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--nanovia-gap-sm);
+    margin: var(--nanovia-gap-sm) 0 var(--nanovia-gap);
+}
+
+.nanovia-tab {
+    margin: 0;
+    opacity: 0.75;
+}
+
+.nanovia-tab-active {
+    border-color: var(--nanovia-accent);
+    opacity: 1;
+}
+
+.nanovia-tab-body {
+    min-width: 0;
+}
+
+/* ------------------------------------------------------------------ buttons, chips and fields */
+
+.nanovia-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--nanovia-gap-sm);
+    margin: 0;
+    white-space: nowrap;
+}
+
+.nanovia-btn-ghost {
+    background: transparent;
+    border-color: transparent;
+}
+
+.nanovia-btn-primary {
+    border-color: var(--nanovia-accent);
+}
+
+.nanovia-btn-danger {
+    color: var(--nanovia-error);
+}
+
+.nanovia-busy {
+    opacity: 0.6;
+    cursor: progress;
+}
+
+.nanovia-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 8px;
+    font-size: 0.8em;
+    line-height: 1.6;
+    white-space: nowrap;
+    border: 1px solid var(--nanovia-border);
+    border-radius: 999px;
+    background: var(--nanovia-raised);
+}
+
+.nanovia-chip-ok {
+    color: var(--nanovia-ok);
+    border-color: color-mix(in srgb, var(--nanovia-ok) 50%, transparent);
+}
+
+.nanovia-chip-warn {
+    color: var(--nanovia-warn);
+    border-color: color-mix(in srgb, var(--nanovia-warn) 50%, transparent);
+}
+
+.nanovia-chip-error {
+    color: var(--nanovia-error);
+    border-color: color-mix(in srgb, var(--nanovia-error) 50%, transparent);
+}
+
+.nanovia-chip-info {
+    color: var(--nanovia-info);
+    border-color: color-mix(in srgb, var(--nanovia-info) 50%, transparent);
+}
+
+.nanovia-chip-muted {
+    color: var(--nanovia-muted);
+}
+
+.nanovia-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.nanovia-field {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+    align-items: center;
+    gap: 2px var(--nanovia-gap);
+    margin: 4px 0;
+}
+
+.nanovia-field-label {
+    min-width: 0;
+}
+
+.nanovia-field-control {
+    min-width: 0;
+}
+
+.nanovia-field-control > select,
+.nanovia-field-control > input,
+.nanovia-field-control > textarea {
+    width: 100%;
+    margin: 0;
+    box-sizing: border-box;
+}
+
+.nanovia-field-hint {
+    grid-column: 1 / -1;
+}
+
+.nanovia-toggle {
+    margin: 4px 0;
+}
+
+.nanovia-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--nanovia-gap-sm);
+}
+
+@media (max-width: 767px) {
+    .nanovia-field {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .nanovia-btn {
+        min-height: var(--nanovia-tap);
+    }
+}
+/* Tab «Connections». Shared pieces (chips, fields, buttons) live in ui/style.css. */
+
+.nanovia-banner {
+    display: flex;
+    flex-direction: column;
+    gap: var(--nanovia-gap-sm);
+    padding: 8px 10px;
+    border: 1px solid var(--nanovia-border);
+    border-left-width: 4px;
+    border-radius: var(--nanovia-radius);
+    background: var(--nanovia-raised);
+}
+
+.nanovia-banner-up {
+    border-left-color: var(--nanovia-ok);
+}
+
+.nanovia-banner-down {
+    border-left-color: var(--nanovia-error);
+}
+
+.nanovia-banner-checking {
+    border-left-color: var(--nanovia-muted);
+}
+
+.nanovia-notice-host {
+    margin: var(--nanovia-gap-sm) 0;
+}
+
+.nanovia-notice {
+    padding: 6px 10px;
+    border: 1px solid var(--nanovia-border);
+    border-radius: var(--nanovia-radius-sm);
+    overflow-wrap: anywhere;
+}
+
+.nanovia-notice-ok {
+    border-color: color-mix(in srgb, var(--nanovia-ok) 60%, transparent);
+}
+
+.nanovia-notice-warn {
+    border-color: color-mix(in srgb, var(--nanovia-warn) 60%, transparent);
+}
+
+.nanovia-notice-error {
+    color: var(--nanovia-error);
+    border-color: color-mix(in srgb, var(--nanovia-error) 60%, transparent);
+}
+
+.nanovia-connections-body {
+    margin-top: var(--nanovia-gap-sm);
+}
+
+.nanovia-empty {
+    margin: var(--nanovia-gap) 0;
+    line-height: 1.5;
+}
+
+.nanovia-cards {
+    display: flex;
+    flex-direction: column;
+    gap: var(--nanovia-gap-sm);
+    margin-top: var(--nanovia-gap);
+}
+
+.nanovia-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--nanovia-gap-sm);
+    padding: 8px 10px;
+    border: 1px solid var(--nanovia-border);
+    border-radius: var(--nanovia-radius);
+    background: var(--nanovia-raised);
+}
+
+.nanovia-card-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px var(--nanovia-gap);
+}
+
+.nanovia-card-name,
+.nanovia-card-model {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.nanovia-card-note {
+    white-space: pre-wrap;
+}
+
+.nanovia-form {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.nanovia-form-title {
+    margin: var(--nanovia-gap-sm) 0;
+}
+
+.nanovia-form-actions {
+    margin-top: var(--nanovia-gap);
+}
+
+.nanovia-details {
+    margin: var(--nanovia-gap-sm) 0;
+}
+
+.nanovia-details > summary {
+    cursor: pointer;
+}
+
+.nanovia-keys-add {
+    display: flex;
+    flex-direction: column;
+    gap: var(--nanovia-gap-sm);
+    margin-top: var(--nanovia-gap-sm);
+}
+
+.nanovia-keys-add > input {
+    width: 100%;
+    margin: 0;
+    box-sizing: border-box;
+}
+/*$vite$:1*/
