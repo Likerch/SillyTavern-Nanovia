@@ -359,6 +359,11 @@ export interface NanoviaApi {
     connections(): ConnectionSummary[];
     /** null when the profile is not a Nanovia connection. */
     describeProfile(profileId: string): ProfileDescription | null;
+    /**
+     * Same as describeProfile for a Chat Completion `custom_url` (what ST's live connection carries when no profile id is
+     * known): the proxy URL of a Nanovia connection resolves to its description, anything else to null.
+     */
+    describeUrl?(apiUrl: string): ProfileDescription | null;
     /** feature 'usage': what the proxy or the browser hook has seen; sync reads from an in-memory window. */
     usage?: {
         today(): UsageTotals;
