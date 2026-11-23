@@ -55,7 +55,7 @@ Management token on an inference route: 401 `invalid_api_key`. Management tokens
   bill the host's price or the list price + 5%), or the subscription quota is used up. Paid requests are deducted from the
   balance; at 0 they answer 402 `insufficient_balance`.
 - Reasoning models return `message.reasoning` / `delta.reasoning`; `reasoning.exclude` or `include_reasoning: false` hides
-  the text. `reasoning.effort: 'none'` switches reasoning off only where the model lists `none` and is not a `:thinking` id.
+  the text. `reasoning.effort: 'none'` switches reasoning off only where the model lists `none`; a `:thinking` id or suffix always reasons.
 - A trailing `:suffix` that is not a catalog id (`:online`, `:memory-7`) is echoed in `model` and listed in the
   `X-Mock-Applied-Suffixes` response header. Unknown model: 404 `model_not_found`.
 - `mock/structured-unsupported` + `response_format`: 400 `model_response_format_unsupported`. `provider.data_collection: "deny"`: 400. `mock/paused`: 503 `model_not_available`. `max_tokens` below the reply: `finish_reason: "length"`.

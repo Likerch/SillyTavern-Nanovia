@@ -38,6 +38,7 @@ const PROXY_PORT = Number(env.STAND_PROXY_PORT ?? 8788);
 const ST_URL = `http://127.0.0.1:${ST_PORT}/`;
 const MOCK_ORIGIN = `http://127.0.0.1:${MOCK_PORT}`;
 const MOCK_BASE = `${MOCK_ORIGIN}/api/v1`;
+/** Any HTTP answer means the proxy listener is alive (the plugin owns the route table; /health is the documented one). */
 const PROXY_HEALTH = `http://127.0.0.1:${PROXY_PORT}/health`;
 
 /** Seed values: a fake key that only the mock accepts (any `sk-nano-<8+ chars>` passes there). */
@@ -429,7 +430,7 @@ async function start() {
     say(`  SillyTavern    ${ST_URL}`);
     say(`  mock NanoGPT   ${MOCK_BASE}   (request log: ${MOCK_ORIGIN}/__mock/requests)`);
     say(
-        `  plugin proxy   ${proxy.status === 200 ? `up at http://127.0.0.1:${PROXY_PORT}` : 'not answering (plugin not built or not loaded: see `logs st`)'}`,
+        `  plugin proxy   ${proxy.status ? `up at http://127.0.0.1:${PROXY_PORT}` : 'not answering (plugin not built or not loaded: see `logs st`)'}`,
     );
     say(`  logs           ${path.relative(REPO, LOGS)}`);
 }
@@ -489,7 +490,7 @@ async function status() {
         pids[name]?.pid ? ` pid ${pids[name].pid}${isAlive(pids[name].pid) ? '' : ' (dead)'}` : '';
     say(`  mock NanoGPT        ${mock.status === 200 ? 'up' : 'down'} ${MOCK_BASE}${pidNote('mock')}`);
     say(`  SillyTavern         ${st.status ? `up (HTTP ${st.status})` : 'down'} ${ST_URL}${pidNote('st')}`);
-    say(`  plugin proxy        ${proxy.status === 200 ? 'up' : 'down'} ${PROXY_HEALTH}`);
+    say(`  plugin proxy        ${proxy.status ? `up (HTTP ${proxy.status})` : 'down'} ${PROXY_HEALTH}`);
 }
 
 function logs(options) {

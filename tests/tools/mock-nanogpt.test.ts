@@ -320,6 +320,14 @@ describe('reasoning', () => {
         const named = await json(await chat({ model: `${FLASH}:thinking`, reasoning_effort: 'none' }));
         expect(named.choices[0].message.reasoning).toBeDefined();
     });
+
+    it('turns reasoning on for a :thinking suffix even where the base model does not reason', async () => {
+        const plain = await json(await chat({ model: 'anthropic/claude-sonnet-5' }));
+        expect(plain.choices[0].message.reasoning).toBeUndefined();
+        const thinking = await chat({ model: 'anthropic/claude-sonnet-5:thinking' });
+        expect(thinking.headers.get('x-mock-applied-suffixes')).toBe('thinking');
+        expect((await json(thinking)).choices[0].message.reasoning).toBeDefined();
+    });
 });
 
 describe('streaming', () => {

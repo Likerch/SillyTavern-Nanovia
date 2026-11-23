@@ -38,14 +38,18 @@ function explicitProvider(req, body) {
     return { name: named || object?.order?.[0] || object?.only?.[0] || null };
 }
 
-/** Does the model reason on this request, and is its text returned? Models that always reason ignore `none`. */
-function reasoningPlan(body, model, requestedId) {
-    if (!model.capabilities.reasoning) return { on: false };
+/**
+ * Does the model reason on this request, and is its text returned? Models that always reason ignore `none`, and a
+ * `:thinking` id or suffix always reasons.
+ */
+function reasoningPlan(body, model, requestedId, suffixes) {
+    const thinking = requestedId.endsWith(':thinking') || suffixes.includes('thinking');
+    if (!model.capabilities.reasoning && !thinking) return { on: false };
     const options = body.reasoning && typeof body.reasoning === 'object' ? body.reasoning : {};
     const effort = options.effort ?? body.reasoning_effort ?? null;
     const efforts = model.reasoning_efforts ?? [];
     const asksOff = effort === 'none' || options.enabled === false;
-    const canDisable = (efforts.length === 0 || efforts.includes('none')) && !requestedId.endsWith(':thinking');
+    const canDisable = (efforts.length === 0 || efforts.includes('none')) && !thinking;
     return {
         on: !(asksOff && canDisable),
         effort,
@@ -118,7 +122,7 @@ export async function handleChat(ctx) {
     let content = header(req, 'x-mock-reply')
         ? decodeURIComponent(header(req, 'x-mock-reply'))
         : `Mock reply from ${model.id}: ${snippet}`;
-    const plan = reasoningPlan(body, model, body.model);
+    const plan = reasoningPlan(body, model, body.model, suffixes);
     const reasoning = plan.on ? `Thinking at ${plan.effort ?? 'default'} effort about: ${snippet}` : '';
     const cap = Number(body.max_completion_tokens ?? body.max_tokens);
     let finish = 'stop';
