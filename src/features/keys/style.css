@@ -1,0 +1,39 @@
+/* Tab «Keys». Shared pieces (chips, buttons, notices) live in ui/style.css and features/connections. */
+
+.nanovia-key-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--nanovia-gap-sm);
+    margin: var(--nanovia-gap-sm) 0;
+}
+
+.nanovia-key-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--nanovia-gap-sm);
+    padding: 8px 10px;
+    border: 1px solid var(--nanovia-border);
+    border-radius: var(--nanovia-radius);
+    background: var(--nanovia-raised);
+}
+
+.nanovia-key-name,
+.nanovia-key-masked,
+.nanovia-key-users,
+.nanovia-key-check {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.nanovia-key-add {
+    display: flex;
+    flex-direction: column;
+    gap: var(--nanovia-gap-sm);
+    margin-top: var(--nanovia-gap-sm);
+}
+
+.nanovia-key-add > input {
+    width: 100%;
+    margin: 0;
+    box-sizing: border-box;
+}
