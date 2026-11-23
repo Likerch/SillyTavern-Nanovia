@@ -36,6 +36,8 @@ export interface FakeBackend {
         keyValues: Map<string, string>;
         /** Makes the next call to a path (exact, e.g. 'POST /connections') fail with this status and error code. */
         failNext: Map<string, { status: number; code: string; message?: string }>;
+        /** true: POST /connections always generates its own id, like a plugin that does not take one. */
+        ignoreIds: boolean;
     };
     /** ST's secret store: key name -> rows. */
     secrets: Map<string, SecretRow[]>;
@@ -71,6 +73,7 @@ export function createFakeBackend(): FakeBackend {
             keys: [],
             keyValues: new Map(),
             failNext: new Map(),
+            ignoreIds: false,
         },
         secrets: new Map(),
         calls: [],
@@ -134,7 +137,10 @@ export function createFakeBackend(): FakeBackend {
             if (typeof name !== 'string' || typeof modelId !== 'string' || !name || !modelId) {
                 return errorBody(400, 'bad_request', 'name and modelId are required');
             }
-            const wanted = typeof body['id'] === 'string' && /^[a-z0-9]{6,16}$/.test(body['id']) ? body['id'] : null;
+            const wanted =
+                !plugin.ignoreIds && typeof body['id'] === 'string' && /^[a-z0-9]{6,16}$/.test(body['id'])
+                    ? body['id']
+                    : null;
             const id = wanted && !plugin.connections.has(wanted) ? wanted : `srv${String(++counter).padStart(6, '0')}`;
             const config = createConnection({ ...(body as Partial<ConnectionConfig>), name, modelId }, id, ++clock);
             plugin.connections.set(id, config);
