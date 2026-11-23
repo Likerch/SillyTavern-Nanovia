@@ -448,6 +448,32 @@ describe('the plugin is down', () => {
         const result = await h.connections.save({ id, patch: { note: 'x' } });
         expect(result).toMatchObject({ ok: true, warnings: [{ code: 'saved_locally' }] });
     });
+
+    it('lets name and model follow an offline edit but never repoints an auto profile on its own', async () => {
+        const id = await createPluginConnection('Main', 'm', 'auto');
+        // A key on file would let an auto connection fall back to direct mode; it must not do so silently.
+        await h.connections.save({ id, patch: {}, directKey: KEY });
+        expect(h.manager.profiles[0]?.['api-url']).toBe(proxyUrl(id));
+        h.backend.plugin.up = false;
+        const result = await h.connections.save({ id, patch: { name: 'Renamed', modelId: 'new/model' } });
+        expect(result.ok).toBe(true);
+        expect(h.manager.profiles[0]).toMatchObject({
+            name: `${PROFILE_NAME_PREFIX}Renamed`,
+            model: 'new/model',
+            'api-url': proxyUrl(id),
+            'secret-id': h.backend.plugin.tokens.get(id),
+        });
+    });
+
+    it('ignores a key typed for a connection that goes through the plugin', async () => {
+        const result = await h.connections.save({
+            patch: { name: 'Main', modelId: 'm', mode: 'plugin' },
+            directKey: KEY,
+        });
+        expect(result.ok).toBe(true);
+        expect(customRows().some((row) => row.value === KEY)).toBe(false);
+        if (result.ok) expect(h.settings.get().directSecrets[result.data.id]).toBeUndefined();
+    });
 });
 
 describe('profiles', () => {

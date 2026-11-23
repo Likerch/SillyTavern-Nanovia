@@ -13,6 +13,7 @@ import {
     formFromConfig,
     issueText,
     patchFromForm,
+    showsDirectKey,
     validateForm,
 } from './view-model';
 import type { ActionId, FormState } from './view-model';
@@ -193,10 +194,8 @@ export function renderConnectionsTab(root: HTMLElement, ctx: FeatureContext): ()
         const editing = state.editing;
         if (!editing) return;
         const { form, entry } = editing;
-        const issues = validateForm(form, {
-            pluginUp: ctx.connections.pluginUp(),
-            hasDirectKey: entry?.hasDirectKey ?? false,
-        });
+        const formCtx = { pluginUp: ctx.connections.pluginUp(), hasDirectKey: entry?.hasDirectKey ?? false };
+        const issues = validateForm(form, formCtx);
         const first = issues[0];
         if (first) {
             notify(
@@ -213,7 +212,8 @@ export function renderConnectionsTab(root: HTMLElement, ctx: FeatureContext): ()
         const result = await ctx.connections.save({
             id: form.id ?? undefined,
             patch: patchFromForm(form),
-            directKey: form.directKey || undefined,
+            // Only a key the form actually showed counts: one typed before the mode was changed is dropped.
+            directKey: showsDirectKey(form, formCtx) ? form.directKey || undefined : undefined,
         });
         if (report(result, t('connections.notice.saved'))) {
             form.directKey = '';

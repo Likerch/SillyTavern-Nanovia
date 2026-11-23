@@ -328,6 +328,19 @@ describe('direct mode', () => {
         expect(text()).toContain('Direct');
     });
 
+    it('drops a key typed before the mode was changed to the plugin', async () => {
+        await open();
+        await click('New connection');
+        type('Name', 'Changed my mind');
+        type('Model id', 'm');
+        choose('How it connects', 'direct');
+        type('NanoGPT key', KEY);
+        choose('How it connects', 'plugin');
+        await click('Save');
+        expect(text()).toContain('Connection saved.');
+        expect(h.backend.secrets.get(SECRET_KEY_CUSTOM)?.some((row) => row.value === KEY) ?? false).toBe(false);
+    });
+
     it('offers the switch to direct mode while the plugin is down, asking for the key once', async () => {
         const created = await h.connections.save({ patch: { name: 'Main', modelId: 'm', mode: 'plugin' } });
         if (!created.ok) throw new Error('save failed');
@@ -398,12 +411,14 @@ describe('lifecycle', () => {
         expect(text()).not.toContain('After dispose');
     });
 
-    it('drops an open form, and what was typed into it, on dispose', async () => {
+    it('does not touch the page after dispose even when a form was open', async () => {
         await open();
         await click('New connection');
         type('Name', 'Draft');
         dispose();
+        const before = root.innerHTML;
         await h.connections.refresh();
-        expect(root.querySelector('form')).not.toBeNull();
+        await h.connections.save({ patch: { name: 'Elsewhere', modelId: 'm', mode: 'plugin' } });
+        expect(root.innerHTML).toBe(before);
     });
 });

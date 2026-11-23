@@ -276,10 +276,26 @@ export function createConnectionsService(deps: ConnectionsDeps): ConnectionsServ
         }, 'pending');
     }
 
-    /** Writes the Connection Manager profile of a connection and remembers its id. */
-    async function syncProfile(config: ConnectionConfig, mode: EffectiveMode): Promise<OpIssue | null> {
+    /**
+     * Writes the Connection Manager profile of a connection and remembers its id. With `keep` (the profile as it is) the
+     * name and model are updated and the target (URL and secret) stays what it is.
+     */
+    async function syncProfile(
+        config: ConnectionConfig,
+        mode: EffectiveMode,
+        keep: STConnectionProfile | null = null,
+    ): Promise<OpIssue | null> {
         if (!profiles.available()) return { code: 'profile_unavailable' };
-        const spec = specFor(config, mode);
+        const kept =
+            keep && typeof keep['api-url'] === 'string' && typeof keep['secret-id'] === 'string'
+                ? {
+                      name: profileName(config.name),
+                      model: config.modelId,
+                      apiUrl: keep['api-url'],
+                      secretId: keep['secret-id'],
+                  }
+                : null;
+        const spec = kept ?? specFor(config, mode);
         if (!spec) return { code: mode === 'plugin' ? 'profile_needs_token' : 'profile_needs_key' };
         const result = await profiles.upsert(settings.get().profiles[config.id] ?? null, spec);
         if (!result.ok) return { code: result.reason === 'unavailable' ? 'profile_unavailable' : 'profile_failed' };
@@ -399,7 +415,9 @@ export function createConnectionsService(deps: ConnectionsDeps): ConnectionsServ
         const modeAfter = patch.mode ?? existing?.config.mode ?? 'auto';
         if (modeAfter === 'plugin' && !pluginUp) return fail('plugin_down');
 
-        const typedKey = input.directKey?.trim() ?? '';
+        // A key typed for a connection that goes through the plugin has no use (the field is hidden for it; this is
+        // for a form whose mode was changed after the key was typed).
+        const typedKey = modeAfter === 'plugin' ? '' : (input.directKey?.trim() ?? '');
         const knownSecret = existing ? settings.get().directSecrets[existing.config.id] : undefined;
         const needsKey = modeAfter === 'direct' || (!existing && modeAfter === 'auto' && !pluginUp);
         if (needsKey && !typedKey && !knownSecret) return fail('direct_key_required');
@@ -455,13 +473,12 @@ export function createConnectionsService(deps: ConnectionsDeps): ConnectionsServ
             if (old && old !== newSecret) await secrets.remove(old);
         }
 
-        // 4. The profile. A connection that already has one and merely cannot rewrite it now (the plugin is down and no
-        // direct key is on file) keeps the profile it has; that is not worth a warning.
-        const issue = await syncProfile(config, effectiveMode(config.mode, pluginUp));
-        const keepsProfile = Boolean(settings.get().profiles[config.id]);
-        if (issue && !(keepsProfile && (issue.code === 'profile_needs_key' || issue.code === 'profile_needs_token'))) {
-            warnings.push(issue);
-        }
+        // 4. The profile. While the plugin is down an `auto` connection keeps pointing where its profile points: the
+        // name and the model follow the edit, the target does not (no silent fallback to direct mode).
+        const linked = settings.get().profiles[config.id];
+        const keep = !pluginUp && config.mode === 'auto' && linked ? profiles.get(linked) : null;
+        const issue = await syncProfile(config, effectiveMode(config.mode, pluginUp), keep);
+        if (issue) warnings.push(issue);
 
         changed();
         return { ok: true, data: { id: config.id }, warnings };

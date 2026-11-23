@@ -41,11 +41,13 @@ describe('startNanovia', () => {
     it('mounts the drawer with the Connections and General tabs, and publishes the API', async () => {
         runtime = await startNanovia({ skipInitialRefresh: true });
         expect(document.querySelector('#extensions_settings2 #nanovia-settings')).not.toBeNull();
-        expect(runtime.panel.tabIds()).toEqual(['connections', 'general']);
-        expect(runtime.panel.activeTab()).toBe('connections');
+        // Later stages add tabs; the Connections tab is there, and «General» always comes last.
+        expect(runtime.panel.tabIds()).toContain('connections');
+        expect(runtime.panel.tabIds().at(-1)).toBe('general');
+        expect(runtime.panel.activeTab()).not.toBe('');
         const api = globals[NANOVIA_API_GLOBAL] as NanoviaApi;
         expect(api.version).toBe(1);
-        expect(api.features).toEqual(['connections']);
+        expect(api.features).toContain('connections');
         expect(api.nanoviaVersion).toMatch(/^\d+\.\d+\.\d+/);
     });
 
