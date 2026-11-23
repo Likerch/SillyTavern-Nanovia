@@ -11,6 +11,7 @@ import { createDoctorService } from '../core/doctor';
 import type { Feature, FeatureContext } from '../core/context';
 import { createI18n, hostLocale } from '../core/i18n';
 import { ConsoleLogger, createLogger } from '../core/logger';
+import { createMediaStore } from '../core/media';
 import { createMgmtStore } from '../core/mgmt';
 import { Settings } from '../core/settings';
 import type { Unsubscribe } from '../core/types';
@@ -21,6 +22,7 @@ import {
     createHost,
     createPluginAccount,
     createPluginClient,
+    createPluginMedia,
     createPluginMgmt,
     createProfilesHost,
     createDirectMode,
@@ -110,6 +112,15 @@ export async function startNanovia(options: StartOptions = {}): Promise<Runtime>
         log: log.scope('mgmt'),
     });
 
+    // Media (stage 0.7): the plugin writes the usage records and keeps the video jobs; the store only reads and shows.
+    const media = createMediaStore({
+        media: createPluginMedia({ client: plugin }),
+        usage,
+        account: pluginAccount,
+        connections,
+        log: log.scope('media'),
+    });
+
     // The panel hands the context to its tabs lazily and the context carries the panel: fill it in after both exist.
     const ctx = {} as FeatureContext;
     const panel = new SettingsPanel<FeatureContext>({
@@ -146,6 +157,7 @@ export async function startNanovia(options: StartOptions = {}): Promise<Runtime>
         account,
         doctor,
         mgmt,
+        media,
         profiles,
         secrets,
         registerRequestHook: (hook) => requests.register(hook),
@@ -169,6 +181,7 @@ export async function startNanovia(options: StartOptions = {}): Promise<Runtime>
     });
     const owned: Unsubscribe[] = [
         () => usage.dispose(),
+        () => media.dispose(),
         requests.register(directMode.hook),
         requests.observe(directMode.observer),
     ];
@@ -207,6 +220,7 @@ export async function startNanovia(options: StartOptions = {}): Promise<Runtime>
         account,
         doctor,
         mgmt,
+        media,
         panel: { open: (tab) => panel.open(tab) },
         log: log.scope('api'),
     });

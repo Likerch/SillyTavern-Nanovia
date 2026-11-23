@@ -6,6 +6,8 @@ import type { FeatureContext } from '../../src/core/context';
 import { createDoctorService } from '../../src/core/doctor';
 import type { DoctorDeps } from '../../src/core/doctor';
 import { createI18n } from '../../src/core/i18n';
+import { createMediaStore } from '../../src/core/media';
+import type { MediaStore } from '../../src/core/media';
 import { createMgmtStore } from '../../src/core/mgmt';
 import type { MgmtStore } from '../../src/core/mgmt';
 import type { Locale } from '../../src/core/types';
@@ -18,6 +20,8 @@ import { UI_STRINGS } from '../../src/ui/strings';
 import { createAccountFake } from './account-fake';
 import type { AccountFake } from './account-fake';
 import type { Harness } from './harness';
+import { createMediaFake } from './media-fake';
+import type { MediaFake } from './media-fake';
 import { createMgmtFake } from './mgmt-fake';
 import type { MgmtFake } from './mgmt-fake';
 
@@ -31,6 +35,9 @@ export interface TestContext {
     /** The stage 0.6 routes of the fake plugin (Management token, keys, presets). */
     mgmtFake: MgmtFake;
     mgmt: MgmtStore;
+    /** The stage 0.7 routes of the fake plugin (media catalogs, image, speech, transcription, video jobs). */
+    mediaFake: MediaFake;
+    media: MediaStore;
 }
 
 /**
@@ -66,6 +73,14 @@ export function createContext(
     });
     const mgmtFake = createMgmtFake(h);
     const mgmt = createMgmtStore({ mgmt: mgmtFake.mgmt, connections: h.connections, log: h.log });
+    const mediaFake = createMediaFake(h);
+    const media = createMediaStore({
+        media: mediaFake.media,
+        usage,
+        account: fake.account,
+        connections: h.connections,
+        log: h.log,
+    });
     const ctx: FeatureContext = {
         version: '0.0.0-test',
         host,
@@ -77,6 +92,7 @@ export function createContext(
         account,
         doctor: doctorService,
         mgmt,
+        media,
         profiles: h.profiles,
         secrets: h.secrets,
         registerRequestHook: () => () => {},
@@ -86,5 +102,5 @@ export function createContext(
         bus: h.bus,
         log: h.log,
     };
-    return { ctx, setLocale: (value) => void (locale = value), fake, usage, account, mgmtFake, mgmt };
+    return { ctx, setLocale: (value) => void (locale = value), fake, usage, account, mgmtFake, mgmt, mediaFake, media };
 }

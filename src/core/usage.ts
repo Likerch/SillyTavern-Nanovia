@@ -7,7 +7,8 @@
 // asked while the plugin is known to be down, and a failed call keeps the last good numbers and says they are stale.
 // Real money (`costUsd`) and the pay-as-you-go equivalent are always kept apart; the equivalent never counts toward caps.
 import { roundUsd, summarizeUsage } from '../domain/usage';
-import type { PluginAccount, PluginError } from '../host';
+import { mediumRowsOf } from '../host';
+import type { MediumSpendRow, PluginAccount, PluginError } from '../host';
 import type { UsageRecord, UsageTotals } from '../shared/contracts';
 import type { ConnectionUsage, DayUsage, ModelUsage, UsageSummary } from '../shared/contracts-account';
 import type { ConnectionsService } from './connections';
@@ -130,6 +131,16 @@ function mergeRows<R extends UsageTotals>(a: readonly R[], b: readonly R[], keyO
     return [...merged.values()];
 }
 
+/** The per-medium rows (`byMedium`, stage 0.7) of two summaries as one; undefined when neither has any. */
+function mergeMediumRows(a: UsageSummary, b: UsageSummary): MediumSpendRow[] | undefined {
+    const left = mediumRowsOf(a);
+    const right = mediumRowsOf(b);
+    if (left.length === 0 && right.length === 0) return undefined;
+    return mergeRows<MediumSpendRow>(left, right, (row) => row.medium).sort(
+        (x, y) => weight(x, y) || text(x.medium, y.medium),
+    );
+}
+
 /** Two summaries of disjoint sets of records as one (the plugin's log and the browser's own records). */
 export function mergeSummaries(a: UsageSummary, b: UsageSummary): UsageSummary {
     const byDay = mergeRows<DayUsage>(a.byDay, b.byDay, (row) => row.day).sort((x, y) => text(x.day, y.day));
@@ -141,7 +152,7 @@ export function mergeSummaries(a: UsageSummary, b: UsageSummary): UsageSummary {
     const byModel = mergeRows<ModelUsage>(a.byModel, b.byModel, (row) => row.model).sort(
         (x, y) => weight(x, y) || text(x.model, y.model),
     );
-    return {
+    const merged: UsageSummary = {
         from: Math.min(a.from, b.from),
         to: Math.max(a.to, b.to),
         total: addTotals(a.total, b.total),
@@ -149,6 +160,8 @@ export function mergeSummaries(a: UsageSummary, b: UsageSummary): UsageSummary {
         byConnection,
         byModel,
     };
+    const byMedium = mergeMediumRows(a, b);
+    return byMedium ? Object.assign(merged, { byMedium }) : merged;
 }
 
 function recordTotals(record: UsageRecord): UsageTotals {
@@ -217,9 +230,35 @@ export function createUsageStore(deps: UsageStoreDeps): UsageStore {
         }
     }
 
-    function accept(record: UsageRecord, origin: Origin): boolean {
-        if (!looksLikeRecord(record)) return false;
-        if (record.requestId !== null && record.requestId !== undefined && ids.has(record.requestId)) return false;
+    /**
+     * A record the plugin reports again with a corrected cost (an image's billing lookup arrives seconds after the call)
+     * replaces the one in the ring and fixes the day's sum; any other repeat is a duplicate.
+     */
+    function upgrade(record: UsageRecord, origin: Origin): 'replaced' | 'duplicate' {
+        if (origin !== 'plugin' || record.costSource !== 'lookup') return 'duplicate';
+        const index = ring.findIndex(
+            (entry) => entry.origin === 'plugin' && entry.record.requestId === record.requestId,
+        );
+        const old = index < 0 ? undefined : (ring[index] as Entry).record;
+        if (!old || old.costSource === 'lookup') return 'duplicate';
+        ring[index] = { record, origin };
+        if (startOfDay(old.at) === today0()) {
+            const before = recordTotals(old);
+            const after = recordTotals(record);
+            book.pluginRecords = {
+                ...book.pluginRecords,
+                costUsd: roundUsd(book.pluginRecords.costUsd - before.costUsd + after.costUsd),
+                equivalentUsd: roundUsd(book.pluginRecords.equivalentUsd - before.equivalentUsd + after.equivalentUsd),
+            };
+        }
+        return 'replaced';
+    }
+
+    function accept(record: UsageRecord, origin: Origin): 'new' | 'replaced' | 'duplicate' {
+        if (!looksLikeRecord(record)) return 'duplicate';
+        if (record.requestId !== null && record.requestId !== undefined && ids.has(record.requestId)) {
+            return upgrade(record, origin);
+        }
         // Sorted insert: a record normally lands at the end; one reported later by the plugin may be older.
         let index = ring.length;
         while (index > 0 && (ring[index - 1] as Entry).record.at > record.at) index--;
@@ -234,7 +273,7 @@ export function createUsageStore(deps: UsageStoreDeps): UsageStore {
             const key = origin === 'browser' ? 'browser' : 'pluginRecords';
             book[key] = addTotals(book[key], recordTotals(record));
         }
-        return true;
+        return 'new';
     }
 
     function announce(record: UsageRecord): void {
@@ -249,7 +288,7 @@ export function createUsageStore(deps: UsageStoreDeps): UsageStore {
 
     const offBus = bus.on('usage:record', (event) => {
         // The bus carries what the browser saw: the plugin never emits on it.
-        if (accept(event.record, 'browser')) {
+        if (accept(event.record, 'browser') === 'new') {
             announce(event.record);
             changed();
         }
@@ -405,14 +444,13 @@ export function createUsageStore(deps: UsageStoreDeps): UsageStore {
         },
 
         ingest(records) {
-            let added = false;
+            let touched = false;
             for (const record of records) {
-                if (accept(record, 'plugin')) {
-                    announce(record);
-                    added = true;
-                }
+                const outcome = accept(record, 'plugin');
+                if (outcome === 'new') announce(record);
+                if (outcome !== 'duplicate') touched = true;
             }
-            if (added) changed();
+            if (touched) changed();
         },
 
         dispose() {

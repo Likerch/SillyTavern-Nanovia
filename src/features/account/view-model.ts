@@ -5,7 +5,7 @@ import type { AccountDetail } from '../../core/account';
 import { stateOfError } from '../../core/account';
 import type { I18nParams } from '../../core/types';
 import type { SpendResult } from '../../core/usage';
-import type { PluginError, PluginResult } from '../../host';
+import type { MediumSpendRow, PluginError, PluginResult } from '../../host';
 import type { BillingOutcome, KeyInfo, UsageRecord, UsageTotals } from '../../shared/contracts';
 import type { ConnectionUsage, ModelUsage, QuotaWindow, RequestCostLookup } from '../../shared/contracts-account';
 import type { ChipKind } from '../../ui';
@@ -284,6 +284,18 @@ export function modelRows(rows: readonly ModelUsage[]): BreakdownRow[] {
     return rows.map((row) => breakdownRow(row.model, row.model, row));
 }
 
+/** The kinds of request the spend is split by (stage 0.7); a medium this build does not know is shown as it came. */
+const MEDIA_LABELS = ['chat', 'image', 'video', 'tts', 'stt'];
+
+export function mediumLabelOf(medium: string, t: Translate): string {
+    return MEDIA_LABELS.includes(medium) ? t(`account.medium.${medium}`) : medium;
+}
+
+/** Rows by kind of request (chat, image, video, speech, transcription); tokens do not mean anything for most of them. */
+export function mediumRows(rows: readonly MediumSpendRow[], t: Translate): BreakdownRow[] {
+    return rows.map((row) => breakdownRow(row.medium, mediumLabelOf(row.medium, t), row));
+}
+
 /** Where the spend numbers come from, null when nothing needs saying (the plugin's log is part of them). */
 export function spendSourceNote(result: SpendResult | null, t: Translate): string | null {
     if (!result || result.plugin) return null;
@@ -310,6 +322,12 @@ export interface RecentRowSpec {
     cached: string | null;
     latency: string;
     error: { label: string; title: string } | null;
+    /** Stage 0.7, media records only: what kind of request it was ('Images', 'Speech' …). */
+    medium?: ChipSpec;
+    /** What the cost was billed on ("images: 2", "characters: 120"); media records only. */
+    units?: string;
+    /** Where the cost figure came from; set when the record says (media records do). */
+    source?: ChipSpec;
 }
 
 export function cachedShare(record: UsageRecord): number | null {
@@ -331,7 +349,8 @@ export function recentRow(
         record.connectionId === null
             ? t('account.row.noConnection')
             : (nameOf(record.connectionId) ?? record.connectionId);
-    return {
+    const media = record.medium !== undefined && record.medium !== 'chat' ? record.medium : null;
+    const row: RecentRowSpec = {
         key: record.requestId ?? `${record.at}-${index}`,
         requestId: record.requestId,
         time: formatMoment(record.at, now),
@@ -340,10 +359,14 @@ export function recentRow(
         billing: { label: t(`account.billing.${record.billing}`), kind: BILLING_KIND[record.billing] },
         cost: formatUsd(record.costUsd),
         equivalent: formatUsd(record.equivalentUsd),
-        tokens: t('account.row.tokens', {
-            prompt: formatTokens(record.promptTokens),
-            completion: formatTokens(record.completionTokens),
-        }),
+        // A media record has no tokens: the units it was billed on say what it was instead.
+        tokens:
+            media !== null
+                ? ''
+                : t('account.row.tokens', {
+                      prompt: formatTokens(record.promptTokens),
+                      completion: formatTokens(record.completionTokens),
+                  }),
         cached: share === null ? null : t('account.row.cached', { percent: formatPercent(share) }),
         latency: formatLatency(record.latencyMs),
         error: failed
@@ -353,6 +376,25 @@ export function recentRow(
               }
             : null,
     };
+    if (media !== null) {
+        row.medium = { label: mediumLabelOf(media, t), kind: 'info' };
+        if (record.units !== undefined && record.units !== null) {
+            row.units = t(`account.units.${media}`, { count: formatUnits(record.units) });
+        }
+    }
+    if (record.costSource !== undefined) {
+        row.source = {
+            label: t(`account.costSource.${record.costSource}`),
+            kind: record.costSource === 'lookup' ? 'ok' : 'muted',
+            title: t(`account.costSource.${record.costSource}.hint`),
+        };
+    }
+    return row;
+}
+
+/** Units of a media request (seconds, characters, images) without float noise: 12 -> "12", 2.5 -> "2.5". */
+export function formatUnits(value: number): string {
+    return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(2)));
 }
 
 export interface LookupView {

@@ -519,3 +519,123 @@ describe('the feature', () => {
         expect(off).toHaveBeenCalledOnce();
     });
 });
+
+describe('media in the account tab (stage 0.7)', () => {
+    const withMedium = (rows: object[] | undefined): void => {
+        const original = tc.fake.account.spend.bind(tc.fake.account);
+        vi.spyOn(tc.fake.account, 'spend').mockImplementation(async (range, connectionId) => {
+            const result = await original(range, connectionId);
+            if (!result.ok || rows === undefined) return result;
+            return { ok: true, data: Object.assign(result.data, { byMedium: rows }) };
+        });
+    };
+    const totals = (requests: number, cost: number) => ({
+        requests,
+        costUsd: cost,
+        equivalentUsd: cost,
+        promptTokens: 0,
+        completionTokens: 0,
+        cachedTokens: 0,
+    });
+    const emit = (patch: Parameters<typeof usageRecord>[0]) =>
+        h.bus.emit('usage:record', { record: usageRecord({ at: Date.now(), ...patch }) });
+    const tableOf = (title: string): HTMLElement | undefined =>
+        all('.nanovia-table-block').find((node) => node.textContent?.includes(title));
+
+    it('a plugin that splits the spend by kind gets a small table of it next to the others, without a tokens column', async () => {
+        tc.fake.records.push(usageRecord({ at: Date.now() - 1000 }));
+        withMedium([
+            { medium: 'chat', ...totals(5, 0.2) },
+            { medium: 'image', ...totals(2, 0.00255) },
+            { medium: 'tts', ...totals(1, 0.000034) },
+        ]);
+        await open();
+        const block = tableOf('By kind of request');
+        expect(block).toBeDefined();
+        const rows = [...block!.querySelectorAll('tbody tr')].map((row) => row.getAttribute('data-row'));
+        expect(rows).toEqual(['chat', 'image', 'tts']);
+        expect(block!.textContent).toContain('Images');
+        expect(block!.textContent).toContain('$0.00255');
+        expect(block!.textContent).toContain('Speech');
+        expect([...block!.querySelectorAll('th')].map((th) => th.textContent)).toEqual([
+            'Kind',
+            'Requests',
+            'Real',
+            'Equiv.',
+        ]);
+        // The existing tables are still there, with their tokens.
+        expect([...tableOf('By model')!.querySelectorAll('th')].map((th) => th.textContent)).toContain('Tokens');
+    });
+
+    it('an older plugin sends no per-kind list: no such table', async () => {
+        tc.fake.records.push(usageRecord({ at: Date.now() - 1000 }));
+        withMedium(undefined);
+        await open();
+        expect(tableOf('By kind of request')).toBeUndefined();
+        expect(all('.nanovia-table-block').length).toBeGreaterThan(0);
+    });
+
+    it('recent requests of media are labelled with their kind, units and where the cost came from', async () => {
+        await emit({
+            requestId: 'img-1',
+            medium: 'image',
+            units: 2,
+            costSource: 'response',
+            model: 'rev-animated',
+            promptTokens: null,
+            completionTokens: null,
+        });
+        await emit({
+            requestId: 'tts-1',
+            medium: 'tts',
+            units: 120,
+            costSource: 'estimate',
+            model: 'Kokoro-82m',
+            promptTokens: null,
+            completionTokens: null,
+        });
+        await emit({ requestId: 'chat-1', model: 'vendor/chat' });
+        await open();
+        const row = (id: string): HTMLElement =>
+            all('.nanovia-recent-row').find((node) => node.dataset['request'] === id)!;
+        expect(row('img-1').textContent).toContain('Images');
+        expect(row('img-1').textContent).toContain('images: 2');
+        expect(row('img-1').textContent).toContain('NanoGPT’s figure');
+        expect(row('img-1').textContent).not.toContain('tokens');
+        expect(row('tts-1').textContent).toContain('Speech');
+        expect(row('tts-1').textContent).toContain('characters: 120');
+        expect(row('tts-1').textContent).toContain('estimate');
+        expect(row('chat-1').textContent).toContain('tokens');
+        expect(row('chat-1').textContent).not.toContain('Images');
+    });
+
+    it('shows the corrected cost once the plugin’s record says so', async () => {
+        // The plugin reported it (media records come from its log), so a later correction of it is accepted.
+        tc.usage.ingest([
+            usageRecord({
+                requestId: 'img-1',
+                medium: 'image',
+                units: 1,
+                costSource: 'response',
+                costUsd: 0.0017,
+                at: Date.now(),
+            }),
+        ]);
+        await open();
+        expect(all('.nanovia-recent-row')[0]!.textContent).toContain('Cost: $0.0017');
+        tc.usage.ingest([
+            usageRecord({
+                requestId: 'img-1',
+                medium: 'image',
+                units: 1,
+                costSource: 'lookup',
+                costUsd: 0.00255,
+                at: Date.now(),
+            }),
+        ]);
+        await settle();
+        const row = all('.nanovia-recent-row')[0]!;
+        expect(row.textContent).toContain('Cost: $0.00255');
+        expect(row.textContent).toContain('confirmed');
+    });
+});

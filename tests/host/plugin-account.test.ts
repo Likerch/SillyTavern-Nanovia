@@ -2,12 +2,14 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
     createPluginAccount,
+    mediumRowsOf,
     parseBalance,
     parseLookup,
     parseRecent,
     parseRecord,
     parseSpend,
     parseSubscriptionState,
+    readMediumRows,
 } from '../../src/host/plugin-account';
 import type { SubscriptionUsage } from '../../src/shared/contracts-account';
 import { createAccountFake, usageRecord } from '../helpers/account-fake';
@@ -246,5 +248,61 @@ describe('recent usage', () => {
             error: null,
         });
         expect(parseRecent({ records: [{ at: 1 }, 'junk', { at: 2, model: 'm' }] })).toHaveLength(2);
+    });
+});
+
+describe('media records and the per-medium breakdown (stage 0.7)', () => {
+    const totals = {
+        requests: 2,
+        costUsd: 0.01,
+        equivalentUsd: 0.02,
+        promptTokens: 0,
+        completionTokens: 0,
+        cachedTokens: 0,
+    };
+
+    it('keeps medium, units and cost source of a media record, and nothing for a chat line', () => {
+        const media = parseRecord({
+            at: 5,
+            model: 'rev-animated',
+            medium: 'image',
+            units: 2,
+            costSource: 'lookup',
+            costUsd: 0.00255,
+        });
+        expect(media).toMatchObject({ medium: 'image', units: 2, costSource: 'lookup', costUsd: 0.00255 });
+        const chat = parseRecord({ at: 5, model: 'm' });
+        expect(chat).not.toHaveProperty('medium');
+        expect(chat).not.toHaveProperty('units');
+        expect(chat).not.toHaveProperty('costSource');
+    });
+
+    it('drops a medium, a unit count or a source it does not know', () => {
+        const record = parseRecord({ at: 5, medium: 'hologram', units: 'many', costSource: 'vibes' });
+        expect(record).not.toHaveProperty('medium');
+        expect(record).not.toHaveProperty('units');
+        expect(record).not.toHaveProperty('costSource');
+    });
+
+    it('reads byMedium as a list or as an object keyed by medium, and drops rows it cannot read', () => {
+        expect(
+            readMediumRows([{ medium: 'image', ...totals }, { medium: 5, ...totals }, { medium: 'tts' }, 'junk']),
+        ).toEqual([{ medium: 'image', ...totals }]);
+        expect(readMediumRows({ chat: totals, stt: { ...totals, requests: 1 }, bad: 'x' })).toEqual([
+            { medium: 'chat', ...totals },
+            { medium: 'stt', ...totals, requests: 1 },
+        ]);
+        expect(readMediumRows(undefined)).toEqual([]);
+        expect(readMediumRows(3)).toEqual([]);
+    });
+
+    it('carries byMedium through parseSpend only when the plugin sent it', () => {
+        const base = { from: 1, to: 2, total: totals, byDay: [], byConnection: [], byModel: [] };
+        const without = parseSpend(base);
+        expect(without).not.toHaveProperty('byMedium');
+        expect(mediumRowsOf(without!)).toEqual([]);
+        const withRows = parseSpend({ ...base, byMedium: [{ medium: 'video', ...totals }] });
+        expect(mediumRowsOf(withRows!)).toEqual([{ medium: 'video', ...totals }]);
+        expect(mediumRowsOf(parseSpend({ ...base, byMedium: 'junk' })!)).toEqual([]);
     });
 });

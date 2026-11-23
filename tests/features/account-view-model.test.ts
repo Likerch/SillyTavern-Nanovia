@@ -16,9 +16,12 @@ import {
     formatMoment,
     formatPercent,
     formatTokens,
+    formatUnits,
     formatUsd,
     keyOptionLabel,
     lookupView,
+    mediumLabelOf,
+    mediumRows,
     modelRows,
     quotaBar,
     rangeBounds,
@@ -459,5 +462,109 @@ describe('Russian', () => {
         expect(lookupView({ ok: true, data: { requestId: 'r', ready: false, costUsd: null } }, tr).text).toBe(
             'Ещё не готово, попробуйте позже.',
         );
+    });
+});
+
+describe('spend by kind of request (stage 0.7)', () => {
+    const totals = {
+        requests: 3,
+        costUsd: 0.5,
+        equivalentUsd: 0.75,
+        promptTokens: 0,
+        completionTokens: 0,
+        cachedTokens: 0,
+    };
+    const ru = createI18n(() => 'ru');
+    ru.register(ACCOUNT_STRINGS);
+
+    it('names every kind in both languages and shows an unknown one as it came', () => {
+        expect(['chat', 'image', 'video', 'tts', 'stt'].map((medium) => mediumLabelOf(medium, t))).toEqual([
+            'Chat',
+            'Images',
+            'Video',
+            'Speech',
+            'Transcription',
+        ]);
+        expect(mediumLabelOf('tts', ru.t.bind(ru))).toBe('Озвучка');
+        expect(mediumLabelOf('hologram', t)).toBe('hologram');
+    });
+
+    it('turns the rows into table rows keyed by the kind', () => {
+        const rows = mediumRows(
+            [
+                { medium: 'image', ...totals },
+                { medium: 'tts', ...totals, requests: 1, costUsd: 0.000034, equivalentUsd: 0.000034 },
+            ],
+            t,
+        );
+        expect(rows[0]).toEqual({
+            key: 'image',
+            name: 'Images',
+            requests: '3',
+            real: '$0.50',
+            equivalent: '$0.75',
+            tokens: '0',
+        });
+        expect(rows[1]).toMatchObject({ key: 'tts', name: 'Speech', real: '$0.000034' });
+        expect(mediumRows([], t)).toEqual([]);
+    });
+});
+
+describe('a media request in the recent list (stage 0.7)', () => {
+    const nameOf = () => null;
+    const media = (patch: Parameters<typeof usageRecord>[0]) =>
+        recentRow(
+            usageRecord({
+                at: NOW,
+                medium: 'image',
+                units: 2,
+                costSource: 'response',
+                promptTokens: null,
+                completionTokens: null,
+                ...patch,
+            }),
+            0,
+            NOW,
+            nameOf,
+            t,
+        );
+
+    it('says what kind it was and what it was billed on, instead of tokens', () => {
+        const row = media({});
+        expect(row.medium).toEqual({ label: 'Images', kind: 'info' });
+        expect(row.units).toBe('images: 2');
+        expect(row.tokens).toBe('');
+    });
+
+    it('labels each kind of unit', () => {
+        expect(media({ medium: 'video', units: 8 }).units).toBe('video: 8 s');
+        expect(media({ medium: 'tts', units: 120 }).units).toBe('characters: 120');
+        expect(media({ medium: 'stt', units: 2.5 }).units).toBe('audio: 2.5 s');
+        expect(media({ units: null }).units).toBeUndefined();
+        expect(media({ units: undefined }).units).toBeUndefined();
+    });
+
+    it('says where the cost came from: the figure of the response may understate it, a lookup is confirmed', () => {
+        expect(media({ costSource: 'response' }).source).toMatchObject({ label: 'NanoGPT’s figure', kind: 'muted' });
+        expect(media({ costSource: 'response' }).source?.title).toContain('list price');
+        expect(media({ costSource: 'lookup' }).source).toMatchObject({ label: 'confirmed', kind: 'ok' });
+        expect(media({ costSource: 'estimate' }).source).toMatchObject({ label: 'estimate' });
+        expect(media({ costSource: 'unknown' }).source).toMatchObject({ label: 'unknown' });
+    });
+
+    it('a chat record, or one from before stage 0.7, has none of these', () => {
+        for (const patch of [{ medium: 'chat' as const }, { medium: undefined }]) {
+            const row = recentRow(usageRecord({ at: NOW, ...patch }), 0, NOW, nameOf, t);
+            expect(row.medium).toBeUndefined();
+            expect(row.units).toBeUndefined();
+            expect(row.source).toBeUndefined();
+            expect(row.tokens).toContain('tokens');
+        }
+    });
+
+    it('formats units without float noise', () => {
+        expect(formatUnits(12)).toBe('12');
+        expect(formatUnits(2.5)).toBe('2.5');
+        expect(formatUnits(2.3333333)).toBe('2.33');
     });
 });

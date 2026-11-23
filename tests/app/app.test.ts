@@ -108,6 +108,7 @@ describe('startNanovia', () => {
             'usage',
             'account',
             'mgmt',
+            'media',
             'advice',
             'doctor',
             'panel',

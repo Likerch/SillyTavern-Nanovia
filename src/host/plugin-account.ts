@@ -144,13 +144,44 @@ function rows<T>(raw: unknown, read: (item: Record<string, unknown>, totals: Usa
     return out;
 }
 
+/** One row of the per-medium breakdown (stage 0.7): `medium` is 'image', 'video', 'tts', 'stt' or 'chat'. */
+export interface MediumSpendRow extends UsageTotals {
+    medium: string;
+}
+
+/**
+ * The rows of `UsageSummary.byMedium` (an optional field the plugin adds in stage 0.7): a list of rows with a `medium`, or an
+ * object keyed by medium. Tolerant on purpose: an older plugin sends none, and a row that cannot be read is dropped.
+ */
+export function readMediumRows(raw: unknown): MediumSpendRow[] {
+    const entries: [string, unknown][] = [];
+    if (Array.isArray(raw)) {
+        for (const item of raw) {
+            if (isRecord(item) && typeof item['medium'] === 'string') entries.push([item['medium'], item]);
+        }
+    } else if (isRecord(raw)) {
+        entries.push(...Object.entries(raw));
+    }
+    const rows: MediumSpendRow[] = [];
+    for (const [medium, item] of entries) {
+        const totals = medium ? parseTotals(item) : null;
+        if (totals) rows.push({ medium, ...totals });
+    }
+    return rows;
+}
+
+/** The per-medium rows of a spend summary; empty when the plugin did not send any. */
+export function mediumRowsOf(summary: UsageSummary): MediumSpendRow[] {
+    return readMediumRows((summary as unknown as { byMedium?: unknown }).byMedium);
+}
+
 export function parseSpend(raw: unknown): UsageSummary | null {
     if (!isRecord(raw)) return null;
     const from = numberOf(raw['from']);
     const to = numberOf(raw['to']);
     const total = parseTotals(raw['total']);
     if (from === null || to === null || total === null) return null;
-    return {
+    const summary: UsageSummary = {
         from,
         to,
         total,
@@ -165,10 +196,16 @@ export function parseSpend(raw: unknown): UsageSummary | null {
             typeof item['model'] === 'string' ? { model: item['model'], ...totals } : null,
         ),
     };
+    // Absent stays absent (an older plugin): the Account tab shows its per-medium table only when the plugin sent one.
+    return raw['byMedium'] === undefined
+        ? summary
+        : Object.assign(summary, { byMedium: readMediumRows(raw['byMedium']) });
 }
 
 const OUTCOMES = ['subscription', 'paygo', 'unknown'] as const;
 const CONSUMERS = ['main', 'background', 'unknown'] as const;
+const MEDIA_OF_RECORD = ['chat', 'image', 'video', 'tts', 'stt'] as const;
+const COST_SOURCES_OF_RECORD = ['response', 'lookup', 'estimate', 'unknown'] as const;
 
 /** One record of `GET /usage/recent`; null when it is not a record. The plugin already normalised it, this only guards. */
 export function parseRecord(raw: unknown): UsageRecord | null {
@@ -180,7 +217,11 @@ export function parseRecord(raw: unknown): UsageRecord | null {
         const n = numberOf(value);
         return n !== null && n >= 0 ? n : null;
     };
-    return {
+    // Stage 0.7 fields: absent on older lines (and older plugins), and then absent here too (= a chat request).
+    const medium = MEDIA_OF_RECORD.find((m) => m === raw['medium']);
+    const costSource = COST_SOURCES_OF_RECORD.find((c) => c === raw['costSource']);
+    const units = count(raw['units']);
+    const record: UsageRecord = {
         at,
         connectionId: text(raw['connectionId']),
         requestId: text(raw['requestId']),
@@ -198,6 +239,10 @@ export function parseRecord(raw: unknown): UsageRecord | null {
         consumer: CONSUMERS.find((c) => c === raw['consumer']) ?? 'unknown',
         error: text(raw['error']),
     };
+    if (medium !== undefined) record.medium = medium;
+    if (units !== null && raw['units'] !== undefined) record.units = units;
+    if (costSource !== undefined) record.costSource = costSource;
+    return record;
 }
 
 export function parseRecent(raw: unknown): UsageRecord[] | null {
