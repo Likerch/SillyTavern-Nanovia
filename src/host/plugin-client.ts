@@ -43,6 +43,15 @@ export interface PluginClient {
     lastStatus(): ApiStatus | null;
     /** Forgets the cached availability. */
     invalidate(): void;
+    /**
+     * One raw call of the admin API (`path` starts with `/`, relative to PLUGIN_ADMIN_BASE) with the same headers,
+     * timeout and error mapping as the typed methods. For the typed clients of later stages (catalog, account …).
+     */
+    request(
+        method: string,
+        path: string,
+        options?: { body?: unknown; timeoutMs?: number },
+    ): Promise<PluginResult<unknown>>;
     listConnections(): Promise<PluginResult<ConnectionView[]>>;
     createConnection(
         input: Partial<ConnectionConfig> & { name: string; modelId: string },
@@ -265,6 +274,10 @@ export function createPluginClient(deps: PluginClientDeps): PluginClient {
 
         invalidate(): void {
             cached = null;
+        },
+
+        request(method, path, options) {
+            return call(method, path, options?.body, options?.timeoutMs);
         },
 
         async listConnections() {

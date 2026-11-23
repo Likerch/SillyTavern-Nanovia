@@ -12,6 +12,8 @@ export interface CatalogStatus {
     source: 'live' | 'cache' | 'stale' | null;
     /** The last failure, without secrets; null when the last load worked. */
     error: string | null;
+    /** Where the snapshot in memory came from: the plugin, NanoGPT directly, or the copy stored in the browser. */
+    via?: 'plugin' | 'direct' | 'storage' | null;
 }
 
 export interface CatalogStore {
