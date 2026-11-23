@@ -1,9 +1,10 @@
-import fs from "node:fs";
+import fs, { createReadStream } from "node:fs";
 import { fileURLToPath } from "node:url";
 import http from "node:http";
 import { createHash, randomBytes, randomInt } from "node:crypto";
-import path from "node:path";
 import fs$1 from "node:fs/promises";
+import path from "node:path";
+import readline from "node:readline";
 // src/shared/constants.ts
 /** Server plugin id (ST mounts its router at `/api/plugins/<id>`). */
 var PLUGIN_ID = "nanovia";
@@ -80,6 +81,7 @@ function createProxyContext(init) {
 		connection,
 		key: init.key,
 		model: init.model,
+		providerSelection: init.providerSelection ?? null,
 		hints: init.hints,
 		body,
 		stream: body["stream"] === true,
@@ -104,48 +106,1110 @@ function createProxyContext(init) {
 			stream: body["stream"] === true,
 			consumer: init.hints.consumer,
 			error: null
-		}
+		},
+		resolved: null
 	};
 }
-// src/server/pipeline/steps/model.ts
-function chooseModel(ctx) {
-	if (ctx.connection.modelLock) return ctx.connection.modelId;
-	const requested = ctx.body["model"];
-	return typeof requested === "string" && requested.trim() ? requested.trim() : ctx.connection.modelId;
+// src/domain/usage.ts
+function emptyUsage() {
+	return {
+		present: false,
+		promptTokens: null,
+		completionTokens: null,
+		totalTokens: null,
+		cachedTokens: null,
+		cacheWriteTokens: null,
+		reasoningTokens: null,
+		costUsd: null,
+		currency: null,
+		paidOtherCurrency: false,
+		estimated: false,
+		estimateUsd: null,
+		requestId: null
+	};
 }
-function modelStep(ctx) {
-	const model = chooseModel(ctx);
-	ctx.plan.model = model;
-	ctx.plan.body["model"] = model;
+/**
+* Normalises usage. `raw` is a response body or SSE chunk (then `usage` and the top-level `x_nanogpt_pricing` are read)
+* or a bare usage object. Anything else gives an empty result.
+*
+* Cost rules: `usage.cost` (then `total_cost`) as a number or decimal string wins; negative, NaN or garbage counts as
+* absent. A currency other than USD makes the cost unusable as dollars (null) except an exact 0, which is 0 in any
+* currency; a missing currency means USD (the OpenRouter convention). Without a usable cost, `x_nanogpt_pricing.cost`
+* is the real cost only when the block says `isEstimate: false`; otherwise it is kept as `estimateUsd`.
+*/
+function normalizeUsage(raw) {
+	if (!isRecord$5(raw)) return emptyUsage();
+	const nested = raw["usage"];
+	if (nested !== void 0 && !isRecord$5(nested)) return emptyUsage();
+	const usage = isRecord$5(nested) ? nested : raw;
+	const pricingRaw = raw["x_nanogpt_pricing"] ?? usage["x_nanogpt_pricing"];
+	const pricing = isRecord$5(pricingRaw) ? pricingRaw : null;
+	const promptDetails = isRecord$5(usage["prompt_tokens_details"]) ? usage["prompt_tokens_details"] : {};
+	const completionDetails = isRecord$5(usage["completion_tokens_details"]) ? usage["completion_tokens_details"] : {};
+	const promptTokens = firstCount(usage["prompt_tokens"], usage["input_tokens"], pricing?.["inputTokens"]);
+	const completionTokens = firstCount(usage["completion_tokens"], usage["output_tokens"], pricing?.["outputTokens"]);
+	const totalTokens = firstCount(usage["total_tokens"]);
+	const cachedTokens = preferPositive(promptDetails["cached_tokens"], usage["cache_read_input_tokens"], usage["prompt_cache_hit_tokens"], pricing?.["cacheReadInputTokens"]);
+	const cacheWriteTokens = preferPositive(usage["cache_creation_input_tokens"], promptDetails["cache_write_tokens"], pricing?.["cacheCreationInputTokens"]);
+	const reasoningTokens = firstCount(completionDetails["reasoning_tokens"], usage["reasoning_tokens"]);
+	const currency = typeof usage["currency"] === "string" && usage["currency"].trim() ? usage["currency"].trim().toUpperCase() : null;
+	const dollars = currency === null || currency === "USD";
+	const reported = firstCost(usage["cost"], usage["total_cost"]);
+	let costUsd = null;
+	let paidOtherCurrency = false;
+	if (reported !== null) {
+		if (dollars || reported === 0) costUsd = reported;
+		else paidOtherCurrency = true;
+	}
+	const pricingCost = pricing ? firstCost(pricing["cost"]) : null;
+	let estimateUsd = null;
+	if (pricingCost !== null) {
+		if (reported === null && dollars && pricing?.["isEstimate"] === false) costUsd = pricingCost;
+		else estimateUsd = pricingCost;
+	}
+	const estimated = costUsd === null && !paidOtherCurrency && estimateUsd !== null;
+	const requestId = typeof pricing?.["requestId"] === "string" && pricing["requestId"].trim() ? pricing["requestId"].trim() : null;
+	const present = [
+		promptTokens,
+		completionTokens,
+		totalTokens,
+		cachedTokens,
+		cacheWriteTokens,
+		reasoningTokens,
+		reported,
+		pricingCost
+	].some((v) => v !== null);
+	if (!present) return emptyUsage();
+	return {
+		present,
+		promptTokens,
+		completionTokens,
+		totalTokens,
+		cachedTokens,
+		cacheWriteTokens,
+		reasoningTokens,
+		costUsd,
+		currency,
+		paidOtherCurrency,
+		estimated,
+		estimateUsd,
+		requestId
+	};
 }
-// src/server/pipeline/steps/strip-samplers.ts
-/** Removes the neutral values from `body` in place and returns the names it removed. */
+/** Rounds a USD amount to 1e-9 so sums of floats print cleanly (`0.1 + 0.2`). */
+function roundUsd(value) {
+	return Math.round(value * 1e9) / 1e9;
+}
+/**
+* Sums records with `range.from <= at < range.to` in total, per day (`dayOf` names the day, so the zone is the
+* caller's), per connection and per model. Real cost and pay-as-you-go equivalent stay separate; unknown values count as
+* 0; every record counts as a request, a subscription one with cost 0. Pure and deterministic: days ascend, the other
+* lists go by real cost, equivalent, requests (descending) and then name.
+*/
+function summarizeUsage(records, range, dayOf, filter = {}) {
+	const total = emptyTotals();
+	const days = /* @__PURE__ */ new Map();
+	const connections = /* @__PURE__ */ new Map();
+	const models = /* @__PURE__ */ new Map();
+	for (const record of records) {
+		if (!(record.at >= range.from && record.at < range.to)) continue;
+		if (filter.connectionId !== void 0 && record.connectionId !== filter.connectionId) continue;
+		addRecord(total, record);
+		addRecord(bucket(days, dayOf(record.at)), record);
+		addRecord(bucket(connections, record.connectionId), record);
+		addRecord(bucket(models, record.model), record);
+	}
+	const byDay = [...days].map(([day, totals]) => ({
+		day,
+		...finish(totals)
+	})).sort((a, b) => compareText(a.day, b.day));
+	const byConnection = [...connections].map(([connectionId, totals]) => ({
+		connectionId,
+		...finish(totals)
+	})).sort((a, b) => byWeight(a, b) || compareText(a.connectionId ?? "", b.connectionId ?? ""));
+	const byModel = [...models].map(([model, totals]) => ({
+		model,
+		...finish(totals)
+	})).sort((a, b) => byWeight(a, b) || compareText(a.model, b.model));
+	return {
+		from: range.from,
+		to: range.to,
+		total: finish(total),
+		byDay,
+		byConnection,
+		byModel
+	};
+}
+function emptyTotals() {
+	return {
+		requests: 0,
+		costUsd: 0,
+		equivalentUsd: 0,
+		promptTokens: 0,
+		completionTokens: 0,
+		cachedTokens: 0
+	};
+}
+function bucket(map, key) {
+	let totals = map.get(key);
+	if (!totals) {
+		totals = emptyTotals();
+		map.set(key, totals);
+	}
+	return totals;
+}
+function addRecord(totals, record) {
+	totals.requests += 1;
+	totals.costUsd += amount$2(record.costUsd);
+	totals.equivalentUsd += amount$2(record.equivalentUsd);
+	totals.promptTokens += amount$2(record.promptTokens);
+	totals.completionTokens += amount$2(record.completionTokens);
+	totals.cachedTokens += amount$2(record.cachedTokens);
+}
+function finish(totals) {
+	return {
+		...totals,
+		costUsd: roundUsd(totals.costUsd),
+		equivalentUsd: roundUsd(totals.equivalentUsd)
+	};
+}
+/** A stored number counts when it is finite and not negative; anything else (null, NaN, a negative) counts as 0. */
+function amount$2(value) {
+	return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : 0;
+}
+function byWeight(a, b) {
+	return b.costUsd - a.costUsd || b.equivalentUsd - a.equivalentUsd || b.requests - a.requests;
+}
+function compareText(a, b) {
+	return a < b ? -1 : a > b ? 1 : 0;
+}
+function isRecord$5(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+var DECIMAL$1 = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/;
+/** A USD amount from a number or a decimal string; null for negatives, NaN, infinities and anything else. */
+function parseCost(value) {
+	let n;
+	if (typeof value === "number") n = value;
+	else if (typeof value === "string" && DECIMAL$1.test(value.trim())) n = Number(value.trim());
+	else return null;
+	if (!Number.isFinite(n) || n < 0) return null;
+	return n === 0 ? 0 : n;
+}
+/** A token count: a finite number that is not negative. */
+function parseCount(value) {
+	return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value === 0 ? 0 : value : null;
+}
+function firstCount(...values) {
+	for (const value of values) {
+		const n = parseCount(value);
+		if (n !== null) return n;
+	}
+	return null;
+}
+function firstCost(...values) {
+	for (const value of values) {
+		const n = parseCost(value);
+		if (n !== null) return n;
+	}
+	return null;
+}
+/** The first positive count, else the first valid count (a real 0), else null: one source saying 0 must not hide another. */
+function preferPositive(...values) {
+	let zero = null;
+	for (const value of values) {
+		const n = parseCount(value);
+		if (n === null) continue;
+		if (n > 0) return n;
+		zero = 0;
+	}
+	return zero;
+}
+// src/domain/cost.ts
+/**
+* What the request would cost at pay-as-you-go prices (USD): uncached prompt tokens at the prompt price, cached ones at
+* the cache-read price (the prompt price when the model has none), completion tokens at the completion price. Cache
+* writes are part of the prompt tokens and have no separate catalog price. With the model unknown the answer is NanoGPT's
+* own estimate (`x_nanogpt_pricing.cost`) when there is one, otherwise null; null too when no token count is known.
+*/
+function equivalentCostUsd(model, u) {
+	if (model) {
+		const priced = priceTokens(model, u);
+		if (priced !== null) return priced;
+	}
+	return u.estimateUsd;
+}
+function priceTokens(model, u) {
+	if (u.promptTokens === null && u.completionTokens === null) return null;
+	const { prompt, completion, cacheRead } = model.pricing;
+	if (!isPrice$1(prompt) || !isPrice$1(completion)) return null;
+	const promptTokens = u.promptTokens ?? 0;
+	const cached = Math.min(u.cachedTokens ?? 0, promptTokens);
+	const cachePrice = cacheRead !== null && isPrice$1(cacheRead) ? cacheRead : prompt;
+	return roundUsd(((promptTokens - cached) * prompt + cached * cachePrice + (u.completionTokens ?? 0) * completion) / 1e6);
+}
+function isPrice$1(value) {
+	return Number.isFinite(value) && value >= 0;
+}
+/**
+* Where the money for a request came from.
+* paygo: a cost above zero, a payment in another currency, or pay-as-you-go forced or implied by explicit routing.
+* subscription: the cost is exactly 0, the model is in the subscription and nothing forced pay-as-you-go.
+* unknown: everything else (no cost reported, an estimate only, a free or unknown model).
+*/
+function classifyBilling(args) {
+	const cost = args.estimated ? null : args.costUsd;
+	if (args.billingModeForced || args.explicitRouting) return "paygo";
+	if (cost !== null && cost > 0) return "paygo";
+	if (!args.estimated && args.paidOtherCurrency === true) return "paygo";
+	if (cost === 0 && args.model?.subscription.included === true) return "subscription";
+	return "unknown";
+}
+/**
+* Billing, real cost and equivalent of one request from its usage (null = the response had none). The equivalent falls
+* back to the real cost for a pay-as-you-go request whose model has no catalog price.
+*/
+function resolveCost(usage, ctx) {
+	if (!usage || !usage.present) return {
+		billing: classifyBilling({
+			model: ctx.model,
+			costUsd: null,
+			billingModeForced: ctx.billingModeForced,
+			explicitRouting: ctx.explicitRouting,
+			estimated: false
+		}),
+		costUsd: null,
+		equivalentUsd: null
+	};
+	const billing = classifyBilling({
+		model: ctx.model,
+		costUsd: usage.costUsd,
+		billingModeForced: ctx.billingModeForced,
+		explicitRouting: ctx.explicitRouting,
+		estimated: usage.estimated,
+		paidOtherCurrency: usage.paidOtherCurrency
+	});
+	const costUsd = billing === "subscription" ? 0 : usage.costUsd;
+	let equivalentUsd = equivalentCostUsd(ctx.model, usage);
+	if (equivalentUsd === null && billing === "paygo") equivalentUsd = costUsd;
+	return {
+		billing,
+		costUsd,
+		equivalentUsd
+	};
+}
+/**
+* The record written to `usage-YYYY-MM-DD.jsonl`. A failed request without usage is `unknown` with no cost (nothing
+* proves it was billed); token counts are null when the response did not report them.
+*/
+function buildUsageRecord(args) {
+	const failed = args.error !== null || args.status >= 400;
+	const hasUsage = args.usage !== null && args.usage.present;
+	const resolved = resolveCost(args.usage, args);
+	const usage = hasUsage ? args.usage : null;
+	return {
+		at: args.at,
+		connectionId: args.connectionId,
+		requestId: args.requestId ?? usage?.requestId ?? null,
+		model: args.modelId,
+		billing: failed && !hasUsage ? "unknown" : resolved.billing,
+		costUsd: resolved.costUsd,
+		equivalentUsd: resolved.equivalentUsd,
+		promptTokens: usage?.promptTokens ?? null,
+		completionTokens: usage?.completionTokens ?? null,
+		cachedTokens: usage?.cachedTokens ?? null,
+		reasoningTokens: usage?.reasoningTokens ?? null,
+		latencyMs: args.latencyMs,
+		status: args.status,
+		stream: args.stream,
+		consumer: args.consumer,
+		error: args.error
+	};
+}
+// src/domain/shim.ts
+/** Works out billing, cost and request id of a body or chunk; null when it carries no usable usage. */
+function resolveUsage(json, ctx) {
+	if (!isRecord$5(json) || !isRecord$5(json["usage"])) return null;
+	const usage = normalizeUsage(json);
+	if (!usage.present) return null;
+	return {
+		...resolveCost(usage, ctx),
+		usage,
+		requestId: ctx.requestId ?? usage.requestId
+	};
+}
+/**
+* Rewrites the `usage` of a response body. prompt_tokens, completion_tokens, total_tokens, prompt_tokens_details.cached_tokens
+* (and cache_write_tokens when known) and completion_tokens_details.reasoning_tokens are always numbers (0 when the upstream
+* did not report them, as OpenRouter does); `cost` is real USD, 0 for a subscription request, and is left out when the real
+* cost is unknown (never a guess); `currency` and `total_cost` are dropped so no foreign-currency figure can be mistaken for
+* dollars. `usage.nanovia` = { billing, equivalent_usd, request_id }. A body without a usable `usage` is returned as a copy
+* with nothing invented.
+*/
+function shimResponse(json, ctx) {
+	const resolved = resolveUsage(json, ctx);
+	const original = json["usage"];
+	if (!resolved || !isRecord$5(original)) return {
+		body: { ...json },
+		resolved: null
+	};
+	const { usage } = resolved;
+	const out = { ...original };
+	const prompt = usage.promptTokens ?? 0;
+	const completion = usage.completionTokens ?? 0;
+	out["prompt_tokens"] = prompt;
+	out["completion_tokens"] = completion;
+	out["total_tokens"] = usage.totalTokens ?? prompt + completion;
+	const promptDetails = {
+		...isRecord$5(original["prompt_tokens_details"]) ? original["prompt_tokens_details"] : {},
+		cached_tokens: usage.cachedTokens ?? 0
+	};
+	if (usage.cacheWriteTokens !== null) promptDetails["cache_write_tokens"] = usage.cacheWriteTokens;
+	out["prompt_tokens_details"] = promptDetails;
+	out["completion_tokens_details"] = {
+		...isRecord$5(original["completion_tokens_details"]) ? original["completion_tokens_details"] : {},
+		reasoning_tokens: usage.reasoningTokens ?? 0
+	};
+	delete out["total_cost"];
+	delete out["currency"];
+	if (resolved.costUsd !== null) out["cost"] = resolved.costUsd;
+	else delete out["cost"];
+	out["nanovia"] = {
+		billing: resolved.billing,
+		equivalent_usd: resolved.equivalentUsd,
+		request_id: resolved.requestId
+	};
+	return {
+		body: {
+			...json,
+			usage: out
+		},
+		resolved
+	};
+}
+/**
+* Rewrites the payload of one SSE `data:` field the same way. `[DONE]`, anything that is not a JSON object and every
+* chunk without a usable `usage` (including the `"usage": null` of ordinary chunks) come back as the same string.
+*/
+function shimSsePayload(data, ctx) {
+	const unchanged = {
+		data,
+		resolved: null
+	};
+	if (!data.includes("usage")) return unchanged;
+	let parsed;
+	try {
+		parsed = JSON.parse(data);
+	} catch {
+		return unchanged;
+	}
+	if (!isRecord$5(parsed)) return unchanged;
+	const { body, resolved } = shimResponse(parsed, ctx);
+	return resolved ? {
+		data: JSON.stringify(body),
+		resolved
+	} : unchanged;
+}
+// src/domain/sse.ts
+/**
+* Cuts a byte or text stream into SSE events. Every returned string is one event exactly as received, with its blank-line
+* terminator, so the concatenation of all returned strings plus nothing else is the input. Line ends may be LF, CRLF or CR
+* (a CR at the end of a chunk waits for the next one). Multi-byte UTF-8 split across chunks is decoded correctly (invalid
+* bytes become U+FFFD, a BOM stays as a character). Blank lines before the first field of an event travel with it.
+*/
+var SseSplitter = class {
+	decoder = new TextDecoder("utf-8", {
+		fatal: false,
+		ignoreBOM: true
+	});
+	/** Text of the event being collected (and any complete events not yet returned). */
+	buf = "";
+	/** Scan position inside `buf`; always the start of a line. */
+	pos = 0;
+	/** The event being collected already has a non-blank line. */
+	content = false;
+	/** Adds a chunk and returns the events that are now complete (in order, possibly none). */
+	feed(chunk) {
+		this.buf += typeof chunk === "string" ? chunk : this.decoder.decode(chunk, { stream: true });
+		return this.drain(false);
+	}
+	/** End of stream: returns what is left (an event the server never terminated) as one string, or nothing. */
+	flush() {
+		this.buf += this.decoder.decode();
+		const out = this.drain(true);
+		if (this.buf.length > 0) out.push(this.buf);
+		this.buf = "";
+		this.pos = 0;
+		this.content = false;
+		return out;
+	}
+	drain(final) {
+		const out = [];
+		const buf = this.buf;
+		let from = 0;
+		let pos = this.pos;
+		for (;;) {
+			const line = scanLine(buf, pos, final);
+			if (line === null) break;
+			const next = pos + line.length + line.terminator;
+			if (line.length > 0) this.content = true;
+			else if (this.content) {
+				out.push(buf.slice(from, next));
+				from = next;
+				this.content = false;
+			}
+			pos = next;
+		}
+		if (from > 0) this.buf = buf.slice(from);
+		this.pos = pos - from;
+		return out;
+	}
+};
+/** The line starting at `pos`: its length without the terminator and the terminator's length; null while it is incomplete. */
+function scanLine(buf, pos, final) {
+	for (let i = pos; i < buf.length; i++) {
+		const c = buf.charCodeAt(i);
+		if (c === 10) return {
+			length: i - pos,
+			terminator: 1
+		};
+		if (c === 13) {
+			if (i + 1 < buf.length) return {
+				length: i - pos,
+				terminator: buf.charCodeAt(i + 1) === 10 ? 2 : 1
+			};
+			return final ? {
+				length: i - pos,
+				terminator: 1
+			} : null;
+		}
+	}
+	return null;
+}
+var DATA_LINE = new RegExp(`^(${String.fromCharCode(65279)}?data:)( ?)([\\s\\S]*)$`);
+/**
+* Rewrites one raw event (as the splitter returns it) when its `data` field is a JSON chunk with usage. Comments, `event:`,
+* `id:` and `retry:` lines, line endings and the blank-line terminator are kept; a multi-line `data` field (joined with
+* newlines, as the SSE rules say) becomes one line. Events without usage, `[DONE]` and non-JSON data are returned untouched.
+*/
+function rewriteSseEvent(rawEvent, ctx) {
+	const unchanged = {
+		text: rawEvent,
+		resolved: null
+	};
+	if (!rawEvent.includes("usage")) return unchanged;
+	const lines = splitLines(rawEvent);
+	const dataLines = [];
+	lines.forEach((line, index) => {
+		const match = DATA_LINE.exec(line.text);
+		if (match) dataLines.push({
+			index,
+			match
+		});
+	});
+	const first = dataLines[0];
+	if (!first) return unchanged;
+	const { data, resolved } = shimSsePayload(dataLines.map((d) => d.match[3] ?? "").join("\n"), ctx);
+	if (!resolved) return unchanged;
+	const drop = new Set(dataLines.slice(1).map((d) => d.index));
+	let text = "";
+	lines.forEach((line, index) => {
+		if (drop.has(index)) return;
+		text += (index === first.index ? `${first.match[1]}${first.match[2]}${data}` : line.text) + line.end;
+	});
+	return {
+		text,
+		resolved
+	};
+}
+function splitLines(raw) {
+	const lines = [];
+	let start = 0;
+	while (start < raw.length) {
+		let i = start;
+		while (i < raw.length && raw.charCodeAt(i) !== 10 && raw.charCodeAt(i) !== 13) i++;
+		let end = "";
+		if (i < raw.length) end = raw.charCodeAt(i) === 13 && raw.charCodeAt(i + 1) === 10 ? "\r\n" : raw.charAt(i);
+		lines.push({
+			text: raw.slice(start, i),
+			end
+		});
+		start = i + end.length;
+	}
+	return lines;
+}
+// src/server/usage-capture.ts
+/** What the shim needs to know about the request; the upstream request id is known once the upstream answered. */
+function shimContextOf(ctx) {
+	return {
+		model: ctx.model,
+		billingModeForced: ctx.connection.billing === "paygo",
+		explicitRouting: ctx.plan.billing.reasons.some((reason) => reason.code === "routing.explicit"),
+		requestId: ctx.upstream?.requestId ?? null
+	};
+}
+/** Rewrites the usage of a complete JSON reply. Anything that is not a JSON object, or is an error, is returned as is. */
+function shimJsonBody(raw, shim) {
+	const untouched = {
+		body: raw,
+		resolved: null
+	};
+	let json;
+	try {
+		json = JSON.parse(raw.toString("utf8"));
+	} catch {
+		return untouched;
+	}
+	if (!isRecord$5(json) || json["error"] !== void 0 && json["error"] !== null) return untouched;
+	const result = shimResponse(json, shim);
+	if (!result.resolved) return untouched;
+	return {
+		body: Buffer.from(JSON.stringify(result.body), "utf8"),
+		resolved: result.resolved
+	};
+}
+/**
+* Passes an SSE stream through chunk by chunk. `push` returns the bytes to write for a chunk (null: only part of an
+* event arrived, it is held until its blank line); `end` returns what is left when the upstream finished. Events are
+* decoded and encoded as UTF-8, which is what SSE is, so an event without usage comes out byte-identical.
+*/
+var SseUsageShim = class {
+	shim;
+	splitter = new SseSplitter();
+	latest = null;
+	constructor(shim) {
+		this.shim = shim;
+	}
+	/** The facts of the last event that carried usage; null while there was none. */
+	get resolved() {
+		return this.latest;
+	}
+	push(chunk) {
+		return this.encode(this.splitter.feed(chunk));
+	}
+	end() {
+		return this.encode(this.splitter.flush());
+	}
+	encode(events) {
+		if (events.length === 0) return null;
+		let text = "";
+		for (const event of events) text += this.forward(event);
+		return Buffer.from(text, "utf8");
+	}
+	forward(event) {
+		if (!event.includes("usage")) return event;
+		try {
+			const rewritten = rewriteSseEvent(event, this.shim);
+			if (rewritten.resolved) this.latest = rewritten.resolved;
+			return rewritten.text;
+		} catch {
+			return event;
+		}
+	}
+};
+/** Fills `ctx.usage` from what is known: the status and error the proxy set, the usage the response carried, the plan. */
+function applyUsageRecord(ctx) {
+	const { requestId, ...costContext } = shimContextOf(ctx);
+	Object.assign(ctx.usage, buildUsageRecord({
+		...costContext,
+		requestId,
+		at: ctx.startedAt,
+		connectionId: ctx.connection.id,
+		modelId: ctx.plan.model,
+		usage: ctx.resolved?.usage ?? null,
+		latencyMs: ctx.usage.latencyMs,
+		status: ctx.usage.status,
+		stream: ctx.stream,
+		consumer: ctx.hints.consumer,
+		error: ctx.usage.error
+	}));
+}
+/**
+* Response step. A non-streamed 2xx body goes through the shim here (before the reply is written); then the usage record
+* is completed. A streamed reply was shimmed while it flowed (`ctx.resolved` is already set); an error reply is not touched.
+*/
+var usageStep = (ctx) => {
+	const info = ctx.upstream;
+	if (info && !info.stream && info.body !== null && info.status >= 200 && info.status < 300) {
+		const result = shimJsonBody(info.body, shimContextOf(ctx));
+		info.body = result.body;
+		ctx.resolved = result.resolved;
+	}
+	applyUsageRecord(ctx);
+};
+// src/domain/routing.ts
+/**
+* Names (RoutingConfig keys) of the settings that select a provider or a route, in a fixed order. These are the
+* settings NanoGPT bills as an explicit provider selection (pay-as-you-go plus markup). `zdr` is not among them: it only
+* narrows the platform's own routing. Looks at the fields only; whether routing is enabled is the caller's question
+* (see hasExplicitRouting).
+*/
+function routingFields(r) {
+	const fields = [];
+	if (r.order.length > 0) fields.push("order");
+	if (r.only.length > 0) fields.push("only");
+	if (r.ignore.length > 0) fields.push("ignore");
+	if (r.sort !== "default") fields.push("sort");
+	if (r.quantizations.length > 0) fields.push("quantizations");
+	if (r.minQuantization !== null) fields.push("minQuantization");
+	if (isSet(r.maxPrice.prompt) || isSet(r.maxPrice.completion)) fields.push("maxPrice");
+	if (r.allowFallbacks === false) fields.push("allowFallbacks");
+	if (r.requireParameters) fields.push("requireParameters");
+	if (isSet(r.preferredMaxLatency)) fields.push("preferredMaxLatency");
+	if (isSet(r.preferredMinThroughput)) fields.push("preferredMinThroughput");
+	if (r.cachingRoute) fields.push("cachingRoute");
+	return fields;
+}
+/** True when routing is enabled and at least one setting of routingFields is in use. `zdr` alone is not explicit. */
+function hasExplicitRouting(r) {
+	return r.enabled && routingFields(r).length > 0;
+}
+/**
+* Maps the config to NanoGPT's `provider` object. null when routing is disabled or there is nothing to send. Provider
+* ids are lower-cased. `data_collection` is never emitted (NanoGPT refuses `deny`). `zdrOnly` keeps just `zdr`: the
+* only field that does not bypass the subscription.
+* `cachingRoute` is not part of `provider`: it is the top-level `caching: true` and is set by planUpstream.
+*/
+function buildProviderObject(r, opts) {
+	if (!r.enabled) return null;
+	const out = {};
+	if (!opts.zdrOnly) {
+		const order = normalizeIds(r.order);
+		const only = normalizeIds(r.only);
+		const ignore = normalizeIds(r.ignore);
+		if (order.length > 0) out["order"] = order;
+		if (only.length > 0) out["only"] = only;
+		if (ignore.length > 0) out["ignore"] = ignore;
+		if (r.sort !== "default") out["sort"] = r.sort;
+		if (r.quantizations.length > 0) out["quantizations"] = [...r.quantizations];
+		if (r.minQuantization !== null) out["min_quantization"] = r.minQuantization;
+		const maxPrice = {};
+		if (isSet(r.maxPrice.prompt)) maxPrice["prompt"] = r.maxPrice.prompt;
+		if (isSet(r.maxPrice.completion)) maxPrice["completion"] = r.maxPrice.completion;
+		if (Object.keys(maxPrice).length > 0) out["max_price"] = maxPrice;
+		if (r.allowFallbacks === false) out["allow_fallbacks"] = false;
+		if (r.requireParameters) out["require_parameters"] = true;
+	}
+	if (r.zdr) out["zdr"] = true;
+	if (!opts.zdrOnly) {
+		if (isSet(r.preferredMaxLatency)) out["preferred_max_latency"] = r.preferredMaxLatency;
+		if (isSet(r.preferredMinThroughput)) out["preferred_min_throughput"] = r.preferredMinThroughput;
+	}
+	return Object.keys(out).length > 0 ? out : null;
+}
+/**
+* Settings that look meaningful but do nothing, or conflict. Empty when routing is disabled (nothing is sent).
+* - `routing.preferenceNeedsSort`: preferred latency/throughput without a sort.
+* - `routing.onlyAndOrder`: `only` and `order` together (`only` already limits the candidates, `order` is redundant).
+*/
+function routingWarnings(r) {
+	if (!r.enabled) return [];
+	const warnings = [];
+	if ((isSet(r.preferredMaxLatency) || isSet(r.preferredMinThroughput)) && r.sort === "default") warnings.push({ code: "routing.preferenceNeedsSort" });
+	if (r.only.length > 0 && r.order.length > 0) warnings.push({ code: "routing.onlyAndOrder" });
+	return warnings;
+}
+function normalizeIds(list) {
+	const out = [];
+	for (const item of list) {
+		const id = item.trim().toLowerCase();
+		if (id && !out.includes(id)) out.push(id);
+	}
+	return out;
+}
+function isSet(value) {
+	return typeof value === "number" && Number.isFinite(value);
+}
+// src/domain/billing.ts
+/**
+* The routing a 'subscription' ("safe") connection really uses: every bypassing setting is reset to its neutral value,
+* `zdr` stays. `stripped` names what was removed (RoutingConfig keys). Nothing is stripped while routing is disabled
+* (it sends nothing). Does not look at `connection.billing`: callers apply it in safe mode, and a panel can call it to
+* offer "make this subscription-safe". `_model` is reserved for model-specific rules.
+*/
+function subscriptionSafeOverrides(connection, _model) {
+	const r = connection.routing;
+	const stripped = r.enabled ? routingFields(r) : [];
+	if (stripped.length === 0) return {
+		routing: cloneRouting(r),
+		stripped
+	};
+	return {
+		routing: {
+			...r,
+			order: [],
+			only: [],
+			ignore: [],
+			sort: "default",
+			quantizations: [],
+			minQuantization: null,
+			maxPrice: {
+				prompt: null,
+				completion: null
+			},
+			allowFallbacks: true,
+			requireParameters: false,
+			preferredMaxLatency: null,
+			preferredMinThroughput: null,
+			cachingRoute: false
+		},
+		stripped
+	};
+}
+/**
+* What this connection does to the billing of a request to `model` (null = not in the catalog).
+* `providerSelection` is ModelProviders.supportsProviderSelection: false means NanoGPT ignores routing for the model,
+* null means unknown (treated as true). `subscriptionSafe` speaks about settings only (nothing bypasses the
+* subscription and billing is not forced to pay-as-you-go); whether the model itself is covered is `outcome`.
+*/
+function analyzeBilling(connection, model, providerSelection) {
+	const forced = connection.billing === "paygo";
+	const safe = connection.billing === "subscription";
+	const { routing, stripped } = safe ? subscriptionSafeOverrides(connection, model) : {
+		routing: connection.routing,
+		stripped: []
+	};
+	const explicit = hasExplicitRouting(routing);
+	const selectionIgnored = providerSelection === false;
+	const bypass = explicit && !selectionIgnored;
+	const reasons = [];
+	if (forced) reasons.push({ code: "billing.forced" });
+	else if (model !== null && !model.subscription.included) {
+		reasons.push({
+			code: "model.notIncluded",
+			params: { model: model.id }
+		});
+		if (safe) reasons.push({
+			code: "billing.modelNotCoverable",
+			params: { model: model.id }
+		});
+	}
+	if (explicit) {
+		const fields = routingFields(routing).join(", ");
+		reasons.push({
+			code: selectionIgnored ? "routing.unsupportedByModel" : "routing.explicit",
+			params: { fields }
+		});
+	} else if (routing.enabled && routing.zdr && !selectionIgnored && !forced) reasons.push({ code: "routing.zdrOnly" });
+	if (connection.webSearch) reasons.push({ code: "search.billedSeparately" });
+	if (connection.memory.enabled) reasons.push({ code: "memory.billedSeparately" });
+	let outcome;
+	if (forced || bypass) outcome = "paygo";
+	else if (model === null) outcome = "unknown";
+	else outcome = model.subscription.included ? "subscription" : "paygo";
+	if (model !== null && outcome === "subscription" && model.subscription.inputTokenMultiplier > 1) reasons.push({
+		code: "subscription.multiplier",
+		params: { value: model.subscription.inputTokenMultiplier }
+	});
+	return {
+		outcome,
+		markupPercent: bypass ? 5 : 0,
+		subscriptionSafe: !forced && !bypass,
+		reasons,
+		stripped
+	};
+}
+function cloneRouting(r) {
+	return {
+		...r,
+		order: [...r.order],
+		only: [...r.only],
+		ignore: [...r.ignore],
+		quantizations: [...r.quantizations],
+		maxPrice: { ...r.maxPrice }
+	};
+}
+// src/domain/reasoning.ts
+/** The effort ladder, lowest first. The distance between two levels is the distance of their indices. */
+var EFFORT_ORDER = [
+	"none",
+	"minimal",
+	"low",
+	"medium",
+	"high",
+	"xhigh",
+	"max"
+];
+/** ST's effort vocabulary (and a few spellings seen in the wild) mapped to the ladder. */
+var HINT_VOCABULARY = /* @__PURE__ */ new Map([
+	["min", "none"],
+	["off", "none"],
+	["none", "none"],
+	["minimal", "minimal"],
+	["low", "low"],
+	["medium", "medium"],
+	["high", "high"],
+	["xhigh", "xhigh"],
+	["x-high", "xhigh"],
+	["extra-high", "xhigh"],
+	["max", "max"],
+	["auto", "auto"]
+]);
+/**
+* Normalises the effort a request carried (X-Nanovia-Effort or ST's `reasoning_effort`).
+* 'min'/'off'/'none' mean "no reasoning" and give 'none'; 'auto' stays 'auto' (the caller expressed no preference);
+* an empty or unknown value gives null.
+*/
+function normalizeEffortHint(hint) {
+	if (typeof hint !== "string") return null;
+	return HINT_VOCABULARY.get(hint.trim().toLowerCase()) ?? null;
+}
+/**
+* The supported level closest to `wanted` on the ladder none < minimal < low < medium < high < xhigh < max.
+* A tie goes to the lower level. Entries of `supported` that are not on the ladder are ignored; null when nothing
+* usable is left. `supported` may lack 'none'.
+*/
+function nearestEffort(wanted, supported) {
+	const target = EFFORT_ORDER.indexOf(wanted);
+	if (target < 0) return null;
+	let best = -1;
+	for (const level of supported) {
+		const index = ladderIndex(level);
+		if (index < 0) continue;
+		if (best < 0) {
+			best = index;
+			continue;
+		}
+		const distance = Math.abs(index - target);
+		const bestDistance = Math.abs(best - target);
+		if (distance < bestDistance || distance === bestDistance && index < best) best = index;
+	}
+	return best < 0 ? null : EFFORT_ORDER[best] ?? null;
+}
+/**
+* Decides what to put into the request's `reasoning` object.
+*
+* - policy 'default', or a model that is known not to reason: nothing (null, no warning).
+* - 'off': the model lists 'none' -> `{ effort: 'none' }`; it only lists other efforts (it always reasons) -> its lowest
+*   effort with the text excluded and the warning `reasoning.cannotDisable`; it has no efforts -> `{ enabled: false }`.
+* - 'fixed': `config.effort` mapped to a supported level (warning `reasoning.effortAdjusted` when it had to change);
+*   without an effort it behaves like 'default'.
+* - 'follow': the request's hint, normalised and mapped the same way; no (or 'auto') hint -> nothing, except for a
+*   'background' consumer, which then behaves as 'off'.
+* - A model that reasons but lists no efforts has no dial: 'none' becomes `{ enabled: false }`, anything else
+*   `{ enabled: true }`.
+* - An unknown model (null) gets the normalised effort as it is, with the warning `reasoning.modelUnknown`.
+* - `hideThoughts` adds `exclude: true` to every non-null result (so it has no effect while nothing is sent).
+*/
+function planReasoning(model, config, hints) {
+	const nothing = {
+		reasoning: null,
+		warnings: []
+	};
+	if (config.policy === "default") return nothing;
+	if (model !== null && !model.capabilities.reasoning) return nothing;
+	const warnings = [];
+	let params;
+	if (config.policy === "off") params = planOff(model, warnings);
+	else if (config.policy === "fixed") params = config.effort === null ? null : planWanted(model, config.effort, warnings);
+	else {
+		const hint = normalizeEffortHint(hints.effort);
+		if (hint !== null && hint !== "auto") params = planWanted(model, hint, warnings);
+		else params = hints.consumer === "background" ? planOff(model, warnings) : null;
+	}
+	if (params === null) return nothing;
+	if (config.hideThoughts) params.exclude = true;
+	return {
+		reasoning: params,
+		warnings
+	};
+}
+function planOff(model, warnings) {
+	if (model === null) {
+		warnings.push({ code: "reasoning.modelUnknown" });
+		return { effort: "none" };
+	}
+	const lowest = lowestEffort(model.reasoningEfforts);
+	if (lowest === null) return { enabled: false };
+	if (lowest === "none") return { effort: "none" };
+	warnings.push({
+		code: "reasoning.cannotDisable",
+		params: {
+			model: model.id,
+			efforts: model.reasoningEfforts.join(", ")
+		}
+	});
+	return {
+		effort: lowest,
+		exclude: true
+	};
+}
+function planWanted(model, wanted, warnings) {
+	if (model === null) {
+		warnings.push({ code: "reasoning.modelUnknown" });
+		return { effort: wanted };
+	}
+	const applied = nearestEffort(wanted, model.reasoningEfforts);
+	if (applied === null) return { enabled: wanted !== "none" };
+	if (applied !== wanted) warnings.push({
+		code: "reasoning.effortAdjusted",
+		params: {
+			requested: wanted,
+			applied
+		}
+	});
+	return { effort: applied };
+}
+function lowestEffort(supported) {
+	let best = -1;
+	for (const level of supported) {
+		const index = ladderIndex(level);
+		if (index >= 0 && (best < 0 || index < best)) best = index;
+	}
+	return best < 0 ? null : EFFORT_ORDER[best] ?? null;
+}
+function ladderIndex(level) {
+	return EFFORT_ORDER.indexOf(level.trim().toLowerCase());
+}
+// src/domain/upstream.ts
+/** Fields ST sends with a neutral value that some NanoGPT routes reject. */
+var NEUTRAL_SAMPLERS = [
+	["top_k", 0],
+	["top_a", 0],
+	["min_p", 0],
+	["repetition_penalty", 1]
+];
+function planUpstream(input) {
+	const { connection, hints } = input;
+	const body = structuredClone(input.body);
+	const safe = connection.billing === "subscription";
+	const model = withSuffixes(chooseModel(connection.modelLock, connection.modelId, body["model"]), connection);
+	body["model"] = model;
+	if (connection.stripNeutralSamplers) stripNeutralSamplers(body);
+	body["usage"] = {
+		...isRecord$4(body["usage"]) ? body["usage"] : {},
+		include: true
+	};
+	if (body["stream"] === true) body["stream_options"] = {
+		...isRecord$4(body["stream_options"]) ? body["stream_options"] : {},
+		include_usage: true
+	};
+	const reasoning = planReasoning(input.model, connection.reasoning, hints);
+	if (reasoning.reasoning !== null) {
+		body["reasoning"] = {
+			...isRecord$4(body["reasoning"]) ? body["reasoning"] : {},
+			...reasoning.reasoning
+		};
+		delete body["reasoning_effort"];
+	}
+	const routing = safe ? subscriptionSafeOverrides(connection, input.model).routing : connection.routing;
+	if (safe) {
+		delete body["caching"];
+		if (isRecord$4(body["provider"])) {
+			const zdr = body["provider"]["zdr"];
+			if (zdr === void 0) delete body["provider"];
+			else body["provider"] = { zdr };
+		}
+	}
+	const fixedRoute = input.providerSelection === false;
+	const provider = buildProviderObject(routing, { zdrOnly: fixedRoute });
+	if (provider !== null) body["provider"] = {
+		...isRecord$4(body["provider"]) ? body["provider"] : {},
+		...provider
+	};
+	if (!fixedRoute && routing.enabled && routing.cachingRoute) body["caching"] = true;
+	const headers = {};
+	if (connection.billing === "paygo") {
+		headers["X-Billing-Mode"] = "paygo";
+		body["billing_mode"] = "paygo";
+	}
+	const warnings = [...reasoning.warnings, ...routingWarnings(routing)];
+	return {
+		model,
+		body,
+		headers,
+		billing: analyzeBilling(connection, input.model, input.providerSelection),
+		warnings
+	};
+}
+/** The locked connection model, else the model of the request when it names one, else the connection's model. */
+function chooseModel(locked, connectionModel, requested) {
+	if (locked) return connectionModel;
+	if (typeof requested === "string" && requested.trim()) return requested.trim();
+	return connectionModel;
+}
+/** Appends `:online` and `:memory[-days]` unless the id already carries them. */
+function withSuffixes(modelId, connection) {
+	const segments = modelId.split(":").slice(1);
+	let id = modelId;
+	if (connection.webSearch && !segments.some((s) => s === "online" || s.startsWith("online/"))) id += ":online";
+	if (connection.memory.enabled && !segments.some((s) => /^memory(-\d+)?$/.test(s))) {
+		const days = connection.memory.expirationDays;
+		id += days !== null && Number.isFinite(days) && days >= 1 ? `:memory-${Math.trunc(days)}` : ":memory";
+	}
+	return id;
+}
 function stripNeutralSamplers(body) {
-	const removed = [];
-	for (const [name, value] of [
-		["top_k", 0],
-		["top_a", 0],
-		["min_p", 0],
-		["repetition_penalty", 1]
-	]) if (body[name] === value) {
-		delete body[name];
-		removed.push(name);
-	}
+	for (const [key, neutral] of NEUTRAL_SAMPLERS) if (body[key] === neutral) delete body[key];
 	const bias = body["logit_bias"];
-	if (typeof bias === "object" && bias !== null && !Array.isArray(bias) && Object.keys(bias).length === 0) {
-		delete body["logit_bias"];
-		removed.push("logit_bias");
-	}
-	return removed;
+	if (isRecord$4(bias) && Object.keys(bias).length === 0) delete body["logit_bias"];
 }
-function stripSamplersStep(ctx) {
-	if (ctx.connection.stripNeutralSamplers) stripNeutralSamplers(ctx.plan.body);
+function isRecord$4(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+// src/server/pipeline/steps/plan.ts
+/** The model the request is about before suffixes: the locked connection model, else the request's, else the connection's. */
+function requestedModelId(connection, body) {
+	if (connection.modelLock) return connection.modelId;
+	const requested = body["model"];
+	return typeof requested === "string" && requested.trim() ? requested.trim() : connection.modelId;
+}
+/** `:online`, `:online/<level>`, `:memory`, `:memory-<days>`: routing suffixes that are not part of the catalog id. */
+var SERVICE_SUFFIX = /:(?:online(?:\/[^:]*)?|memory(?:-\d+)?)$/;
+/** The model id without the service suffixes of NanoGPT (`:thinking` and friends are catalog ids of their own). */
+function stripServiceSuffixes(modelId) {
+	let id = modelId;
+	for (let i = 0; i < 4 && SERVICE_SUFFIX.test(id); i++) id = id.replace(SERVICE_SUFFIX, "");
+	return id;
+}
+/**
+* What the catalog says about a model, tolerant of every failure: a catalog that is missing, still loading or throwing
+* means "unknown" (null), never a failed request. The exact id wins over the id without service suffixes.
+*/
+function lookupCatalog(deps, modelId) {
+	const bare = stripServiceSuffixes(modelId);
+	const candidates = bare === modelId ? [modelId] : [modelId, bare];
+	let model = null;
+	for (const id of candidates) {
+		model = safely(() => deps.lookupModel(id));
+		if (model) break;
+	}
+	const selectionId = model?.id ?? bare;
+	const selection = deps.providerSelection ? safely(() => deps.providerSelection?.(selectionId) ?? null) : null;
+	return {
+		model,
+		providerSelection: typeof selection === "boolean" ? selection : null
+	};
+}
+function safely(read) {
+	try {
+		return read() ?? null;
+	} catch {
+		return null;
+	}
+}
+function planStep(ctx) {
+	const plan = planUpstream({
+		connection: ctx.connection,
+		model: ctx.model,
+		body: ctx.body,
+		hints: ctx.hints,
+		providerSelection: ctx.providerSelection
+	});
+	ctx.plan.model = plan.model;
+	ctx.plan.body = plan.body;
+	ctx.plan.headers = {
+		...ctx.plan.headers,
+		...plan.headers
+	};
+	ctx.plan.billing = plan.billing;
+	ctx.plan.warnings = plan.warnings;
 }
 // src/server/pipeline/index.ts
-/** Run in order before the upstream call. */
-var REQUEST_STEPS = [modelStep, stripSamplersStep];
-/** Run once the upstream answer is complete. Empty in stage 0.1; usage and cost land here in stage 0.4. */
-var RESPONSE_STEPS = [];
+/** Run in order before the upstream call. `planStep` goes first: it builds the plan the other steps refine. */
+var REQUEST_STEPS = [planStep];
+/** Run once the upstream answer is complete. `usageStep` shims a whole body and completes the usage record. */
+var RESPONSE_STEPS = [usageStep];
 // src/server/secret-value.ts
 var REDACTED = "[redacted]";
 var SecretValue = class {
@@ -516,13 +1580,15 @@ function createProxyServer(deps, steps = {
 			return early(500, "server_error", "secrets_error", "The secret store could not be read", stream);
 		}
 		if (!key) return early(409, "invalid_request_error", "no_key", connection.keyId ? "The NanoGPT key chosen for this connection no longer exists" : "No NanoGPT key is stored; add one in SillyTavern", stream);
+		const catalog = lookupCatalog(deps, requestedModelId(connection, incoming));
 		const ctx = createProxyContext({
 			localId: randomBytes(4).toString("hex"),
 			now: startedAt,
 			user,
 			connection,
 			key,
-			model: deps.lookupModel(typeof incoming["model"] === "string" ? incoming["model"] : connection.modelId),
+			model: catalog.model,
+			providerSelection: catalog.providerSelection,
 			hints: parseHints(req.headers),
 			body: incoming,
 			signal: clientAbort.signal
@@ -577,15 +1643,22 @@ function createProxyServer(deps, steps = {
 			res.writeHead(info.status, clientHeaders(ctx, info, true));
 			res.flushHeaders();
 			res.socket?.setNoDelay(true);
+			const shim = new SseUsageShim(shimContextOf(ctx));
 			try {
 				for await (const chunk of upstream.body) {
 					upstream.touch();
-					await writeChunk(res, chunk);
+					const out = shim.push(chunk);
+					if (out) await writeChunk(res, out);
 					if (clientGone(ctx)) break;
+				}
+				if (!clientGone(ctx)) {
+					const tail = shim.end();
+					if (tail) await writeChunk(res, tail);
 				}
 			} catch (error) {
 				failure = error instanceof UpstreamError ? error : new UpstreamError("unreachable", null);
 			}
+			ctx.resolved = shim.resolved;
 			if (failure && failure.kind !== "aborted" && !res.destroyed) {
 				const text = failure.kind === "timeout" ? "The upstream stopped sending data" : "The upstream connection broke";
 				const code = failure.kind === "timeout" ? "upstream_timeout" : "upstream_unreachable";
@@ -593,7 +1666,7 @@ function createProxyServer(deps, steps = {
 			}
 			const aborted = clientGone(ctx) || failure?.kind === "aborted";
 			ctx.usage.status = aborted ? 499 : failure ? failure.kind === "timeout" ? 504 : 502 : info.status;
-			ctx.usage.error = aborted ? "client_closed" : failure ? failure.kind === "timeout" ? "upstream_timeout" : "upstream_unreachable" : null;
+			ctx.usage.error = aborted ? "client_aborted" : failure ? failure.kind === "timeout" ? "upstream_timeout" : "upstream_unreachable" : null;
 			if (!res.writableEnded && !res.destroyed) res.end();
 			await runResponseSteps(ctx);
 			await finish(ctx, userRoot);
@@ -612,7 +1685,7 @@ function createProxyServer(deps, steps = {
 		if (!ok) body = normalizeErrorBody(info.status, body, ctx.key);
 		info.body = body;
 		ctx.usage.status = info.status;
-		if (!ok) ctx.usage.error = upstreamErrorCode(body) ?? `http_${info.status}`;
+		if (!ok) ctx.usage.error = ctx.key.redact(upstreamErrorCode(body) ?? `http_${info.status}`);
 		await runResponseSteps(ctx);
 		const out = info.body ?? Buffer.alloc(0);
 		if (!res.destroyed) {
@@ -634,9 +1707,14 @@ function createProxyServer(deps, steps = {
 			log.warn(`response step failed (${describe$1(error, ctx.key)})`);
 		}
 	}
+	/** The one usage record of the request. Bookkeeping never fails a request: a broken log is a warning. */
 	async function finish(ctx, userRoot) {
 		ctx.usage.latencyMs = Math.max(0, deps.now() - ctx.startedAt);
-		await deps.usage.append(userRoot, ctx.usage);
+		try {
+			await deps.usage.append(userRoot, ctx.usage);
+		} catch (error) {
+			log.warn(`usage record not written (${describe$1(error, ctx.key)})`);
+		}
 	}
 	async function finishWithError(ctx, res, userRoot, status, type, code, message) {
 		sendError$1(res, status, type, code, message, { [RESPONSE_HEADERS.connection]: ctx.connection.id });
@@ -648,7 +1726,7 @@ function createProxyServer(deps, steps = {
 		const failure = error instanceof UpstreamError ? error : new UpstreamError("unreachable", null);
 		if (failure.kind === "aborted") {
 			ctx.usage.status = 499;
-			ctx.usage.error = "client_closed";
+			ctx.usage.error = "client_aborted";
 			return finish(ctx, userRoot);
 		}
 		const timeout = failure.kind === "timeout";
@@ -894,6 +1972,258 @@ function describe$1(error, key) {
 	const text = error instanceof Error ? error.message : "unknown error";
 	return key ? key.redact(text) : text;
 }
+// src/server/routes/http.ts
+var DEFAULT_USER_HANDLE = "default-user";
+function userOf(req, deps) {
+	const raw = req.user?.profile?.handle;
+	const handle = typeof raw === "string" && raw ? raw : DEFAULT_USER_HANDLE;
+	const root = req.user?.directories?.root;
+	return {
+		handle,
+		root: typeof root === "string" && root ? root : deps.st.userRoot(handle)
+	};
+}
+var HttpError = class extends Error {
+	status;
+	code;
+	constructor(status, code, message) {
+		super(message);
+		this.status = status;
+		this.code = code;
+		this.name = "HttpError";
+	}
+};
+function sendJson(res, status, body) {
+	res.set("Cache-Control", "no-store");
+	res.status(status).json(body);
+}
+function sendError(res, status, code, message) {
+	sendJson(res, status, { error: {
+		code,
+		message
+	} });
+}
+/** Wraps a handler: HttpError becomes its status, anything else a generic 500 (the message is not echoed). */
+function route(log, handler) {
+	return async (req, res) => {
+		try {
+			await handler(req, res);
+		} catch (error) {
+			if (error instanceof HttpError) return sendError(res, error.status, error.code, error.message);
+			log.error(`admin route failed (${error instanceof Error ? `${error.name}: ${error.message}` : "unknown error"})`);
+			sendError(res, 500, "internal_error", "Internal error");
+		}
+	};
+}
+function bodyObject(req) {
+	const body = req.body;
+	if (body === void 0 || body === null) return {};
+	if (typeof body !== "object" || Array.isArray(body)) throw new HttpError(400, "invalid_request", "The request body must be a JSON object");
+	return body;
+}
+// src/server/routes/nanogpt.ts
+var CALL_TIMEOUT_MS = 15e3;
+var MAX_KEY_ID_LENGTH = 200;
+/** The first value of a query parameter as a trimmed string; null when it is absent or empty. */
+function queryText(req, name) {
+	const raw = req.query?.[name];
+	const value = Array.isArray(raw) ? raw[0] : raw;
+	return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+/** `?keyId`: an id of GET /keys, or null for the active key. */
+function keyIdOf(req) {
+	const id = queryText(req, "keyId");
+	if (id !== null && id.length > MAX_KEY_ID_LENGTH) throw new HttpError(400, "invalid_request", "\"keyId\" is not a key id");
+	return id;
+}
+/** The NanoGPT key to call with: the chosen one, else the active one (the config file's key when ST's store is missing). */
+function resolveKey(deps, user, keyId) {
+	const { st, config } = deps;
+	if (!st.available) {
+		if (keyId === null && config.nanogptKey) return new SecretValue(config.nanogptKey);
+		throw new HttpError(503, "secrets_unavailable", "ST secret store is unavailable");
+	}
+	if (keyId !== null) {
+		const value = st.listSecrets(user.handle, "api_key_nanogpt").some((s) => s.id === keyId) ? st.readSecret(user.handle, SECRET_KEY_NANOGPT, keyId) : "";
+		if (!value) throw new HttpError(404, "not_found", "Unknown key");
+		return new SecretValue(value);
+	}
+	const value = st.readSecret(user.handle, SECRET_KEY_NANOGPT, null);
+	if (!value) throw new HttpError(409, "no_key", "No NanoGPT key is stored; add one in SillyTavern");
+	return new SecretValue(value);
+}
+/** One call to NanoGPT. Resolves for any HTTP status (the caller decides); rejects only for transport failures. */
+async function callNanogpt(deps, key, request) {
+	const controller = new AbortController();
+	const timer = setTimeout(() => controller.abort(), CALL_TIMEOUT_MS);
+	timer.unref?.();
+	try {
+		const headers = { accept: "application/json" };
+		if (request.auth === "bearer") headers["authorization"] = `Bearer ${key.reveal()}`;
+		else headers["x-api-key"] = key.reveal();
+		if (request.body !== void 0) headers["content-type"] = "application/json";
+		const response = await deps.fetch(request.url, {
+			method: request.method,
+			headers,
+			...request.body !== void 0 ? { body: request.body } : {},
+			signal: controller.signal
+		});
+		const text = key.redact(await response.text());
+		let json = null;
+		try {
+			json = JSON.parse(text);
+		} catch {}
+		return {
+			status: response.status,
+			json
+		};
+	} catch {
+		if (controller.signal.aborted) throw new HttpError(504, "upstream_timeout", "NanoGPT did not answer in time");
+		throw new HttpError(502, "upstream_unreachable", "NanoGPT could not be reached");
+	} finally {
+		clearTimeout(timer);
+	}
+}
+/** The HttpError for an answer the route cannot use. The upstream's own message is not echoed. */
+function rejectedAnswer(status) {
+	if (status === 401 || status === 403) return new HttpError(502, "key_rejected", `NanoGPT rejected the key (HTTP ${status})`);
+	if (status === 429) return new HttpError(429, "rate_limited", "NanoGPT is rate limiting this key");
+	return new HttpError(502, "upstream_error", `NanoGPT answered HTTP ${status}`);
+}
+function isOk(status) {
+	return status >= 200 && status < 300;
+}
+// src/server/routes/account.ts
+var DECIMAL = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/;
+var REQUEST_ID = /^[A-Za-z0-9._:-]{1,200}$/;
+/** Answers that mean "this key has no subscription endpoint" rather than "the call failed". */
+var NO_SUBSCRIPTION_STATUSES = /* @__PURE__ */ new Set([
+	403,
+	404,
+	405,
+	410,
+	501
+]);
+/** A Unix timestamp below this is in seconds, at or above it in milliseconds (1e11 s is the year 5138, 1e11 ms is 1973). */
+var SECONDS_LIMIT = 1e11;
+/** A number from a JSON number or a decimal string; null for anything else (a balance may be any finite value). */
+function amount$1(value) {
+	if (typeof value === "number") return Number.isFinite(value) ? value : null;
+	if (typeof value === "string" && DECIMAL.test(value.trim())) {
+		const n = Number(value.trim());
+		return Number.isFinite(n) ? n : null;
+	}
+	return null;
+}
+/** `check-balance`: `usd_balance` and `nano_balance` are decimal strings. */
+function mapBalance(payload, fetchedAt) {
+	return {
+		usdBalance: amount$1(payload["usd_balance"] ?? payload["usdBalance"]),
+		nanoBalance: amount$1(payload["nano_balance"] ?? payload["nanoBalance"]),
+		fetchedAt
+	};
+}
+function timestamp(value) {
+	if (typeof value === "number" && Number.isFinite(value) && value > 0) return value < SECONDS_LIMIT ? Math.round(value * 1e3) : value;
+	if (typeof value === "string" && value.trim()) {
+		const parsed = DECIMAL.test(value.trim()) ? timestamp(Number(value.trim())) : Date.parse(value);
+		return typeof parsed === "number" && Number.isFinite(parsed) ? parsed : null;
+	}
+	return null;
+}
+/** One window of the quota document: `{ used, remaining, percentUsed, resetAt }`, or null/absent for "no such window". */
+function quotaWindow(raw, limit) {
+	const window = isRecord$5(raw) ? raw : null;
+	const used = window ? amount$1(window["used"]) : null;
+	const remaining = window ? amount$1(window["remaining"]) : null;
+	return {
+		used,
+		limit: amount$1(limit) ?? (used !== null && remaining !== null ? used + remaining : null),
+		resetsAt: window ? timestamp(window["resetAt"] ?? window["resetsAt"]) : null
+	};
+}
+/**
+* NanoGPT's `GET /api/subscription/v1/usage` as SubscriptionUsage; null when the payload is not a quota document. The
+* limits sit in `limits.*InputTokens`, the usage in `dailyInputTokens` / `weeklyInputTokens` (`null` when there is no such
+* window); `routing.recommendedMode` says what NanoGPT advises right now ('unavailable' and anything else become null).
+*/
+function mapSubscriptionUsage(payload) {
+	if (!isRecord$5(payload)) return null;
+	const limits = isRecord$5(payload["limits"]) ? payload["limits"] : {};
+	const routing = isRecord$5(payload["routing"]) ? payload["routing"] : {};
+	const state = payload["state"];
+	const active = typeof payload["active"] === "boolean" ? payload["active"] : typeof state === "string" ? state === "active" : null;
+	const daily = quotaWindow(payload["dailyInputTokens"], limits["dailyInputTokens"]);
+	const weekly = quotaWindow(payload["weeklyInputTokens"], limits["weeklyInputTokens"]);
+	const hasWindow = isRecord$5(payload["dailyInputTokens"]) || isRecord$5(payload["weeklyInputTokens"]);
+	if (active === null && !hasWindow) return null;
+	const mode = routing["recommendedMode"];
+	return {
+		active: active ?? true,
+		daily,
+		weekly,
+		recommendedMode: mode === "subscription" || mode === "paygo" ? mode : null
+	};
+}
+var accountRoutes = (router, deps) => {
+	router.get("/account/balance", route(deps.log, async (req, res) => {
+		const answer = await callNanogpt(deps, resolveKey(deps, userOf(req, deps), keyIdOf(req)), {
+			method: "POST",
+			url: `${deps.config.siteBase}/api/check-balance`,
+			auth: "x-api-key",
+			body: "{}"
+		});
+		if (!isOk(answer.status)) throw rejectedAnswer(answer.status);
+		if (!isRecord$5(answer.json)) throw new HttpError(502, "bad_response", "NanoGPT answered with something else than JSON");
+		sendJson(res, 200, mapBalance(answer.json, deps.now()));
+	}));
+	router.get("/account/subscription", route(deps.log, async (req, res) => {
+		const answer = await callNanogpt(deps, resolveKey(deps, userOf(req, deps), keyIdOf(req)), {
+			method: "GET",
+			url: `${deps.config.siteBase}/api/subscription/v1/usage`,
+			auth: "bearer"
+		});
+		const none = {
+			subscription: null,
+			fetchedAt: deps.now()
+		};
+		if (NO_SUBSCRIPTION_STATUSES.has(answer.status)) return sendJson(res, 200, none);
+		if (!isOk(answer.status)) throw rejectedAnswer(answer.status);
+		sendJson(res, 200, {
+			subscription: mapSubscriptionUsage(answer.json),
+			fetchedAt: deps.now()
+		});
+	}));
+	router.post("/lookup/:requestId", route(deps.log, async (req, res) => {
+		const user = userOf(req, deps);
+		const requestId = req.params["requestId"] ?? "";
+		if (!REQUEST_ID.test(requestId)) throw new HttpError(400, "invalid_request", "Not a request id");
+		const answer = await callNanogpt(deps, resolveKey(deps, user, keyIdOf(req)), {
+			method: "GET",
+			url: `${deps.config.upstreamBase}/usage/requests/${encodeURIComponent(requestId)}`,
+			auth: "bearer"
+		});
+		if (answer.status === 404) return sendJson(res, 200, {
+			requestId,
+			ready: false,
+			costUsd: null
+		});
+		if (!isOk(answer.status)) throw rejectedAnswer(answer.status);
+		if (!isRecord$5(answer.json)) throw new HttpError(502, "bad_response", "NanoGPT answered with something else than JSON");
+		sendJson(res, 200, {
+			requestId,
+			ready: true,
+			costUsd: lookupCost(answer.json)
+		});
+	}));
+};
+/** The charge in USD: `cost` is a decimal string. 0 in any currency is 0; a paid amount in another currency is not dollars. */
+function lookupCost(payload) {
+	const cost = parseCost(payload["cost"]);
+	if (cost === null) return null;
+	const currency = typeof payload["currency"] === "string" ? payload["currency"].trim().toUpperCase() : "";
+	return currency === "" || currency === "USD" || cost === 0 ? cost : null;
+}
 // src/domain/connection.ts
 var QUANTIZATIONS = [
 	"int4",
@@ -1114,55 +2444,6 @@ function clip(value, max) {
 }
 function clamp(value, min, max) {
 	return Math.min(max, Math.max(min, value));
-}
-// src/server/routes/http.ts
-var DEFAULT_USER_HANDLE = "default-user";
-function userOf(req, deps) {
-	const raw = req.user?.profile?.handle;
-	const handle = typeof raw === "string" && raw ? raw : DEFAULT_USER_HANDLE;
-	const root = req.user?.directories?.root;
-	return {
-		handle,
-		root: typeof root === "string" && root ? root : deps.st.userRoot(handle)
-	};
-}
-var HttpError = class extends Error {
-	status;
-	code;
-	constructor(status, code, message) {
-		super(message);
-		this.status = status;
-		this.code = code;
-		this.name = "HttpError";
-	}
-};
-function sendJson(res, status, body) {
-	res.set("Cache-Control", "no-store");
-	res.status(status).json(body);
-}
-function sendError(res, status, code, message) {
-	sendJson(res, status, { error: {
-		code,
-		message
-	} });
-}
-/** Wraps a handler: HttpError becomes its status, anything else a generic 500 (the message is not echoed). */
-function route(log, handler) {
-	return async (req, res) => {
-		try {
-			await handler(req, res);
-		} catch (error) {
-			if (error instanceof HttpError) return sendError(res, error.status, error.code, error.message);
-			log.error(`admin route failed (${error instanceof Error ? `${error.name}: ${error.message}` : "unknown error"})`);
-			sendError(res, 500, "internal_error", "Internal error");
-		}
-	};
-}
-function bodyObject(req) {
-	const body = req.body;
-	if (body === void 0 || body === null) return {};
-	if (typeof body !== "object" || Array.isArray(body)) throw new HttpError(400, "invalid_request", "The request body must be a JSON object");
-	return body;
 }
 // src/server/routes/connections.ts
 var MODES = [
@@ -1412,29 +2693,6 @@ function amount(value) {
 	if (typeof value === "number" && Number.isFinite(value)) return String(value);
 	return null;
 }
-// src/server/routes/status.ts
-var statusRoutes = (router, deps) => {
-	router.get("/status", route(deps.log, (req, res) => {
-		const proxy = deps.proxy();
-		sendJson(res, 200, {
-			version: deps.version,
-			plugin: true,
-			proxy: {
-				up: proxy.up,
-				host: proxy.host,
-				port: proxy.port
-			},
-			secrets: deps.st.available,
-			user: userOf(req, deps).handle
-		});
-	}));
-};
-// src/server/routes/index.ts
-var ROUTE_MODULES = [
-	statusRoutes,
-	connectionRoutes,
-	keyRoutes
-];
 var CONNECTIONS_FILE = "connections.json";
 var REGISTRY_FILE = "registry.json";
 var USER_DIR_NAME = "nanovia";
@@ -1601,20 +2859,170 @@ function isRecord$2(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 // src/server/usage-log.ts
+var FILE_PATTERN = /^usage-(\d{4}-\d{2}-\d{2})\.jsonl$/;
+/** The days a log can name: from the epoch to the last instant of year 9999 (so a day is always YYYY-MM-DD). */
+var MAX_TIME = 0xe677d21fdbff;
 function usageFileName(at) {
 	return `usage-${new Date(at).toISOString().slice(0, 10)}.jsonl`;
 }
-function createUsageLog(log) {
-	return { async append(userRoot, record) {
-		try {
-			const dir = path.join(userRoot, USER_DIR_NAME);
-			await fs$1.mkdir(dir, { recursive: true });
-			await fs$1.appendFile(path.join(dir, usageFileName(record.at)), `${JSON.stringify(record)}\n`, "utf8");
-		} catch (error) {
-			log.warn(`usage record not written (${error instanceof Error ? error.message : "unknown error"})`);
-		}
-	} };
+/** The UTC day (`YYYY-MM-DD`) of an instant; clamped to 1970..9999 so any number gives a day. */
+function utcDay(at) {
+	return new Date(Math.min(MAX_TIME, Math.max(0, Number.isFinite(at) ? at : 0))).toISOString().slice(0, 10);
 }
+var OUTCOMES = [
+	"subscription",
+	"paygo",
+	"unknown"
+];
+var CONSUMERS = [
+	"main",
+	"background",
+	"unknown"
+];
+function count(value) {
+	return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+function text(value) {
+	return typeof value === "string" ? value : null;
+}
+/** One line of a usage file as a UsageRecord, tolerant of missing fields; null when it is not a record at all. */
+function parseUsageRecord(line) {
+	let raw;
+	try {
+		raw = JSON.parse(line);
+	} catch {
+		return null;
+	}
+	if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return null;
+	const r = raw;
+	const at = count(r["at"]);
+	if (at === null) return null;
+	const billing = OUTCOMES.find((o) => o === r["billing"]);
+	const consumer = CONSUMERS.find((c) => c === r["consumer"]);
+	return {
+		at,
+		connectionId: text(r["connectionId"]),
+		requestId: text(r["requestId"]),
+		model: text(r["model"]) ?? "unknown",
+		billing: billing ?? "unknown",
+		costUsd: count(r["costUsd"]),
+		equivalentUsd: count(r["equivalentUsd"]),
+		promptTokens: count(r["promptTokens"]),
+		completionTokens: count(r["completionTokens"]),
+		cachedTokens: count(r["cachedTokens"]),
+		reasoningTokens: count(r["reasoningTokens"]),
+		latencyMs: count(r["latencyMs"]) ?? 0,
+		status: count(r["status"]) ?? 0,
+		stream: r["stream"] === true,
+		consumer: consumer ?? "unknown",
+		error: text(r["error"])
+	};
+}
+function createUsageLog(log) {
+	return {
+		async append(userRoot, record) {
+			try {
+				const dir = path.join(userRoot, USER_DIR_NAME);
+				await fs$1.mkdir(dir, { recursive: true });
+				await fs$1.appendFile(path.join(dir, usageFileName(record.at)), `${JSON.stringify(record)}\n`, "utf8");
+			} catch (error) {
+				log.warn(`usage record not written (${error instanceof Error ? error.message : "unknown error"})`);
+			}
+		},
+		async read(userRoot, range) {
+			const dir = path.join(userRoot, USER_DIR_NAME);
+			let names;
+			try {
+				names = await fs$1.readdir(dir);
+			} catch {
+				return [];
+			}
+			const first = utcDay(range.from);
+			const last = utcDay(range.to - 1);
+			const files = names.flatMap((name) => {
+				const day = FILE_PATTERN.exec(name)?.[1];
+				return day !== void 0 && day >= first && day <= last ? [{
+					name,
+					day
+				}] : [];
+			}).sort((a, b) => a.day < b.day ? -1 : a.day > b.day ? 1 : 0);
+			const records = [];
+			for (const file of files) try {
+				await readLines(path.join(dir, file.name), (line) => {
+					const record = parseUsageRecord(line);
+					if (record && record.at >= range.from && record.at < range.to) records.push(record);
+				});
+			} catch (error) {
+				log.warn(`usage file ${file.name} not read (${error instanceof Error ? error.message : "unknown error"})`);
+			}
+			return records;
+		}
+	};
+}
+async function readLines(file, onLine) {
+	const input = createReadStream(file, { encoding: "utf8" });
+	const lines = readline.createInterface({
+		input,
+		crlfDelay: Infinity
+	});
+	try {
+		for await (const line of lines) if (line.trim()) onLine(line);
+	} finally {
+		lines.close();
+		input.destroy();
+	}
+}
+// src/server/routes/spend.ts
+var DAY_MS = 864e5;
+var DEFAULT_SPAN_DAYS = 30;
+var MAX_CONNECTION_ID_LENGTH = 64;
+function instant(raw, name) {
+	if (raw === null) return null;
+	const value = Number(raw);
+	if (!Number.isFinite(value)) throw new HttpError(400, "invalid_request", `"${name}" must be milliseconds since epoch`);
+	return value;
+}
+var spendRoutes = (router, deps) => {
+	router.get("/spend", route(deps.log, async (req, res) => {
+		const user = userOf(req, deps);
+		const requestedFrom = instant(queryText(req, "from"), "from");
+		const to = instant(queryText(req, "to"), "to") ?? deps.now() + 1;
+		const from = requestedFrom ?? to - DEFAULT_SPAN_DAYS * DAY_MS;
+		if (from >= to) throw new HttpError(400, "invalid_request", "\"from\" must be earlier than \"to\"");
+		const connectionId = queryText(req, "connectionId");
+		if (connectionId !== null && connectionId.length > MAX_CONNECTION_ID_LENGTH) throw new HttpError(400, "invalid_request", "\"connectionId\" is not a connection id");
+		const range = {
+			from,
+			to
+		};
+		sendJson(res, 200, summarizeUsage(await deps.usage.read(user.root, range), range, utcDay, connectionId === null ? {} : { connectionId }));
+	}));
+};
+// src/server/routes/status.ts
+var statusRoutes = (router, deps) => {
+	router.get("/status", route(deps.log, (req, res) => {
+		const proxy = deps.proxy();
+		sendJson(res, 200, {
+			version: deps.version,
+			plugin: true,
+			proxy: {
+				up: proxy.up,
+				host: proxy.host,
+				port: proxy.port
+			},
+			secrets: deps.st.available,
+			user: userOf(req, deps).handle
+		});
+	}));
+};
+// src/server/routes/index.ts
+var ROUTE_MODULES = [
+	statusRoutes,
+	connectionRoutes,
+	keyRoutes,
+	accountRoutes,
+	spendRoutes
+];
 // src/server/version.ts
 var PLUGIN_VERSION = "0.0.1";
 // src/server/app.ts
@@ -1649,6 +3057,7 @@ async function startNanovia(router, options) {
 			error: null
 		},
 		lookupModel: options.lookupModel ?? (() => null),
+		...options.providerSelection ? { providerSelection: options.providerSelection } : {},
 		now,
 		log
 	};
